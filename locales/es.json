@@ -1,0 +1,80 @@
+{
+  "page_title": "Seworeunganda — Analizador de Conceptos Clave de YouTube",
+  "app_title": "📜 Analizador de Conceptos de YouTube",
+  "app_desc": "Analiza las transcripciones con IA para extraer 3 conceptos clave y sus marcas de tiempo",
+  "sidebar_status_title": "ESTADO DEL SERVICIO",
+  "sidebar_service_active": "✔ Servicio de IA Activo",
+  "sidebar_db_conn": "🟢 Base de datos conectada",
+  "sidebar_db_disconn": "🟡 Base de datos desconectada (Caché desactivado)",
+  "sidebar_key_err": "⚠️ La clave de API no está configurada.\nPor favor, verifica `.streamlit/secrets.toml`.",
+  "sidebar_how_to": "**Cómo usar**\n1. Pega la URL de YouTube\n2. Haz clic en **Iniciar Análisis**",
+  "sidebar_languages": "**Idiomas soportados**\n- Obtiene los subtítulos adecuados basados en el idioma actual.",
+  "sidebar_model": "**Modelo utilizado**\n`gpt-4o`",
+  "input_url_label": "🔗 URL de YouTube",
+  "btn_start_analysis": "Iniciar Análisis →",
+  "err_no_url": "⚠️ Por favor ingresa una URL de YouTube.",
+  "err_invalid_url": "⚠️ URL de YouTube inválida. Verifica de nuevo.",
+  "msg_db_loaded": "⚡ Análisis cargado desde la memoria caché automáticamente.",
+  "msg_loading_subtitles": "Cargando transcripción...",
+  "err_no_subtitles": "Este video no tiene subtítulos o están desactivados.",
+  "err_fetch_subtitles": "Error al obtener la transcripción: ",
+  "msg_analyzing": "GPT-4o está analizando los conceptos clave...",
+  "err_parse_gpt": "❌ Error al analizar la respuesta de GPT. Inténtalo de nuevo.",
+  "err_openai": "❌ Error en la API de OpenAI: ",
+  "msg_saved_db": "💾 Se guardaron los nuevos resultados en la base de datos.",
+  "res_transcript_loaded": "✅ Transcripción cargada — {entries} segmentos · Duración ~{duration}",
+  "res_title": "## 💡 Análisis de Conceptos Clave",
+  "res_concept_prefix": "Concepto Clave ",
+  "btn_play_from": "▶ Reproducir desde {ts}",
+  "player_title": "### 📺 Reproductor de Video",
+  "player_placeholder": "Haz clic en el <b style='color:#4A3728'>botón de Reproducir</b><br>debajo de una tarjeta de concepto a la izquierda<br>para reproducir desde ese momento exacto",
+  "btn_youtube_watch": "Ver en YouTube ↗",
+  "expander_full_transcript": "📄 Ver Transcripción Completa",
+  "label_raw_transcript": "Transcripción Cruda (con marcas de tiempo)",
+  "quote_title": "Frase del Día",
+  "quote_footer": "Seworeunganda · Animando tu éxito",
+  "tos_title": "📝 Términos de Servicio",
+  "tos_content": "**Artículo 1 (Propósito)**\nEl propósito de estos Términos de Servicio es definir las condiciones y procedimientos con respecto a los servicios de resumen de video ofrecidos por 'Seworeunganda' (en lo sucesivo \"el Servicio\").\n\n**Artículo 2 (Derechos de Autor y Prohibición de Uso No Autorizado)**\n- **Los derechos de autor de la lógica de resumen y la interfaz proporcionada en este servicio pertenecen a 'Seworeunganda', y se prohíbe la reproducción no autorizada.**\n- Robar o reutilizar comercialmente alguna o toda la interfaz de usuario (UI/UX) o el código, sin previo consentimiento generará sanciones legales.\n\n**Artículo 3 (Exención de Responsabilidad)**\n- Este Servicio utiliza IA para proporcionar resultados y no garantiza que sean completamente confiables o exactos.\n- El proveedor del Servicio no asume responsabilidad legal por las acciones que el usuario tome en base a este servicio.",
+  "quotes": [
+    {
+        "text": "No importa lo lento que vayas,\nsiempre y cuando no te detengas.",
+        "author": "Confucio"
+    },
+    {
+        "text": "El éxito no es el final, el fracaso no es la ruina:\nel coraje de continuar es lo que cuenta.",
+        "author": "Winston Churchill"
+    },
+    {
+        "text": "El futuro pertenece a aquellos que creen\nen la belleza de sus sueños.",
+        "author": "Eleanor Roosevelt"
+    },
+    {
+        "text": "Cree que puedes y estarás a mitad de camino.",
+        "author": "Theodore Roosevelt"
+    },
+    {
+        "text": "Cáete siete veces y levántate ocho.",
+        "author": "Proverbio Japonés"
+    }
+  ],
+  "gpt_concept_title_instruction": "Título del Concepto (Hacerlo en Español, máx. 10 palabras)",
+  "gpt_concept_summary_instruction": "Resumen del Concepto (Hacerlo en Español, 2~3 oraciones)",
+  "msg_login_prompt": "Inicia sesión para obtener 3 resúmenes gratuitos diarios.",
+  "btn_login_google": "Iniciar sesión con Google",
+  "btn_logout": "Cerrar sesión",
+  "err_login_required": "⚠️ Por favor inicia sesión para analizar los vídeos.",
+  "tab_home": "🔍 Analizador",
+  "tab_pricing": "💳 Precios",
+  "pricing_title": "Elige tu plan",
+  "pricing_free_title": "Gratis",
+  "pricing_free_price": "$0<span class='price-mo'>/mo</span>",
+  "pricing_free_desc": "3 resúmenes diarios.",
+  "pricing_monthly_title": "Mensual",
+  "pricing_monthly_price": "$9.99<span class='price-mo'>/mo</span>",
+  "pricing_monthly_desc": "Resúmenes ilimitados y Quiz.",
+  "pricing_yearly_title": "Anual",
+  "pricing_yearly_price": "$71.99<span class='price-mo'>/yr</span>",
+  "pricing_yearly_desc": "Ahorra un 40% respecto al plan mensual.",
+  "pricing_best_value": "MEJOR VALOR",
+  "btn_upgrade_now": "Actualizar Ahora"
+}

@@ -24,6 +24,14 @@ def _get_connection():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS user_usage (
+            user_id TEXT,
+            usage_date DATE,
+            usage_count INTEGER,
+            PRIMARY KEY (user_id, usage_date)
+        )
+    ''')
     conn.commit()
     return conn
 
@@ -94,3 +102,34 @@ def save_to_cache(
 def is_db_connected() -> bool:
     """내장 시스템이므로 무조건 True입니다."""
     return True
+
+
+def get_daily_usage(user_id: str) -> int:
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT usage_count FROM user_usage 
+            WHERE user_id = ? AND usage_date = DATE('now')
+        ''', (user_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else 0
+    except Exception as e:
+        print(f"DB Read Error: {e}")
+        return 0
+
+
+def increment_daily_usage(user_id: str):
+    try:
+        conn = _get_connection()
+        conn.execute('''
+            INSERT INTO user_usage (user_id, usage_date, usage_count)
+            VALUES (?, DATE('now'), 1)
+            ON CONFLICT(user_id, usage_date) DO UPDATE SET
+                usage_count = usage_count + 1
+        ''', (user_id,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"DB Write Error: {e}")

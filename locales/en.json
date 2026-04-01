@@ -1,0 +1,80 @@
+{
+  "page_title": "Seworeunganda — YouTube Core Concept Analyzer",
+  "app_title": "📜 YouTube Core Concept Analyzer",
+  "app_desc": "Analyze video transcripts with AI to extract 3 core concepts and timestamps",
+  "sidebar_status_title": "SERVICE STATUS",
+  "sidebar_service_active": "✔ AI Service Active",
+  "sidebar_db_conn": "🟢 DB Connected",
+  "sidebar_db_disconn": "🟡 DB Disconnected (Cache Disabled)",
+  "sidebar_key_err": "⚠️ API Key is not set on the server.\nPlease check `.streamlit/secrets.toml`.",
+  "sidebar_how_to": "**How to Use**\n1. Paste a YouTube URL\n2. Click **Start Analysis**",
+  "sidebar_languages": "**Language Support**\n- Fetches suitable subtitles based on UI language.",
+  "sidebar_model": "**Model Used**\n`gpt-4o`",
+  "input_url_label": "🔗 YouTube URL",
+  "btn_start_analysis": "Start Analysis →",
+  "err_no_url": "⚠️ Please enter a YouTube URL.",
+  "err_invalid_url": "⚠️ Invalid YouTube URL. Please check again.",
+  "msg_db_loaded": "⚡ Loaded analysis from DB cache instantly.",
+  "msg_loading_subtitles": "Loading transcript...",
+  "err_no_subtitles": "This video has no subtitles or they are disabled.",
+  "err_fetch_subtitles": "Error fetching transcript: ",
+  "msg_analyzing": "GPT-4o is analyzing core concepts...",
+  "err_parse_gpt": "❌ Failed to parse GPT response. Please try again.",
+  "err_openai": "❌ OpenAI API Error: ",
+  "msg_saved_db": "💾 Saved new analysis results to DB.",
+  "res_transcript_loaded": "✅ Transcript loaded — {entries} segments · Video length ~{duration}",
+  "res_title": "## 💡 Core Concept Analysis",
+  "res_concept_prefix": "Core Concept ",
+  "btn_play_from": "▶ Play from {ts}",
+  "player_title": "### 📺 Video Player",
+  "player_placeholder": "Click the <b style='color:#4A3728'>Play button</b><br>under a concept card on the left<br>to play from that specific timestamp",
+  "btn_youtube_watch": "Watch on YouTube ↗",
+  "expander_full_transcript": "📄 View Full Transcript",
+  "label_raw_transcript": "Raw Transcript (with timestamps)",
+  "quote_title": "Quote of the Day",
+  "quote_footer": "Seworeunganda · Cheering for your success",
+  "tos_title": "📝 Terms of Service",
+  "tos_content": "**Article 1 (Purpose)**\nThe purpose of these Terms of Service is to define the terms and conditions regarding the video analysis and summarization services provided by 'Seworeunganda' (hereinafter \"the Service\").\n\n**Article 2 (Copyright and Prohibition of Unauthorized Use)**\n- **The copyright of the summarization logic and interface provided in this service belongs to 'Seworeunganda', and unauthorized reproduction is prohibited.**\n- Stealing or commercially reusing any or all of the Service's design (UI/UX), logic, or source code without prior written consent may result in legal sanctions.\n\n**Article 3 (Service Liability and Disclaimer)**\n- This Service utilizes AI to provide results and does not guarantee the completeness or accuracy of the summaries produced.\n- The provider of the Service bears no legal responsibility for any actions or decisions made by the user based on the generated information.",
+  "quotes": [
+    {
+        "text": "It does not matter how slowly you go\nas long as you do not stop.",
+        "author": "Confucius"
+    },
+    {
+        "text": "Success is not final, failure is not fatal:\nit is the courage to continue that counts.",
+        "author": "Winston Churchill"
+    },
+    {
+        "text": "The future belongs to those who believe\nin the beauty of their dreams.",
+        "author": "Eleanor Roosevelt"
+    },
+    {
+        "text": "Believe you can and you're halfway there.",
+        "author": "Theodore Roosevelt"
+    },
+    {
+        "text": "Fall seven times, stand up eight.",
+        "author": "Japanese Proverb"
+    }
+  ],
+  "gpt_concept_title_instruction": "Concept Title (English, max 10 words)",
+  "gpt_concept_summary_instruction": "Concept Summary (English, 2~3 sentences)",
+  "msg_login_prompt": "Sign in to get 3 free summaries a day.",
+  "btn_login_google": "Sign in with Google",
+  "btn_logout": "Logout",
+  "err_login_required": "⚠️ Please sign in to analyze videos.",
+  "tab_home": "🔍 Analyzer",
+  "tab_pricing": "💳 Pricing",
+  "pricing_title": "Choose your plan",
+  "pricing_free_title": "Free",
+  "pricing_free_price": "$0<span class='price-mo'>/mo</span>",
+  "pricing_free_desc": "Daily 3 summaries.",
+  "pricing_monthly_title": "Monthly",
+  "pricing_monthly_price": "$9.99<span class='price-mo'>/mo</span>",
+  "pricing_monthly_desc": "Unlimited summaries & Quiz.",
+  "pricing_yearly_title": "Yearly",
+  "pricing_yearly_price": "$71.99<span class='price-mo'>/yr</span>",
+  "pricing_yearly_desc": "40% OFF compared to monthly.",
+  "pricing_best_value": "BEST VALUE",
+  "btn_upgrade_now": "Upgrade Now"
+}

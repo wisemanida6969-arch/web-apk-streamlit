@@ -1,74 +1,54 @@
 import os
+os.environ['TZ'] = 'UTC'
+
 import streamlit as st
 import re
 import random
+import json
+import urllib.request
 from youtube_transcript_api import YouTubeTranscriptApi
 try:
     from youtube_transcript_api._errors import TranscriptsDisabled, NoTranscriptFound
 except ImportError:
     from youtube_transcript_api import TranscriptsDisabled, NoTranscriptFound
 from openai import OpenAI
-import json
+from supabase import create_client, Client
 
-from db import get_cached, save_to_cache, is_db_connected
+from db import get_cached, save_to_cache, is_db_connected, get_daily_usage, increment_daily_usage
 
 # ─────────────────────────────────────────────
-#  수험생 응원 시 목록
+#  i18n & Locale Loading
 # ─────────────────────────────────────────────
-POEMS = [
-    {
-        "text": "죽는 날까지 하늘을 우러러\n한 점 부끄럼이 없기를,\n잎새에 이는 바람에도\n나는 괴로워했다.\n\n오늘 밤에도 별이 바람에 스치운다.",
-        "author": "윤동주, 「서시」",
-    },
-    {
-        "text": "흔들리지 않고 피는 꽃이 어디 있으랴\n이 세상 그 어떤 아름다운 꽃들도\n다 흔들리면서 피었나니\n흔들리면서 줄기를 곧게 세웠나니.",
-        "author": "도종환, 「흔들리며 피는 꽃」",
-    },
-    {
-        "text": "광야에서\n까마득한 날에 하늘이 처음 열리고\n지금 눈 내리고\n매화 향기 홀로 아득하니\n내 여기 가난한 노래의 씨를 뿌려라.",
-        "author": "이육사, 「광야」",
-    },
-    {
-        "text": "별 헤는 밤\n계절이 지나가는 하늘에는\n가을로 가득 차 있습니다.\n나는 아무 걱정도 없이\n가을 속의 별들을 다 헤일 듯합니다.",
-        "author": "윤동주, 「별 헤는 밤」",
-    },
-    {
-        "text": "오늘 흘린 땀 한 방울이\n내일의 강이 된다.\n묵묵히 걸어온 네 발자국이\n어느 날 빛나는 길이 될 것이다.",
-        "author": "수험생을 위한 시",
-    },
-    {
-        "text": "산이 거기 있기 때문에 올라가듯\n문제가 여기 있기에 풀어 나간다.\n포기하지 않는 마음, 그것이\n이미 절반의 답이다.",
-        "author": "수험생을 위한 시",
-    },
-    {
-        "text": "청포도가 익어가는 시절\n이 마을 전설이 주저리주저리 열리고\n먼 데 하늘이 꿈꾸며 알알이 들어와 박혀,\n내가 바라는 손님은 고달픈 몸으로\n청포를 입고 찾아온다고 했으니,",
-        "author": "이육사, 「청포도」",
-    },
-    {
-        "text": "나는 나에게 작은 손을 내밀어\n눈물과 위안으로 잡는 최초의 악수.\n오늘도 무사히 버텨낸 나에게,\n잘했다고, 어깨를 두드려 주어라.",
-        "author": "수험생을 위한 시",
-    },
-    {
-        "text": "넓은 벌 동쪽 끝으로\n옛이야기 지줄대는 실개천이 휘돌아 나가고,\n그 곳이 차마 꿈엔들 잊힐 리야.\n\n지금 이 순간도, 네 이야기가 되고 있다.",
-        "author": "정지용, 「향수」에서",
-    },
-    {
-        "text": "하늘은 날마다 새롭고\n땅은 날마다 단단하다.\n어제보다 조금 더 나아진 오늘,\n그것으로 충분하다.",
-        "author": "수험생을 위한 시",
-    },
-]
+def load_locale(lang):
+    path = os.path.join("locales", f"{lang}.json")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except:
+        return {}
+
+if "locale" not in st.session_state:
+    st.session_state.locale = "en"
+
+lang_data = load_locale(st.session_state.locale)
+
+def _(key, **kwargs):
+    text = lang_data.get(key, key)
+    for k, v in kwargs.items():
+        text = text.replace(f"{{{k}}}", str(v))
+    return text
 
 # ─────────────────────────────────────────────
 #  Page config
 # ─────────────────────────────────────────────
 st.set_page_config(
-    page_title="세월은간다 — YouTube 핵심 개념 분석기",
+    page_title=_("page_title"),
     page_icon="📜",
     layout="wide",
 )
 
 # ─────────────────────────────────────────────
-#  Session state 초기화
+#  Session state 초기화 & Supabase Auth 로직
 # ─────────────────────────────────────────────
 if "analysis_results" not in st.session_state:
     st.session_state.analysis_results = None
@@ -78,9 +58,38 @@ if "selected_ts" not in st.session_state:
     st.session_state.selected_ts = 0
 if "selected_poem" not in st.session_state:
     st.session_state.selected_poem = None
+if "user" not in st.session_state:
+    st.session_state.user = None
+
+supabase_url = st.secrets.get("SUPABASE_URL", "")
+supabase_key = st.secrets.get("SUPABASE_ANON_KEY", "")
+supabase = None
+
+if supabase_url and supabase_key:
+    supabase = create_client(supabase_url, supabase_key)
+
+    # OAuth Callback 가로채기
+    if "code" in st.query_params:
+        try:
+            res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
+            st.session_state.user = res.user
+        except Exception as e:
+            st.error(f"Auth Error: {e}")
+        finally:
+            st.query_params.clear()
+            st.rerun()
+
+    # 이미 세션이 있는지 확인 (토큰 유효성 검사 등 필요하다면 추가)
+    if not st.session_state.user:
+        try:
+            session = supabase.auth.get_session()
+            if session:
+                st.session_state.user = session.user
+        except:
+            pass
 
 # ─────────────────────────────────────────────
-#  Custom CSS  — 세월은간다 브랜드 (베이지 + 먹색)
+#  Custom CSS  — 🌟 세월은간다 미니멀 다크 모드
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
@@ -89,14 +98,15 @@ st.markdown("""
 /* ── 기본 타이포그래피 ── */
 html, body, [class*="css"] {
     font-family: 'Noto Serif KR', 'Nanum Myeongjo', serif;
+    color: #E2E2E2;
 }
 
 /* ── 배경 ── */
 .stApp {
-    background-color: #F7F3EC;
+    background-color: #0F0F13;
     background-image:
-        radial-gradient(ellipse at 15% 40%, rgba(139,111,78,0.06) 0%, transparent 55%),
-        radial-gradient(ellipse at 85% 15%, rgba(44,32,19,0.04) 0%, transparent 55%);
+        radial-gradient(ellipse at 15% 40%, rgba(177,155,114,0.05) 0%, transparent 55%),
+        radial-gradient(ellipse at 85% 15%, rgba(60,60,75,0.15) 0%, transparent 55%);
     min-height: 100vh;
 }
 
@@ -104,7 +114,7 @@ html, body, [class*="css"] {
 .hero-header {
     text-align: center;
     padding: 2.8rem 1rem 1.6rem;
-    border-bottom: 1px solid #D9D0BE;
+    border-bottom: 1px solid #23232A;
     margin-bottom: 2rem;
 }
 .hero-brand {
@@ -112,7 +122,7 @@ html, body, [class*="css"] {
     font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.28em;
-    color: #8B7355;
+    color: #B19B72;
     text-transform: uppercase;
     margin-bottom: 0.7rem;
 }
@@ -120,13 +130,13 @@ html, body, [class*="css"] {
     font-family: 'Nanum Myeongjo', serif;
     font-size: 2.2rem;
     font-weight: 800;
-    color: #1C1810;
+    color: #FFFFFF;
     letter-spacing: -0.01em;
     margin-bottom: 0.5rem;
     line-height: 1.3;
 }
 .hero-header p {
-    color: #7A6B55;
+    color: #A0A0A9;
     font-size: 0.97rem;
     letter-spacing: 0.03em;
 }
@@ -136,7 +146,7 @@ html, body, [class*="css"] {
     from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
 }
-.hero-header {
+.hero-header, [data-testid="stImage"], .glass-card {
     animation: fadeInUp 0.8s ease-out forwards;
 }
 
@@ -145,46 +155,45 @@ html, body, [class*="css"] {
     display: flex;
     justify-content: center;
     margin-bottom: 2rem;
-    animation: fadeInUp 0.6s ease-out forwards;
 }
 [data-testid="stImage"] img {
     border-radius: 20px !important;
-    box-shadow: 0 12px 35px rgba(44,32,19,0.12) !important;
+    box-shadow: 0 12px 35px rgba(0,0,0,0.4) !important;
     max-height: 400px;
     object-fit: cover;
     width: 100%;
 }
 
-/* ── 유리 카드 → 트렌디 라운드 카드 ── */
+/* ── 유리 카드 → 다크 마이크로 카드 ── */
 .glass-card {
-    background: #FFFDF8;
-    border: 1px solid #D9D0BE;
+    background: rgba(26, 26, 33, 0.6);
+    backdrop-filter: blur(10px);
+    border: 1px solid #32323D;
     border-radius: 20px;
     padding: 2rem 2.2rem;
     margin-bottom: 1.4rem;
-    box-shadow: 0 8px 30px rgba(44,32,19,0.06);
-    animation: fadeInUp 1s ease-out forwards;
-
+    box-shadow: 0 8px 30px rgba(0,0,0,0.2);
 }
 
-/* ── 개념 카드 (소프트 UI) ── */
+/* ── 개념 카드 ── */
 .concept-card {
-    background: #FFFDF8;
-    border: 1px solid #D9D0BE;
-    border-left: 5px solid #2C2013;
+    background: #1A1A21;
+    border: 1px solid #32323D;
+    border-left: 5px solid #4F4F5C;
     border-radius: 14px;
     padding: 1.6rem 1.8rem;
     margin-bottom: 1rem;
-    transition: box-shadow 0.25s ease, border-left-color 0.25s ease;
+    transition: all 0.25s ease;
 }
 .concept-card:hover {
-    box-shadow: 0 4px 18px rgba(44,32,19,0.10);
+    box-shadow: 0 4px 18px rgba(0,0,0,0.3);
+    border-left-color: #B19B72;
 }
 .concept-number {
     font-size: 0.70rem;
     font-weight: 700;
     letter-spacing: 0.18em;
-    color: #8B7355;
+    color: #B19B72;
     text-transform: uppercase;
     margin-bottom: 0.35rem;
 }
@@ -192,187 +201,285 @@ html, body, [class*="css"] {
     font-family: 'Nanum Myeongjo', serif;
     font-size: 1.13rem;
     font-weight: 700;
-    color: #1C1810;
+    color: #FFFFFF;
     margin-bottom: 0.5rem;
-    letter-spacing: -0.01em;
 }
 .concept-summary {
     font-size: 0.92rem;
-    color: #5A4A38;
+    color: #C0C0C8;
     line-height: 1.85;
 }
 
 /* ── 타임스탬프 배지 ── */
 .timestamp-badge {
     display: inline-block;
-    background: #F0EAE0;
-    border: 1px solid #C8B89A;
+    background: #23232A;
+    border: 1px solid #3B3B46;
     border-radius: 3px;
     padding: 0.18rem 0.55rem;
     font-size: 0.80rem;
     font-weight: 600;
-    color: #4A3728;
+    color: #D2D2D7;
     font-family: 'Courier New', monospace;
 }
 
 /* ── 구분선 ── */
-hr { border-color: #D9D0BE !important; }
+hr { border-color: #32323D !important; }
 
 /* ── 섹션 제목 ── */
 h2, h3 {
     font-family: 'Nanum Myeongjo', serif !important;
-    color: #1C1810 !important;
+    color: #FFFFFF !important;
     letter-spacing: -0.01em !important;
 }
 
 /* ── 입력창 (필 라운드) ── */
 .stTextInput > div > div > input {
-    background: #FFFDF8 !important;
-    border: 1.5px solid #C8B89A !important;
+    background: #131318 !important;
+    border: 1.5px solid #32323D !important;
     border-radius: 12px !important;
-    color: #1C1810 !important;
-    font-size: 0.95rem !important;
-    font-family: 'Noto Serif KR', serif !important;
+    color: #FFFFFF !important;
     padding: 0.75rem 1rem !important;
 }
-.stTextInput > div > div > input::placeholder { color: #B0A090 !important; }
+.stTextInput > div > div > input::placeholder { color: #6E6E7A !important; }
 .stTextInput > div > div > input:focus {
-    border-color: #4A3728 !important;
-    box-shadow: 0 0 0 2px rgba(74,55,40,0.12) !important;
+    border-color: #B19B72 !important;
+    box-shadow: 0 0 0 2px rgba(177,155,114,0.15) !important;
 }
 .stTextInput > label {
-    color: #4A3728 !important;
+    color: #A0A0A9 !important;
     font-weight: 500 !important;
-    font-size: 0.92rem !important;
 }
 
-/* ── 버튼 (완전한 둥근 알약 형태) ── */
+/* ── 버튼 (골드 아웃라인/솔리드 믹스) ── */
 .stButton > button {
-    background: #2C2013 !important;
-    color: #F7F3EC !important;
-    border: none !important;
+    background: #2A2A33 !important;
+    color: #FFFFFF !important;
+    border: 1px solid #4F4F5C !important;
     border-radius: 50px !important;
     font-family: 'Noto Serif KR', serif !important;
     font-size: 0.95rem !important;
     font-weight: 500 !important;
-    letter-spacing: 0.08em !important;
     padding: 0.7rem 2rem !important;
     transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) !important;
-    box-shadow: 0 4px 14px rgba(44,32,19,0.2) !important;
     width: 100%;
 }
 .stButton > button:hover {
-    background: #4A3728 !important;
+    background: #B19B72 !important;
+    color: #0F0F13 !important;
+    border-color: #B19B72 !important;
     transform: translateY(-2px) !important;
-    box-shadow: 0 8px 24px rgba(44,32,19,0.3) !important;
-}
-.stButton > button:active {
-    transform: translateY(1px) !important;
+    box-shadow: 0 8px 24px rgba(177,155,114,0.3) !important;
 }
 
 /* ── 사이드바 ── */
 section[data-testid="stSidebar"] {
-    background: #F0EAE0 !important;
-    border-right: 1px solid #D9D0BE !important;
+    background: #14141A !important;
+    border-right: 1px solid #23232A !important;
 }
 section[data-testid="stSidebar"] .stTextInput > div > div > input {
-    font-family: 'Courier New', monospace !important;
-    font-size: 0.85rem !important;
-    background: #FAF6EF !important;
+    background: #1C1C23 !important;
 }
-section[data-testid="stSidebar"] h2,
-section[data-testid="stSidebar"] h3,
-section[data-testid="stSidebar"] p,
-section[data-testid="stSidebar"] li {
-    color: #3D2E1E !important;
+section[data-testid="stSidebar"] * {
+    color: #D2D2D7 !important;
 }
 
 /* ── Alert / 알림 ── */
 .stAlert {
-    border-radius: 5px !important;
-    background: #FFFDF8 !important;
-    border: 1px solid #D9D0BE !important;
-    color: #2C2013 !important;
+    background: #1A1A21 !important;
+    border: 1px solid #32323D !important;
+    color: #E2E2E2 !important;
 }
-
-/* ── Spinner ── */
-.stSpinner > div { color: #4A3728 !important; }
 
 /* ── 성공 메시지 ── */
 [data-testid="stNotification"] {
-    background: #F5F0E6 !important;
-    border: 1px solid #C8B89A !important;
-    color: #2C2013 !important;
-    border-radius: 5px !important;
+    background: #23232A !important;
+    border: 1px solid #3B3B46 !important;
+    color: #FFFFFF !important;
 }
 
-/* ── 스크롤바 ── */
-::-webkit-scrollbar { width: 5px; }
-::-webkit-scrollbar-track { background: #F0EAE0; }
-::-webkit-scrollbar-thumb { background: #C8B89A; border-radius: 3px; }
+/* ── 스피너 ── */
+.stSpinner > div { color: #B19B72 !important; }
 
 /* ── 시 블록 ── */
-.poem-section {
-    margin-top: 3rem;
-    padding: 0 0 2rem;
-    text-align: center;
+.poem-section { margin-top: 3rem; padding: 0 0 2rem; text-align: center; }
+.poem-divider { display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; }
+.poem-divider-line { flex: 1; height: 1px; background: linear-gradient(to right, transparent, #3B3B46, transparent); }
+.poem-divider-icon { color: #8B7355; font-size: 1rem; }
+.poem-card {
+    display: inline-block; max-width: 560px;
+    background: #1A1A21; border: 1px solid #32323D;
+    border-top: 2px solid #B19B72; border-radius: 4px; padding: 2.2rem 2.8rem;
 }
-.poem-divider {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
+.poem-label { font-size: 0.68rem; color: #B19B72;text-transform: uppercase; margin-bottom: 1.2rem; }
+.poem-text { font-family: 'Nanum Myeongjo', serif; font-size: 1.05rem; color: #FFFFFF; line-height: 2.3; white-space: pre-line; text-align: center; }
+.poem-author { font-size: 0.82rem; color: #A0A0A9; margin-top: 1.4rem; font-style: italic; }
+.poem-footer { margin-top: 2.5rem; font-size: 0.80rem; color: #6E6E7A; }
+
+/* ── Markdown 텍스트 (명시적 하얀색 보호) ── */
+.stMarkdown p, .stMarkdown div, .stMarkdown span { color: #E2E2E2 !important; }
+
+/* ── 커스텀 탭 모바일 최적화 ── */
+div[data-testid="stTabs"] {
     margin-bottom: 2rem;
 }
-.poem-divider-line {
+div[data-testid="stTabs"] button[data-baseweb="tab"] {
     flex: 1;
-    height: 1px;
-    background: linear-gradient(to right, transparent, #C8B89A, transparent);
+    background: #1A1A21 !important;
+    border: 1px solid #32323D !important;
+    border-radius: 8px !important;
+    margin: 0 4px !important;
+    padding: 0.8rem 0 !important;
+    color: #A0A0A9 !important;
+    font-weight: 600 !important;
+    transition: all 0.3s ease !important;
 }
-.poem-divider-icon {
-    color: #8B7355;
-    font-size: 1rem;
-    letter-spacing: 0.2em;
+div[data-testid="stTabs"] button[data-baseweb="tab"][aria-selected="true"] {
+    background: #23232A !important;
+    color: #FFFFFF !important;
+    border-color: #B19B72 !important;
+    box-shadow: 0 4px 15px rgba(177,155,114,0.1) !important;
 }
-.poem-card {
-    display: inline-block;
-    max-width: 560px;
-    background: #FFFDF8;
-    border: 1px solid #D9D0BE;
-    border-top: 2px solid #2C2013;
-    border-radius: 4px;
-    padding: 2.2rem 2.8rem;
-    box-shadow: 0 2px 16px rgba(44,32,19,0.06);
+div[data-testid="stTabs"] div[data-baseweb="tab-highlight"] { display: none !important; }
+
+/* ── Pricing 카테고리 ── */
+.pricing-card {
+    background: #1A1A21;
+    border: 1px solid #32323D;
+    border-radius: 16px;
+    padding: 2.2rem 1.8rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
     position: relative;
 }
-.poem-label {
-    font-size: 0.68rem;
-    font-weight: 700;
-    letter-spacing: 0.22em;
-    color: #8B7355;
-    text-transform: uppercase;
-    margin-bottom: 1.2rem;
+.pricing-card.best-value {
+    background: linear-gradient(180deg, #23232A 0%, #1A1A21 100%);
+    border: 2px solid #B19B72;
+    box-shadow: 0 8px 30px rgba(177,155,114,0.15);
 }
-.poem-text {
+.pricing-badge {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(90deg, #D4AF37, #B19B72);
+    color: #0F0F13;
+    font-size: 0.75rem;
+    font-weight: 800;
+    padding: 0.3rem 1rem;
+    border-radius: 20px;
+    letter-spacing: 0.1em;
+    box-shadow: 0 4px 10px rgba(177,155,114,0.4);
+    white-space: nowrap;
+}
+.pricing-title {
     font-family: 'Nanum Myeongjo', serif;
-    font-size: 1.05rem;
-    color: #1C1810;
-    line-height: 2.3;
-    white-space: pre-line;
-    letter-spacing: 0.03em;
-    text-align: center;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: #FFFFFF;
+    margin-bottom: 0.8rem;
 }
-.poem-author {
-    font-size: 0.82rem;
-    color: #8B7355;
-    margin-top: 1.4rem;
-    letter-spacing: 0.07em;
-    font-style: italic;
+.pricing-price {
+    font-size: 2.5rem;
+    font-weight: 800;
+    color: #E2E2E2;
+    margin-bottom: 1rem;
+    font-family: 'Courier New', monospace;
 }
-.poem-footer {
-    margin-top: 2.5rem;
-    font-size: 0.80rem;
-    color: #B0A090;
-    letter-spacing: 0.12em;
+.price-mo {
+    font-size: 1rem;
+    color: #6E6E7A;
+    font-weight: 500;
+}
+.pricing-desc {
+    font-size: 1rem;
+    color: #A0A0A9;
+    margin-bottom: 2rem;
+    line-height: 1.5;
+}
+
+/* ── 기출문제 카드 ── */
+.exam-section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    margin: 2rem 0 1.2rem;
+    padding-bottom: 0.7rem;
+    border-bottom: 1px solid #32323D;
+}
+.exam-section-title {
+    font-family: 'Nanum Myeongjo', serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #FFFFFF;
+}
+.exam-keyword-chip {
+    display: inline-block;
+    background: #23232A;
+    border: 1px solid #3B3B46;
+    border-radius: 20px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.78rem;
+    color: #B19B72;
+    font-weight: 600;
+    margin: 0.2rem 0.2rem 0.2rem 0;
+}
+.exam-card {
+    background: #1A1A21;
+    border: 1px solid #32323D;
+    border-radius: 14px;
+    padding: 1.4rem 1.6rem;
+    margin-bottom: 1rem;
+    position: relative;
+    transition: border-color 0.2s ease;
+}
+.exam-card:hover { border-color: #4F4F5C; }
+.exam-source-badge {
+    display: inline-block;
+    background: rgba(177,155,114,0.12);
+    border: 1px solid #B19B72;
+    border-radius: 4px;
+    padding: 0.18rem 0.55rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: #B19B72;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+}
+.exam-question-text {
+    font-size: 0.97rem;
+    color: #E2E2E2;
+    line-height: 1.7;
+    margin-bottom: 0.8rem;
+}
+.exam-choices {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 0.8rem;
+}
+.exam-choices li {
+    padding: 0.35rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: #A0A0A9;
+    margin-bottom: 0.3rem;
+    border: 1px solid #2A2A33;
+}
+.exam-choices li.correct {
+    border-color: #22C55E;
+    background: rgba(34,197,94,0.08);
+    color: #86EFAC;
+    font-weight: 600;
+}
+.exam-type-ox {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #6E6E7A;
+    margin-bottom: 0.5rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -389,11 +496,24 @@ api_key: str = (
 
 
 # ─────────────────────────────────────────────
-#  사이드바
+#  Sidebar
 # ─────────────────────────────────────────────
 with st.sidebar:
-    # 서비스 상태 표시
-    db_status = "🟢 DB 연결됨" if is_db_connected() else "🟡 DB 미연결 (캐시 제외)"
+    language = st.selectbox(
+        "Language / 언어 / Idioma",
+        ["en", "ko", "es"],
+        index=["en", "ko", "es"].index(st.session_state.locale),
+        format_func=lambda x: {"en": "English", "ko": "한국어", "es": "Español"}[x],
+        key="locale_selector"
+    )
+    if language != st.session_state.locale:
+        st.session_state.locale = language
+        st.rerun()
+        
+    st.markdown("---")
+
+    # Service status
+    db_status = _("sidebar_db_conn") if is_db_connected() else _("sidebar_db_disconn")
     
     if api_key:
         st.markdown(f"""
@@ -405,35 +525,92 @@ with st.sidebar:
     padding:0.7rem 1rem;
     margin-bottom:1rem;
 ">
-    <span style="font-size:0.68rem;letter-spacing:0.16em;color:#8B7355;font-weight:700;">SERVICE STATUS</span><br>
+    <span style="font-size:0.68rem;letter-spacing:0.16em;color:#8B7355;font-weight:700;">{_("sidebar_status_title")}</span><br>
     <span style="font-size:0.88rem;color:#2C2013;font-family:'Noto Serif KR',serif;">
-        ✔ AI 서비스 운영 중<br>
+        {_("sidebar_service_active")}<br>
         {db_status}
     </span>
 </div>
 """, unsafe_allow_html=True)
     else:
-        st.error("⚠️ API 키가 서버에 설정되지 않았습니다.\n`.streamlit/secrets.toml`을 확인하세요.")
+        st.error(_("sidebar_key_err"))
+        
     st.markdown("---")
-    st.markdown("""
-**사용 방법**
-1. YouTube 영상 URL 붙여넣기
-2. **분석 시작** 클릭
-
-**지원 언어**
-- 한국어 자막 우선
-- 없으면 영어 자막 사용
-
-**사용 모델**
-`gpt-4o`
-    """)
+    st.markdown(_("sidebar_how_to"))
+    st.markdown("")
+    st.markdown(_("sidebar_languages"))
+    st.markdown("")
+    st.markdown(_("sidebar_model"))
     st.markdown("---")
-    st.caption("세월은간다 · Powered by GPT-4o")
+    st.caption("Seworeunganda · Powered by GPT-4o")
 
 
 # ─────────────────────────────────────────────
 #  Helper 함수들
 # ─────────────────────────────────────────────
+
+def get_youtube_metadata(video_id: str) -> dict:
+    """YouTube oEmbed API를 사용하여 채널명과 URL 추출"""
+    try:
+        url = f"https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v={video_id}&format=json"
+        req = urllib.request.Request(url)
+        with urllib.request.urlopen(req) as response:
+            data = json.loads(response.read().decode('utf-8'))
+            return {"channel_name": data.get("author_name", "YouTube Channel"), "channel_url": data.get("author_url", "")}
+    except Exception:
+        return {"channel_name": "YouTube Channel", "channel_url": f"https://www.youtube.com/watch?v={video_id}"}
+
+
+def render_youtube_player(video_id: str, start_time: int, end_time: int = None):
+    """
+    유튜브 공식 IFrame API를 사용한 영상 플레이어 렌더링.
+    원본 영상의 조회수와 광고가 유지되도록 공식 임베드 URL(embed)을 이용함.
+    영상 하단에 원본 채널명과 유튜브로 이동하는 버튼 자동 생성.
+    """
+    metadata = get_youtube_metadata(video_id)
+    channel_name = metadata.get("channel_name", "YouTube Channel")
+    
+    embed_url = f"https://www.youtube.com/embed/{video_id}?start={start_time}&autoplay=1&rel=0&modestbranding=1"
+    if end_time:
+        embed_url += f"&end={end_time}"
+
+    # 영상 플레이어 (IFrame)
+    st.markdown(f"""
+    <div style="
+        position: relative;
+        padding-bottom: 56.25%;
+        height: 0;
+        overflow: hidden;
+        border-radius: 6px;
+        border: 1px solid #D9D0BE;
+        box-shadow: 0 4px 20px rgba(44,32,19,0.12);
+        margin-top: 0.5rem;
+    ">
+        <iframe
+            src="{embed_url}"
+            style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"
+            allow="autoplay; encrypted-media; picture-in-picture"
+            allowfullscreen
+        ></iframe>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # 하단 채널명 및 이동 버튼
+    youtube_link = f"https://www.youtube.com/watch?v={video_id}&t={start_time}s"
+    st.markdown(f"""
+    <div style="display:flex; justify-content: space-between; align-items: center; margin-top: 0.8rem; padding: 0.6rem 1rem; background: #FFFDF8; border-radius: 8px; border: 1px solid #EBE4D6;">
+        <div style="font-weight: 600; color: #4A3728; font-family: 'Noto Serif KR', serif; display:flex; align-items:center; gap:0.5rem; font-size: 0.95rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="#8B7355"><path d="M21.582 6.186a2.532 2.532 0 0 0-1.784-1.784C18.225 4 12 4 12 4s-6.225 0-7.798.402a2.532 2.532 0 0 0-1.784 1.784C2 7.76 2 12 2 12s0 4.24.418 5.814a2.532 2.532 0 0 0 1.784 1.784C5.775 20 12 20 12 20s6.225 0 7.798-.402a2.532 2.532 0 0 0 1.784-1.784C22 16.24 22 12 22 12s0-4.24-.418-5.814zM9.99 15.474v-6.948l6.16 3.474-6.16 3.474z"/></svg>
+            <span>{channel_name}</span>
+        </div>
+        <a href="{youtube_link}" target="_blank" style="text-decoration: none; font-size: 0.85rem; font-weight: 600; color: #DC2626; background: #FEE2E2; padding: 0.4rem 0.9rem; border-radius: 5px; transition: all 0.2s;">
+            {_("btn_youtube_watch")}
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+
+
+
 
 def extract_video_id(url: str) -> str | None:
     """YouTube URL에서 video ID 추출"""
@@ -461,23 +638,25 @@ def seconds_to_mmss(seconds: float) -> str:
 
 
 def get_transcript(video_id: str):
-    """자막 가져오기 – v1.x 인스턴스 방식, 한국어→영어→기타 순"""
+    """Fetch transcript dynamically based on UI locale"""
     ytt = YouTubeTranscriptApi()
+    locale = st.session_state.locale
     try:
         try:
-            return ytt.fetch(video_id, languages=["ko"])
+            return ytt.fetch(video_id, languages=[locale])
         except Exception:
             pass
-        try:
-            return ytt.fetch(video_id, languages=["en"])
-        except Exception:
-            pass
+        if locale != "en":
+            try:
+                return ytt.fetch(video_id, languages=["en"])
+            except Exception:
+                pass
         return ytt.fetch(video_id)
     except Exception as e:
         err = str(e)
         if "disabled" in err.lower() or "no transcript" in err.lower():
-            raise ValueError("이 영상에는 자막이 없거나 비활성화되어 있습니다.")
-        raise ValueError(f"자막을 가져오는 중 오류가 발생했습니다: {e}")
+            raise ValueError(_("err_no_subtitles"))
+        raise ValueError(f"{_('err_fetch_subtitles')}{e}")
 
 
 def build_timed_text(transcript) -> str:
@@ -496,27 +675,50 @@ def build_timed_text(transcript) -> str:
     return "\n".join(lines)
 
 
-def analyze_with_gpt(timed_text: str, api_key: str) -> list[dict]:
-    """GPT-4o로 핵심 개념 3가지 + 타임스탬프 추출"""
+def fetch_exam_questions(keywords: list[str], max_results: int = 3) -> list[dict]:
+    """Supabase에서 테스트 통과서 기출문제를 검색합니다."""
+    if not supabase or not keywords:
+        return []
+    try:
+        # keywords 배열에 하나라도 포함되는 행 검색 (overlaps)
+        res = (
+            supabase.table("exam_questions")
+            .select("id, question_type, question_text, source, year, answer, choices, explanation, keywords")
+            .overlaps("keywords", keywords)
+            .limit(max_results)
+            .execute()
+        )
+        return res.data if res.data else []
+    except Exception as e:
+        # Supabase 연결 실패 또는 테이블 없음 → 조용히 무시하고 빈 리스트 반환
+        return []
+
+
+def analyze_with_gpt(timed_text: str, api_key: str) -> dict:
+    """Extract 3 core concepts + timestamps + keywords using GPT-4o"""
     client = OpenAI(api_key=api_key)
 
-    system_prompt = """당신은 동영상 자막을 분석하는 전문가입니다.
-사용자가 타임스탬프가 포함된 자막 텍스트를 제공하면,
-영상의 핵심 개념 3가지를 식별하고 각 개념이 처음 시작되는 타임스탬프를 찾아 반환합니다.
+    title_inst = _("gpt_concept_title_instruction")
+    summary_inst = _("gpt_concept_summary_instruction")
 
-반드시 아래 JSON 형식으로만 응답하세요 (코드블록 없이 순수 JSON):
-{
+    system_prompt = f"""You are an expert at analyzing video transcripts.
+When the user provides a captioned text with timestamps, identify 3 key concepts from the video and find the timestamp when each concept first begins.
+Also extract up to 10 precise search keywords (e.g. proper nouns, historical terms, key vocabulary) from the entire transcript.
+
+You must respond ONLY with the following JSON format (no codeblocks, pure JSON):
+{{
+  "keywords": ["keyword1", "keyword2", "..."],
   "concepts": [
-    {
+    {{
       "number": 1,
-      "title": "개념 제목 (한국어, 10자 이내)",
-      "summary": "개념 설명 (한국어, 2~3문장)",
-      "timestamp": "MM:SS 형식"
-    }
+      "title": "{title_inst}",
+      "summary": "{summary_inst}",
+      "timestamp": "MM:SS format"
+    }}
   ]
-}"""
+}}"""
 
-    user_prompt = f"""다음은 YouTube 영상의 타임스탬프 자막입니다. 핵심 개념 3가지를 분석해주세요.
+    user_prompt = f"""Here is the timestamped transcript of a YouTube video. Please analyze 3 core concepts and extract keywords.
 
 {timed_text[:12000]}"""
 
@@ -527,246 +729,430 @@ def analyze_with_gpt(timed_text: str, api_key: str) -> list[dict]:
             {"role": "user", "content": user_prompt},
         ],
         temperature=0.3,
-        max_tokens=1000,
+        max_tokens=1200,
     )
 
     raw = response.choices[0].message.content.strip()
     raw = re.sub(r"```(?:json)?", "", raw).strip().rstrip("```").strip()
     data = json.loads(raw)
-    return data["concepts"]
+    return {
+        "concepts": data.get("concepts", []),
+        "keywords": data.get("keywords", []),
+    }
 
 
 # ─────────────────────────────────────────────
-#  메인 UI
+#  Main UI
 # ─────────────────────────────────────────────
 
-# 트렌디한 헤더 이미지 삽입
-import os
+# Insert trendy header image
 image_path = "hero_img.png"
 if os.path.exists(image_path):
     st.image(image_path, use_container_width=True)
 
-st.markdown("""
+st.markdown(f"""
 <div class="hero-header">
-    <div class="hero-brand">세월은간다</div>
-    <h1>📜 YouTube 핵심 개념 분석기</h1>
-    <p>영상 자막을 AI로 분석해 핵심 개념 3가지와 타임스탬프를 추출합니다</p>
+    <div class="hero-brand">Seworeunganda</div>
+    <h1>{_("app_title")}</h1>
+    <p>{_("app_desc")}</p>
 </div>
 """, unsafe_allow_html=True)
 
-# 입력 영역
-st.markdown('<div class="glass-card">', unsafe_allow_html=True)
-url_input = st.text_input(
-    "🔗 YouTube URL",
-    placeholder="https://www.youtube.com/watch?v=...",
-)
-analyze_btn = st.button("분석 시작 →", use_container_width=True)
+# ── Auth Block ────────────────────────────────────────────────────────────
+st.markdown('<div class="glass-card" style="text-align:center; padding:1.5rem;">', unsafe_allow_html=True)
+if not st.session_state.user:
+    st.markdown(f"<p style='color:#B19B72; font-weight:600; margin-bottom:1rem;'>{_('msg_login_prompt')}</p>", unsafe_allow_html=True)
+    if supabase:
+        try:
+            res = supabase.auth.sign_in_with_oauth({
+                "provider": "google",
+                "options": {"redirect_to": "http://localhost:8501", "skip_browser_redirect": True}
+            })
+            st.link_button(f"\U0001f310 {_('btn_login_google')}", res.url, use_container_width=True)
+        except Exception:
+            st.error("Supabase config error.")
+else:
+    u = st.session_state.user
+    email = u.email if hasattr(u, "email") else ""
+    avatar_url = u.user_metadata.get("avatar_url", "") if hasattr(u, "user_metadata") else ""
+    _, col2, _ = st.columns([1, 2, 1])
+    with col2:
+        if avatar_url:
+            st.markdown(f"<img src='{avatar_url}' style='border-radius:50%; width:60px; height:60px; border:2px solid #B19B72; margin-bottom:0.5rem;'/>", unsafe_allow_html=True)
+        st.markdown(f"<p style='color:#E2E2E2; font-weight:500;'>{email}</p>", unsafe_allow_html=True)
+        if st.button(_("btn_logout"), use_container_width=True):
+            if supabase:
+                supabase.auth.sign_out()
+            st.session_state.user = None
+            st.rerun()
 st.markdown("</div>", unsafe_allow_html=True)
 
 
 # ─────────────────────────────────────────────
-#  분석 실행
+#  Tabs: Analyzer | Pricing
 # ─────────────────────────────────────────────
-if analyze_btn:
-    if not api_key:
-        st.error("⚠️ 서버에 API 키가 설정되지 않았습니다. 관리자에게 문의하세요.")
-        st.stop()
-    if not url_input.strip():
-        st.error("⚠️ YouTube URL을 입력해주세요.")
-        st.stop()
-    video_id = extract_video_id(url_input.strip())
-    if not video_id:
-        st.error("⚠️ 유효한 YouTube URL이 아닙니다. 다시 확인해 주세요.")
-        st.stop()
+tab1, tab2 = st.tabs([_("tab_home"), _("tab_pricing")])
 
-    # 1) 먼저 DB(캐시)에서 가져오기 시도
-    cached_data = get_cached(video_id)
-    if cached_data:
-        st.success("⚡ DB에 저장된 분석 결과를 즉시 불러왔습니다.")
-        concepts = cached_data["concepts"]
-        timed_text = cached_data["timed_text"]
-        total_entries = cached_data["total_entries"]
-        duration = cached_data["duration"]
-    else:
-        # DB에 없으면 직접 처리:
-        # ── 자막 가져오기 ────────────────────────────
-        with st.spinner("자막을 불러오는 중..."):
-            try:
-                transcript = get_transcript(video_id)
-            except ValueError as e:
-                st.error(f"❌ {e}")
-                st.stop()
 
-        timed_text = build_timed_text(transcript)
-        total_entries = len(transcript)
-        last = transcript[-1]
-        if hasattr(last, "start"):
-            last_start = last.start
-            last_dur = getattr(last, "duration", 0) or 0
+# ══════════════════════════════════════════════
+#  TAB 1 — Analyzer (Home)
+# ══════════════════════════════════════════════
+with tab1:
+
+    # Input Area
+    st.markdown('<div class="glass-card">', unsafe_allow_html=True)
+    url_input = st.text_input(_("input_url_label"), placeholder="https://www.youtube.com/watch?v=...")
+    analyze_btn = st.button(_("btn_start_analysis"), use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    @st.experimental_dialog("\U0001f680 Upgrade to Pro")
+    def show_upgrade_paywall():
+        st.markdown("""
+            <div style="text-align:center; padding:1rem 0;">
+                <p style="color:#B19B72; font-weight:700; margin-bottom:1rem; font-size:1.1rem;">Daily Free Limit Reached (3/3)</p>
+                <p style="color:#A0A0A9; line-height:1.6; margin-bottom:1.5rem;">
+                    You've used up your 3 free summaries for today.<br>
+                    Upgrade to a Pro plan for unlimited access to GPT-4o YouTube analysis!
+                </p>
+            </div>
+        """, unsafe_allow_html=True)
+        st.link_button(_("btn_upgrade_now"), "https://stripe.com/", use_container_width=True)
+
+    if analyze_btn:
+        if not st.session_state.user:
+            st.error(_("err_login_required"))
+            st.stop()
+
+        user_id = st.session_state.user.id
+        if get_daily_usage(user_id) >= 3:
+            show_upgrade_paywall()
+            st.stop()
+
+        if not api_key:
+            st.error(_("sidebar_key_err"))
+            st.stop()
+        if not url_input.strip():
+            st.error(_("err_no_url"))
+            st.stop()
+        video_id = extract_video_id(url_input.strip())
+        if not video_id:
+            st.error(_("err_invalid_url"))
+            st.stop()
+
+        locale_video_id = f"{video_id}_{st.session_state.locale}"
+        cached_data = get_cached(locale_video_id)
+        if cached_data:
+            st.success(_("msg_db_loaded"))
+            concepts = cached_data["concepts"]
+            timed_text = cached_data["timed_text"]
+            total_entries = cached_data["total_entries"]
+            duration = cached_data["duration"]
+            gpt_keywords = cached_data.get("keywords", [])
         else:
-            last_start = last["start"]
-            last_dur = last.get("duration", 0)
-        duration = seconds_to_mmss(last_start + last_dur)
+            with st.spinner(_("msg_loading_subtitles")):
+                try:
+                    transcript = get_transcript(video_id)
+                except ValueError as e:
+                    st.error(f"\u274c {e}")
+                    st.stop()
 
-        # ── GPT 분석 ─────────────────────────────────
-        with st.spinner("GPT-4o가 핵심 개념을 분석 중입니다..."):
-            try:
-                concepts = analyze_with_gpt(timed_text, api_key)
-            except json.JSONDecodeError:
-                st.error("❌ GPT 응답을 파싱하지 못했습니다. 다시 시도해 주세요.")
-                st.stop()
-            except Exception as e:
-                st.error(f"❌ OpenAI API 오류: {e}")
-                st.stop()
-        
-        # ── 결과 DB에 저장 ───────────────────────────
-        if is_db_connected():
-            save_to_cache(video_id, concepts, timed_text, total_entries, duration)
-            st.info("💾 새로운 분석 결과를 DB에 저장했습니다.")
-
-    # 결과 및 시를 session_state에 저장
-    st.session_state.analysis_results = {
-        "video_id": video_id,
-        "concepts": concepts,
-        "timed_text": timed_text,
-        "total_entries": total_entries,
-        "duration": duration,
-    }
-    st.session_state.player_video_id = video_id
-    st.session_state.selected_ts = 0
-    st.session_state.selected_poem = random.choice(POEMS)
-
-
-# ─────────────────────────────────────────────
-#  결과 표시
-# ─────────────────────────────────────────────
-if st.session_state.analysis_results:
-    res        = st.session_state.analysis_results
-    video_id   = res["video_id"]
-    concepts   = res["concepts"]
-    timed_text = res["timed_text"]
-
-    st.success(
-        f"✅ 자막 로드 완료 — 총 {res['total_entries']}개 구간 · "
-        f"영상 길이 약 {res['duration']}"
-    )
-    st.markdown("---")
-    st.markdown("## 💡 핵심 개념 분석 결과")
-
-    col_left, col_right = st.columns([1, 1], gap="large")
-
-    # ── 왼쪽: 개념 카드 + 재생 버튼 ─────────────────
-    with col_left:
-        for i, c in enumerate(concepts):
-            ts_raw = c.get("timestamp", "00:00")
-            parts = ts_raw.split(":")
-            if len(parts) == 2:
-                total_sec = int(parts[0]) * 60 + int(parts[1])
-            elif len(parts) == 3:
-                total_sec = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+            timed_text = build_timed_text(transcript)
+            total_entries = len(transcript)
+            last = transcript[-1]
+            if hasattr(last, "start"):
+                last_start = last.start
+                last_dur = getattr(last, "duration", 0) or 0
             else:
-                total_sec = 0
+                last_start = last["start"]
+                last_dur = last.get("duration", 0)
+            duration = seconds_to_mmss(last_start + last_dur)
 
-            # 활성 카드 강조 (먹색 왼쪽 테두리 → 황토 계열)
-            is_active = (
-                st.session_state.player_video_id == video_id and (
-                    (st.session_state.selected_ts == total_sec and total_sec > 0)
-                    or (i == 0 and st.session_state.selected_ts == 0)
+            with st.spinner(_("msg_analyzing")):
+                try:
+                    gpt_result = analyze_with_gpt(timed_text, api_key)
+                    concepts = gpt_result["concepts"]
+                    gpt_keywords = gpt_result["keywords"]
+                except json.JSONDecodeError:
+                    st.error(_("err_parse_gpt"))
+                    st.stop()
+                except Exception as e:
+                    st.error(f"{_('err_openai')}{e}")
+                    st.stop()
+
+            if is_db_connected():
+                save_to_cache(locale_video_id, concepts, timed_text, total_entries, duration)
+                increment_daily_usage(user_id)
+                st.info(_("msg_saved_db"))
+
+        st.session_state.analysis_results = {
+            "video_id": video_id,
+            "concepts": concepts,
+            "keywords": gpt_keywords,
+            "timed_text": timed_text,
+            "total_entries": total_entries,
+            "duration": duration,
+        }
+        st.session_state.player_video_id = video_id
+        st.session_state.selected_ts = 0
+        quotes = lang_data.get("quotes", [])
+        st.session_state.selected_poem = random.choice(quotes) if quotes else None
+
+    if st.session_state.analysis_results:
+        res = st.session_state.analysis_results
+        video_id   = res["video_id"]
+        concepts   = res["concepts"]
+        timed_text = res["timed_text"]
+
+        st.success(_("res_transcript_loaded", entries=res["total_entries"], duration=res["duration"]))
+        st.markdown("---")
+        st.markdown(_("res_title"))
+
+        col_left, col_right = st.columns([1, 1], gap="large")
+
+        with col_left:
+            for i, c in enumerate(concepts):
+                ts_raw = c.get("timestamp", "00:00")
+                parts = ts_raw.split(":")
+                if len(parts) == 2:
+                    total_sec = int(parts[0]) * 60 + int(parts[1])
+                elif len(parts) == 3:
+                    total_sec = int(parts[0]) * 3600 + int(parts[1]) * 60 + int(parts[2])
+                else:
+                    total_sec = 0
+
+                is_active = (
+                    st.session_state.player_video_id == video_id and (
+                        (st.session_state.selected_ts == total_sec and total_sec > 0)
+                        or (i == 0 and st.session_state.selected_ts == 0)
+                    )
                 )
-            )
-            left_border = "#8B6F4E" if is_active else "#2C2013"
-            bg_color = "#FFF8EE" if is_active else "#FFFDF8"
+                left_border = "#B19B72" if is_active else "#4F4F5C"
+                bg_color = "#252530" if is_active else "#1A1A21"
 
-            st.markdown(f"""
+                st.markdown(f"""
 <div class="concept-card" style="border-left-color:{left_border}; background:{bg_color};">
-    <div class="concept-number">핵심 개념 {c.get('number', i+1)}</div>
-    <div class="concept-title">{c.get('title', '')}</div>
-    <div class="concept-summary">{c.get('summary', '')}</div>
+    <div class="concept-number">{_("res_concept_prefix")}{c.get("number", i+1)}</div>
+    <div class="concept-title">{c.get("title", "")}</div>
+    <div class="concept-summary">{c.get("summary", "")}</div>
 </div>
 """, unsafe_allow_html=True)
 
-            if st.button(
-                f"▶  {ts_raw} 부터 재생",
-                key=f"play_btn_{i}",
-                use_container_width=True,
-            ):
-                st.session_state.selected_ts = total_sec
-                st.session_state.player_video_id = video_id
-                st.rerun()
+                if st.button(_("btn_play_from", ts=ts_raw), key=f"play_btn_{i}", use_container_width=True):
+                    st.session_state.selected_ts = total_sec
+                    st.session_state.player_video_id = video_id
+                    st.rerun()
 
-    # ── 오른쪽: 유튜브 임베드 플레이어 ──────────────
-    with col_right:
-        st.markdown("### 📺 영상 플레이어")
-        if st.session_state.player_video_id:
-            pid = st.session_state.player_video_id
-            pts = st.session_state.selected_ts
-            embed_url = (
-                f"https://www.youtube.com/embed/{pid}"
-                f"?start={pts}&autoplay=1&rel=0&modestbranding=1"
-            )
-            st.markdown(f"""
-<div style="
-    position: relative;
-    padding-bottom: 56.25%;
-    height: 0;
-    overflow: hidden;
-    border-radius: 6px;
-    border: 1px solid #D9D0BE;
-    box-shadow: 0 4px 20px rgba(44,32,19,0.12);
-    margin-top: 0.5rem;
-">
-    <iframe
-        src="{embed_url}"
-        style="position:absolute; top:0; left:0; width:100%; height:100%; border:0;"
-        allow="autoplay; encrypted-media; picture-in-picture"
-        allowfullscreen
-    ></iframe>
-</div>
-""", unsafe_allow_html=True)
-        else:
-            st.markdown("""
-<div style="
-    background: #F5F0E6;
-    border: 1px dashed #C8B89A;
-    border-radius: 6px;
-    padding: 4rem 1.5rem;
-    text-align: center;
-    color: #9A8870;
-    margin-top: 0.5rem;
-">
-    <div style="font-size:2.2rem; margin-bottom:1rem; opacity:0.6;">📜</div>
+        with col_right:
+            st.markdown(_("player_title"))
+            if st.session_state.player_video_id:
+                render_youtube_player(st.session_state.player_video_id, st.session_state.selected_ts, end_time=None)
+            else:
+                st.markdown(f"""
+<div style="background:#1A1A21; border:1px dashed #4F4F5C; border-radius:6px;
+    padding:4rem 1.5rem; text-align:center; color:#6E6E7A; margin-top:0.5rem;">
+    <div style="font-size:2.2rem; margin-bottom:1rem; opacity:0.6;">\U0001f4dc</div>
     <div style="font-size:0.95rem; line-height:1.9; font-family:'Noto Serif KR',serif;">
-        왼쪽 개념 카드 아래<br>
-        <b style='color:#4A3728'>재생 버튼</b>을 누르면<br>
-        해당 시간대부터 재생됩니다
+        {_("player_placeholder")}
     </div>
 </div>
 """, unsafe_allow_html=True)
 
-    # ── 전체 자막 (접이식) ───────────────────────────
-    st.markdown("---")
-    with st.expander("📄 전체 자막 보기"):
-        st.text_area("자막 원문 (타임스탬프 포함)", timed_text, height=300, disabled=True)
+        st.markdown("---")
+        with st.expander(_("expander_full_transcript")):
+            st.text_area(_("label_raw_transcript"), timed_text, height=300, disabled=True)
 
-    # ─────────────────────────────────────────────
-    #  수험생 응원 시
-    # ─────────────────────────────────────────────
-    if st.session_state.selected_poem:
-        poem = st.session_state.selected_poem
-        st.markdown(f"""
+        # ─────────────────────────────────────────────
+        #  실제 시험 확인하기 — 기출문제 검색
+        # ─────────────────────────────────────────────
+        exam_keywords = res.get("keywords", [])
+        if exam_keywords:
+            exam_questions = fetch_exam_questions(exam_keywords)
+
+            if exam_questions:
+                # 키워드 충 표시
+                chips_html = "".join(
+                    f'<span class="exam-keyword-chip"># {kw}</span>'
+                    for kw in exam_keywords[:6]
+                )
+                st.markdown(f"""
+<div class="exam-section-header">
+    <span style="font-size:1.3rem;">📚</span>
+    <span class="exam-section-title">실제 시험 확인하기</span>
+</div>
+<div style="margin-bottom:1.2rem;">{chips_html}</div>
+""", unsafe_allow_html=True)
+
+                for qi, q in enumerate(exam_questions):
+                    qtype = q.get("question_type", "multiple")
+                    qtext = q.get("question_text", "")
+                    source = q.get("source", "")
+                    answer = q.get("answer", "")
+                    choices = q.get("choices") or {}
+                    explanation = q.get("explanation", "")
+
+                    # 정답 보기 토글 키
+                    ans_key = f"show_answer_{video_id}_{qi}"
+                    if ans_key not in st.session_state:
+                        st.session_state[ans_key] = False
+
+                    # 커스텀 CSS로 HTML 렌더링
+                    if qtype == "ox":
+                        type_badge = '<span class="exam-type-ox">■ OX형</span>'
+                        ans_html = ""
+                        if st.session_state[ans_key]:
+                            color = "#22C55E" if answer == "O" else "#EF4444"
+                            ans_html = f'<div style="margin-top:0.5rem; font-size:1rem; font-weight:800; color:{color};">\uc815\ub2f5: {answer}'
+                            if explanation:
+                                ans_html += f'<span style="font-size:0.85rem; color:#A0A0A9; font-weight:400;"> &mdash; {explanation}</span>'
+                            ans_html += "</div>"
+                        st.markdown(f"""
+<div class="exam-card">
+    <div class="exam-source-badge">{source}</div>
+    {type_badge}
+    <div class="exam-question-text">{qtext}</div>
+    {ans_html}
+</div>
+""", unsafe_allow_html=True)
+
+                    else:  # multiple
+                        type_badge = '<span class="exam-type-ox">■ 4지선다형</span>'
+                        choices_html = "<ul class='exam-choices'>"
+                        for num, text in (choices.items() if isinstance(choices, dict) else {}):
+                            is_correct = st.session_state[ans_key] and str(num) == str(answer)
+                            cls = " correct" if is_correct else ""
+                            mark = " &#9654;" if is_correct else ""
+                            choices_html += f"<li class='exam-choice{cls}'>​{num}\ub825 {text}{mark}</li>"
+                        choices_html += "</ul>"
+
+                        exp_html = ""
+                        if st.session_state[ans_key] and explanation:
+                            exp_html = f'<div style="font-size:0.85rem; color:#A0A0A9; margin-top:0.4rem; padding:0.5rem 0.7rem; background:#23232A; border-radius:6px;">💡 {explanation}</div>'
+
+                        st.markdown(f"""
+<div class="exam-card">
+    <div class="exam-source-badge">{source}</div>
+    {type_badge}
+    <div class="exam-question-text">{qtext}</div>
+    {choices_html}
+    {exp_html}
+</div>
+""", unsafe_allow_html=True)
+
+                    # 정답 보기 / 숨기기 토글 버튼
+                    btn_label = "🔍정답 숨기기" if st.session_state[ans_key] else "\u2753 \uc815\ub2f5 \ubcf4\uae30"
+                    if st.button(btn_label, key=f"ans_btn_{video_id}_{qi}", use_container_width=False):
+                        st.session_state[ans_key] = not st.session_state[ans_key]
+                        st.rerun()
+
+
+        if st.session_state.selected_poem:
+            poem = st.session_state.selected_poem
+            st.markdown(f"""
 <div class="poem-section">
     <div class="poem-divider">
         <div class="poem-divider-line"></div>
-        <div class="poem-divider-icon">✦ ✦ ✦</div>
+        <div class="poem-divider-icon">\u2726 \u2726 \u2726</div>
         <div class="poem-divider-line"></div>
     </div>
     <div style="display:flex; justify-content:center;">
         <div class="poem-card">
-            <div class="poem-label">오늘의 한 구절</div>
-            <div class="poem-text">{poem['text']}</div>
-            <div class="poem-author">— {poem['author']}</div>
+            <div class="poem-label">{_("quote_title")}</div>
+            <div class="poem-text">{poem["text"]}</div>
+            <div class="poem-author">\u2014 {poem["author"]}</div>
         </div>
     </div>
-    <div class="poem-footer">세월은간다 · 수험생 여러분을 응원합니다</div>
+    <div class="poem-footer">{_("quote_footer")}</div>
+</div>
+""", unsafe_allow_html=True)
+
+
+# ══════════════════════════════════════════════
+#  TAB 2 — Pricing
+# ══════════════════════════════════════════════
+with tab2:
+    st.markdown(f"""
+<div style="text-align:center; padding:2rem 0 1.5rem;">
+    <h2 style="font-family:'Nanum Myeongjo',serif; font-size:1.8rem; color:#FFFFFF; margin-bottom:0.4rem;">{_("pricing_title")}</h2>
+    <p style="color:#6E6E7A; font-size:0.95rem;">Seworeunganda \u00b7 GPT-4o YouTube Analyzer</p>
+</div>
+""", unsafe_allow_html=True)
+
+    # Free
+    st.markdown(f"""
+<div class="pricing-card">
+    <div class="pricing-title">{_("pricing_free_title")}</div>
+    <div class="pricing-price">{_("pricing_free_price")}</div>
+    <div class="pricing-desc">{_("pricing_free_desc")}</div>
+    <ul style="list-style:none; padding:0; margin:0 0 1.8rem; color:#A0A0A9; font-size:0.95rem; text-align:left;">
+        <li style="padding:0.4rem 0; border-bottom:1px solid #32323D;">\u2713 &nbsp; 3 AI summaries per day</li>
+        <li style="padding:0.4rem 0; border-bottom:1px solid #32323D;">\u2713 &nbsp; Core Concept Extraction</li>
+        <li style="padding:0.4rem 0; color:#4F4F5C;">\u2717 &nbsp; Quiz Feature</li>
+        <li style="padding:0.4rem 0; color:#4F4F5C;">\u2717 &nbsp; Unlimited Usage</li>
+    </ul>
+    <span style="display:block; background:#2A2A33; color:#6E6E7A;
+        border:1px solid #4F4F5C; border-radius:50px; padding:0.75rem;
+        font-weight:600; font-size:0.95rem;">Current Plan</span>
+</div>
+""", unsafe_allow_html=True)
+
+    # Monthly
+    st.markdown(f"""
+<div class="pricing-card">
+    <div class="pricing-title">{_("pricing_monthly_title")}</div>
+    <div class="pricing-price">{_("pricing_monthly_price")}</div>
+    <div class="pricing-desc">{_("pricing_monthly_desc")}</div>
+    <ul style="list-style:none; padding:0; margin:0 0 1.8rem; color:#C0C0C8; font-size:0.95rem; text-align:left;">
+        <li style="padding:0.4rem 0; border-bottom:1px solid #32323D;">\u2713 &nbsp; Unlimited AI summaries</li>
+        <li style="padding:0.4rem 0; border-bottom:1px solid #32323D;">\u2713 &nbsp; Core Concept Extraction</li>
+        <li style="padding:0.4rem 0; border-bottom:1px solid #32323D;">\u2713 &nbsp; Quiz Feature</li>
+        <li style="padding:0.4rem 0; color:#4F4F5C;">\u2717 &nbsp; Best price (save 40%)</li>
+    </ul>
+    <a href="https://stripe.com/" style="display:block; background:#2A2A33; color:#FFFFFF;
+        border:1px solid #B19B72; border-radius:50px; padding:0.75rem;
+        text-decoration:none; font-weight:600; font-size:0.95rem; text-align:center;">
+        {_("btn_upgrade_now")}
+    </a>
+</div>
+""", unsafe_allow_html=True)
+
+    # Yearly — Best Value
+    st.markdown(f"""
+<div class="pricing-card best-value">
+    <div class="pricing-badge">\u2b50 {_("pricing_best_value")} \u2014 40% OFF</div>
+    <div class="pricing-title">{_("pricing_yearly_title")}</div>
+    <div class="pricing-price">{_("pricing_yearly_price")}</div>
+    <div class="pricing-desc" style="color:#B19B72; font-weight:600;">{_("pricing_yearly_desc")}</div>
+    <ul style="list-style:none; padding:0; margin:0 0 1.8rem; color:#C0C0C8; font-size:0.95rem; text-align:left;">
+        <li style="padding:0.4rem 0; border-bottom:1px solid #3B3B46;">\u2713 &nbsp; Unlimited AI summaries</li>
+        <li style="padding:0.4rem 0; border-bottom:1px solid #3B3B46;">\u2713 &nbsp; Core Concept Extraction</li>
+        <li style="padding:0.4rem 0; border-bottom:1px solid #3B3B46;">\u2713 &nbsp; Quiz Feature</li>
+        <li style="padding:0.4rem 0; color:#B19B72; font-weight:600;">\u2713 &nbsp; Save 40% vs monthly</li>
+    </ul>
+    <a href="https://stripe.com/" style="display:block;
+        background:linear-gradient(90deg, #D4AF37, #B19B72); color:#0F0F13;
+        border:none; border-radius:50px; padding:0.75rem;
+        text-decoration:none; font-weight:800; font-size:0.95rem; text-align:center;
+        box-shadow:0 6px 20px rgba(177,155,114,0.4);">
+        {_("btn_upgrade_now")}
+    </a>
+</div>
+""", unsafe_allow_html=True)
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────
+#  Terms of Service & Footer
+# ─────────────────────────────────────────────
+st.markdown("<br><br>", unsafe_allow_html=True)
+
+with st.expander(_("tos_title")):
+    st.markdown(_("tos_content"))
+
+st.markdown("""
+<div style="text-align:center; padding-top:2rem; padding-bottom:2rem; color:#6E6E7A;
+    font-size:0.85rem; letter-spacing:0.05em; font-family:'Noto Serif KR',serif;
+    border-top:1px solid #23232A; margin-top:1rem;">
+    \u00a9 2026 Seworeunganda. All rights reserved.
 </div>
 """, unsafe_allow_html=True)
