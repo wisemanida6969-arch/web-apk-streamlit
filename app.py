@@ -400,7 +400,7 @@ with tab1:
     url_input = st.text_input(_("input_url_label"), placeholder="YouTube URL...")
     analyze_btn = st.button(_("btn_start_analysis"), use_container_width=True)
 
-    @st.experimental_dialog("Upgrade to Pro")
+    @st.dialog("Upgrade to Pro")
     def show_paywall():
         st.warning("Daily Limit Reached (3/3)")
         st.link_button("Upgrade Now", "https://stripe.com/", use_container_width=True)
