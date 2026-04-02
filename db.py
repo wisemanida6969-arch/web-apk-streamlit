@@ -32,6 +32,13 @@ def _get_connection():
             PRIMARY KEY (user_id, usage_date)
         )
     ''')
+    # 추가: 글로벌 일일 예산 관리 테이블
+    conn.execute('''
+        CREATE TABLE IF NOT EXISTS global_budget (
+            budget_date DATE PRIMARY KEY,
+            total_cost_usd REAL DEFAULT 0.0
+        )
+    ''')
     conn.commit()
     return conn
 
@@ -133,3 +140,36 @@ def increment_daily_usage(user_id: str):
         conn.close()
     except Exception as e:
         print(f"DB Write Error: {e}")
+
+
+def get_global_daily_cost() -> float:
+    """오늘 전체 사용자의 누적 API 비용($)을 반환합니다."""
+    try:
+        conn = _get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT total_cost_usd FROM global_budget 
+            WHERE budget_date = DATE('now')
+        ''', )
+        row = cursor.fetchone()
+        conn.close()
+        return row[0] if row else 0.0
+    except Exception as e:
+        print(f"Global Cost Read Error: {e}")
+        return 0.0
+
+
+def add_global_cost(amount: float):
+    """오늘 전체 누적 API 비용에 금액을 합산합니다."""
+    try:
+        conn = _get_connection()
+        conn.execute('''
+            INSERT INTO global_budget (budget_date, total_cost_usd)
+            VALUES (DATE('now'), ?)
+            ON CONFLICT(budget_date) DO UPDATE SET
+                total_cost_usd = total_cost_usd + excluded.total_cost_usd
+        ''', (amount,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Global Cost Write Error: {e}")
