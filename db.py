@@ -1,6 +1,6 @@
 """
-db.py — SQLite 캐시 레이어
-사용자가 아무런 설정 없이 곧바로 DB 기능을 사용할 수 있도록 내장 SQLite를 사용합니다.
+db.py — SQLite Cache Layer
+Uses built-in SQLite for instant database functionality without external setup.
 """
 
 import sqlite3
@@ -11,9 +11,9 @@ DB_PATH = "youtube_cache.db"
 
 
 def _get_connection():
-    """DB 연결 객체를 반환하며, 테이블이 없으면 생성합니다."""
+    """Returns a DB connection object and creates tables if they don't exist."""
     conn = sqlite3.connect(DB_PATH)
-    # 테이블이 없으면 생성
+    # Create main cache table
     conn.execute('''
         CREATE TABLE IF NOT EXISTS youtube_cache (
             video_id TEXT PRIMARY KEY,
@@ -24,6 +24,7 @@ def _get_connection():
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
+    # Create user usage tracking table
     conn.execute('''
         CREATE TABLE IF NOT EXISTS user_usage (
             user_id TEXT,
@@ -32,7 +33,7 @@ def _get_connection():
             PRIMARY KEY (user_id, usage_date)
         )
     ''')
-    # 추가: 글로벌 일일 예산 관리 테이블
+    # Create global daily budget tracking table
     conn.execute('''
         CREATE TABLE IF NOT EXISTS global_budget (
             budget_date DATE PRIMARY KEY,
@@ -44,9 +45,7 @@ def _get_connection():
 
 
 def get_cached(video_id: str) -> dict | None:
-    """
-    video_id로 캐시된 분석 결과를 조회합니다.
-    """
+    """Retrieves cached analysis results for a given video_id."""
     try:
         conn = _get_connection()
         cursor = conn.cursor()
@@ -79,14 +78,11 @@ def save_to_cache(
     total_entries: int,
     duration: str,
 ) -> bool:
-    """
-    분석 결과를 DB에 저장합니다. (이미 존재하면 덮어쓰기)
-    """
+    """Saves analysis results to the database (Upsert)."""
     try:
         conn = _get_connection()
         concepts_str = json.dumps(concepts, ensure_ascii=False)
         
-        # SQLite Upsert 구문 (video_id 일치 시 업데이트)
         conn.execute('''
             INSERT INTO youtube_cache (video_id, concepts, timed_text, total_entries, duration)
             VALUES (?, ?, ?, ?, ?)
@@ -107,11 +103,12 @@ def save_to_cache(
 
 
 def is_db_connected() -> bool:
-    """내장 시스템이므로 무조건 True입니다."""
+    """Always returns True for SQLite."""
     return True
 
 
 def get_daily_usage(user_id: str) -> int:
+    """Returns today's usage count for a specific user."""
     try:
         conn = _get_connection()
         cursor = conn.cursor()
@@ -128,6 +125,7 @@ def get_daily_usage(user_id: str) -> int:
 
 
 def increment_daily_usage(user_id: str):
+    """Increments today's usage count for a specific user."""
     try:
         conn = _get_connection()
         conn.execute('''
@@ -143,7 +141,7 @@ def increment_daily_usage(user_id: str):
 
 
 def get_global_daily_cost() -> float:
-    """오늘 전체 사용자의 누적 API 비용($)을 반환합니다."""
+    """Returns today's total global API cost in USD."""
     try:
         conn = _get_connection()
         cursor = conn.cursor()
@@ -160,7 +158,7 @@ def get_global_daily_cost() -> float:
 
 
 def add_global_cost(amount: float):
-    """오늘 전체 누적 API 비용에 금액을 합산합니다."""
+    """Adds a cost amount to today's global total."""
     try:
         conn = _get_connection()
         conn.execute('''

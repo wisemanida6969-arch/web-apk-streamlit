@@ -1,5 +1,5 @@
 {
-  "page_title": "Seworeunganda — YouTube Core Concept Analyzer",
+  "page_title": "YouTube Core Concept Analyzer",
   "app_title": "📜 YouTube Core Concept Analyzer",
   "app_desc": "Analyze video transcripts with AI to extract 3 core concepts and timestamps",
   "sidebar_status_title": "SERVICE STATUS",
@@ -32,9 +32,9 @@
   "expander_full_transcript": "📄 View Full Transcript",
   "label_raw_transcript": "Raw Transcript (with timestamps)",
   "quote_title": "Quote of the Day",
-  "quote_footer": "Seworeunganda · Cheering for your success",
+  "quote_footer": "Cheering for your success",
   "tos_title": "📝 Terms of Service",
-  "tos_content": "**Article 1 (Purpose)**\nThe purpose of these Terms of Service is to define the terms and conditions regarding the video analysis and summarization services provided by 'Seworeunganda' (hereinafter \"the Service\").\n\n**Article 2 (Copyright and Prohibition of Unauthorized Use)**\n- **The copyright of the summarization logic and interface provided in this service belongs to 'Seworeunganda', and unauthorized reproduction is prohibited.**\n- Stealing or commercially reusing any or all of the Service's design (UI/UX), logic, or source code without prior written consent may result in legal sanctions.\n\n**Article 3 (Service Liability and Disclaimer)**\n- This Service utilizes AI to provide results and does not guarantee the completeness or accuracy of the summaries produced.\n- The provider of the Service bears no legal responsibility for any actions or decisions made by the user based on the generated information.",
+  "tos_content": "**Article 1 (Purpose)**\nThe purpose of these Terms of Service is to define the terms and conditions regarding the video analysis and summarization services provided by the Service.\n\n**Article 2 (Copyright and Prohibition of Unauthorized Use)**\n- **The copyright of the summarization logic and interface provided in this service belongs to the Provider, and unauthorized reproduction is prohibited.**\n- Stealing or commercially reusing any or all of the Service's design (UI/UX), logic, or source code without prior written consent may result in legal sanctions.\n\n**Article 3 (Service Liability and Disclaimer)**\n- This Service utilizes AI to provide results and does not guarantee the completeness or accuracy of the summaries produced.\n- The provider of the Service bears no legal responsibility for any actions or decisions made by the user based on the generated information.",
   "quotes": [
     {
         "text": "It does not matter how slowly you go\nas long as you do not stop.",
@@ -68,13 +68,13 @@
   "pricing_title": "Choose your plan",
   "pricing_free_title": "Free",
   "pricing_free_price": "$0<span class='price-mo'>/mo</span>",
-  "pricing_free_desc": "Daily 3 summaries.",
+  "pricing_free_desc": "15 mins / day",
   "pricing_monthly_title": "Monthly",
-  "pricing_monthly_price": "$9.99<span class='price-mo'>/mo</span>",
-  "pricing_monthly_desc": "Unlimited summaries & Quiz.",
+  "pricing_monthly_price": "$14.99<span class='price-mo'>/mo</span>",
+  "pricing_monthly_desc": "1,000 mins / month",
   "pricing_yearly_title": "Yearly",
-  "pricing_yearly_price": "$71.99<span class='price-mo'>/yr</span>",
-  "pricing_yearly_desc": "40% OFF compared to monthly.",
+  "pricing_yearly_price": "$99<span class='price-mo'>/yr</span>",
+  "pricing_yearly_desc": "Best Value",
   "pricing_best_value": "BEST VALUE",
   "btn_upgrade_now": "Upgrade Now"
 }

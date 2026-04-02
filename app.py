@@ -59,7 +59,7 @@ st.set_page_config(
 )
 
 # ─────────────────────────────────────────────
-#  Session state 초기화 & Supabase Auth 로직
+#  Session State Initialization & Supabase Auth
 # ─────────────────────────────────────────────
 if "analysis_results" not in st.session_state:
     st.session_state.analysis_results = None
@@ -79,7 +79,7 @@ supabase = None
 if supabase_url and supabase_key:
     supabase = create_client(supabase_url, supabase_key)
 
-    # OAuth Callback 가로채기
+    # Intercept OAuth Callback
     if "code" in st.query_params:
         try:
             res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
@@ -90,6 +90,7 @@ if supabase_url and supabase_key:
             st.query_params.clear()
             st.rerun()
 
+    # Check for existing session
     if not st.session_state.user:
         try:
             session = supabase.auth.get_session()
@@ -103,10 +104,10 @@ if supabase_url and supabase_key:
 # ─────────────────────────────────────────────
 st.markdown("""
 <style>
-@import url('https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Serif+KR:wght@300;400;500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
 html, body, [class*="css"] {
-    font-family: 'Noto Serif KR', 'Nanum Myeongjo', serif;
+    font-family: 'Outfit', sans-serif;
     color: #E2E2E2;
 }
 
@@ -125,7 +126,7 @@ html, body, [class*="css"] {
     margin-bottom: 2rem;
 }
 .hero-brand {
-    font-family: 'Nanum Myeongjo', serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 0.82rem;
     font-weight: 700;
     letter-spacing: 0.28em;
@@ -134,7 +135,7 @@ html, body, [class*="css"] {
     margin-bottom: 0.7rem;
 }
 .hero-header h1 {
-    font-family: 'Nanum Myeongjo', serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 2.2rem;
     font-weight: 800;
     color: #FFFFFF;
@@ -180,7 +181,7 @@ html, body, [class*="css"] {
     margin-bottom: 0.35rem;
 }
 .concept-title {
-    font-family: 'Nanum Myeongjo', serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 1.13rem;
     font-weight: 700;
     color: #FFFFFF;
@@ -223,7 +224,7 @@ html, body, [class*="css"] {
     white-space: nowrap;
 }
 .pricing-title {
-    font-family: 'Nanum Myeongjo', serif;
+    font-family: 'Outfit', sans-serif;
     font-size: 1.4rem;
     font-weight: 700;
     color: #FFFFFF;
@@ -294,14 +295,8 @@ html, body, [class*="css"] {
 api_key = st.secrets.get("OPENAI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
 
 with st.sidebar:
-    language = st.selectbox(
-        "Language", ["en", "ko", "es"],
-        index=["en", "ko", "es"].index(st.session_state.locale),
-        format_func=lambda x: {"en": "English", "ko": "한국어", "es": "Español"}[x]
-    )
-    if language != st.session_state.locale:
-        st.session_state.locale = language
-        st.rerun()
+    # Ensure default locale is English
+    st.session_state.locale = "en"
     
     st.markdown("---")
     if api_key:
@@ -379,7 +374,6 @@ def render_youtube_player(video_id: str, start_time: int):
 # ─────────────────────────────────────────────
 st.markdown(f"""
 <div class="hero-header">
-    <div class="hero-brand">Seworeunganda</div>
     <h1>{_("app_title")}</h1>
     <p>{_("app_desc")}</p>
 </div>
@@ -472,7 +466,33 @@ with tab1:
             st.markdown(f"""<div class="poem-card"><div class="poem-text">{p['text']}</div><div style="color:#A0A0A9;">— {p['author']}</div></div>""", unsafe_allow_html=True)
 
 with tab2:
-    st.markdown('<div class="pricing-card"><h3>Free</h3><p>3 Summaries/Day</p></div>', unsafe_allow_html=True)
-    st.markdown('<div class="pricing-card best-value"><h3>Pro</h3><p>Unlimited</p></div>', unsafe_allow_html=True)
+    col_f, col_m, col_y = st.columns(3)
+    with col_f:
+        st.markdown(f"""
+            <div class="pricing-card">
+                <div class="pricing-title">{_("pricing_free_title")}</div>
+                <div class="pricing-price">{_("pricing_free_price")}</div>
+                <div class="pricing-desc">{_("pricing_free_desc")}</div>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_m:
+        st.markdown(f"""
+            <div class="pricing-card">
+                <div class="pricing-title">{_("pricing_monthly_title")}</div>
+                <div class="pricing-price">{_("pricing_monthly_price")}</div>
+                <div class="pricing-desc">{_("pricing_monthly_desc")}</div>
+                <button style="background:#B19B72; color:#0F0F13; border:none; border-radius:50px; padding:0.5rem 1rem; width:100%; font-weight:700; cursor:pointer;">{_("btn_upgrade_now")}</button>
+            </div>
+        """, unsafe_allow_html=True)
+    with col_y:
+        st.markdown(f"""
+            <div class="pricing-card best-value">
+                <div class="pricing-badge">{_("pricing_best_value")}</div>
+                <div class="pricing-title">{_("pricing_yearly_title")}</div>
+                <div class="pricing-price">{_("pricing_yearly_price")}</div>
+                <div class="pricing-desc">{_("pricing_yearly_desc")}</div>
+                <button style="background:#B19B72; color:#0F0F13; border:none; border-radius:50px; padding:0.5rem 1rem; width:100%; font-weight:700; cursor:pointer;">{_("btn_upgrade_now")}</button>
+            </div>
+        """, unsafe_allow_html=True)
 
-st.markdown("<p style='text-align:center; color:#6E6E7A; padding:2rem;'>© 2026 Seworeunganda</p>", unsafe_allow_html=True)
+st.markdown("<p style='text-align:center; color:#6E6E7A; padding:2rem;'>© 2026 YouTube Core Concept Analyzer</p>", unsafe_allow_html=True)
