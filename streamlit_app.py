@@ -98,23 +98,32 @@ if is_configured(supabase_url) and is_configured(supabase_key, "anon_public"):
     try:
         supabase = create_client(supabase_url, supabase_key)
 
-        # Intercept OAuth Callback
+        # Intercept OAuth Callback (Code Exchange)
         if "code" in st.query_params:
+            auth_code = st.query_params["code"]
             try:
-                res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
-                st.session_state.user = res.user
+                # Exchange the temporary code for a permanent session
+                res = supabase.auth.exchange_code_for_session({"auth_code": auth_code})
+                if res and res.user:
+                    st.session_state.user = res.user
+                    # Clear query params to prevent double-exchange attempts
+                    st.query_params.clear()
+                    st.rerun()
+                else:
+                    st.error("Auth Success but User Data Empty. Check Supabase User Management.")
             except Exception as e:
-                st.error(f"Auth Error: {e}")
-            finally:
-                st.query_params.clear()
-                st.rerun()
+                st.error(f"Handshake Failed: {e}")
+                # Don't clear params yet so user can see the error
+                if st.button("Retry Session Exchange"):
+                    st.rerun()
 
-        # Check for existing session
-        if not st.session_state.user:
+        # Check for existing session (Persistence)
+        if not st.session_state.get("user"):
             try:
-                session = supabase.auth.get_session()
-                if session:
-                    st.session_state.user = session.user
+                # This ensures the user stays logged in across browser refreshes if the cookie is set
+                user_res = supabase.auth.get_user()
+                if user_res and user_res.user:
+                    st.session_state.user = user_res.user
             except:
                 pass
     except Exception as e:
