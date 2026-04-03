@@ -71,11 +71,15 @@ if "selected_poem" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = None
 
-supabase_url = st.secrets.get("SUPABASE_URL", "")
-supabase_key = st.secrets.get("SUPABASE_ANON_KEY", "")
+supabase_url = (st.secrets.get("SUPABASE_URL", "")).strip()
+supabase_key = (st.secrets.get("SUPABASE_ANON_KEY", "")).strip()
 supabase = None
 
-if supabase_url and "your-project-id" not in supabase_url and supabase_key:
+# Validation helper
+def is_configured(val, placeholder="your-project-id"):
+    return bool(val) and placeholder not in val and "여기에" not in val
+
+if is_configured(supabase_url) and is_configured(supabase_key, "anon_public"):
     try:
         supabase = create_client(supabase_url, supabase_key)
 
@@ -101,7 +105,7 @@ if supabase_url and "your-project-id" not in supabase_url and supabase_key:
     except Exception as e:
         st.warning(f"Supabase Connection Failed: {e}")
 else:
-    st.info("Supabase is not configured. Some features like login and global cache will be limited.")
+    supabase = None
 
 # ─────────────────────────────────────────────
 #  Custom CSS
@@ -299,10 +303,23 @@ html, body, [class*="css"] {
 api_key = st.secrets.get("OPENAI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
 
 with st.sidebar:
-    # Locale is now forced at the top
+    st.markdown(f"### ⚙️ {_('sidebar_settings')}")
     
+    # System Diagnostics (Developer View)
+    with st.expander("🔍 System Status", expanded=not is_configured(api_key, "실제_키")):
+        st.write("Check if your environment variables are correctly loaded from Railway/Secrets.")
+        
+        status_openai = "✅" if is_configured(api_key, "실제_키") else "❌"
+        status_supabase = "✅" if supabase else "❌"
+        
+        st.markdown(f"**OpenAI API:** {status_openai}")
+        st.markdown(f"**Supabase Auth:** {status_supabase}")
+        
+        if not is_configured(api_key, "실제_키") or not supabase:
+            st.info("To enable all features, add your API keys to Railway Variables.")
+
     st.markdown("---")
-    if api_key:
+    if is_configured(api_key, "실제_키"):
         st.success(_("sidebar_service_active"))
     else:
         st.error(_("sidebar_key_err"))
@@ -423,19 +440,37 @@ try:
             st.link_button("Upgrade Now", "https://stripe.com/", use_container_width=True)
 
         if analyze_btn:
-            if not st.session_state.user: st.error("Login required"); st.stop()
+            # Check OpenAI Key first
+            if not is_configured(api_key, "실제_키"):
+                st.error("OpenAI API Key is missing or invalid. Please set it in Railway Variables.")
+                st.stop()
+
+            # Optional Login: If Supabase is configured, require login. Otherwise, use Guest Mode (SQLite).
+            if supabase and not st.session_state.user:
+                st.error("Login required to use cloud features."); st.stop()
+            
             vid = extract_video_id(url_input)
             if not vid: st.error("Invalid URL"); st.stop()
             
-            is_admin = (st.session_state.user.email == ADMIN_EMAIL)
+            is_admin = (st.session_state.user.email == ADMIN_EMAIL) if st.session_state.user else False
             cached = None
             if supabase:
-                res_c = supabase.table("video_summaries").select("*").eq("video_id", vid).maybe_single().execute()
-                cached = res_c.data
+                try:
+                    res_c = supabase.table("video_summaries").select("*").eq("video_id", vid).maybe_single().execute()
+                    cached = res_c.data
+                except: pass
+            
+            # If not in cloud cache, check local cache (SQLite)
+            if not cached:
+                cached_local = get_cached(vid)
+                if cached_local:
+                    cached = cached_local
+                    st.info("Loaded from Local Cache")
             
             if not cached and not is_admin:
                 if get_global_daily_cost() >= DAILY_BUDGET_LIMIT: st.error("Budget exceeded"); st.stop()
-                if get_daily_usage(st.session_state.user.id) >= 3: show_paywall(); st.stop()
+                current_usage = get_daily_usage(st.session_state.user.id if st.session_state.user else "guest")
+                if current_usage >= 3: show_paywall(); st.stop()
 
             if cached:
                 st.success("Loaded from Global Cache")
@@ -450,8 +485,19 @@ try:
                         "timed_text": timed_text, "total_entries": len(transcript), "duration": seconds_to_mmss(transcript[-1]["start"])
                     }
                     add_global_cost(COST_PER_SUMMARY)
-                    increment_daily_usage(st.session_state.user.id)
-                    if supabase: supabase.table("video_summaries").upsert(res_data).execute()
+                    increment_daily_usage(st.session_state.user.id if st.session_state.user else "guest")
+                    
+                    # Save to Cloud if available
+                    if supabase:
+                        try:
+                            supabase.table("video_summaries").upsert(res_data).execute()
+                        except: pass
+                    
+                    # ALWAYS save to Local Cache (SQLite) for fallback
+                    save_to_cache(
+                        vid, res_data["concepts"], res_data["timed_text"], 
+                        res_data["total_entries"], res_data["duration"]
+                    )
             
             st.session_state.analysis_results = res_data
             st.session_state.player_video_id = vid
