@@ -18,24 +18,19 @@ def get_supabase_client():
     """Robust Supabase client loader for Railway environment."""
     try:
         from supabase import create_client
-        # 1. Check OS Environment Variables (Railway Priority)
         url = os.environ.get("SUPABASE_URL")
         key = os.environ.get("SUPABASE_ANON_KEY")
         
-        # 2. Fallback to st.secrets only if OS env is empty AND secrets exist
         if not url or not key:
             try:
                 if hasattr(st, "secrets"):
                     url = url or st.secrets.get("SUPABASE_URL")
                     key = key or st.secrets.get("SUPABASE_ANON_KEY")
-            except:
-                pass
+            except: pass
         
         if url and key and "your-project" not in url:
             return create_client(url, key)
-    except Exception as e:
-        # Don't crash the app, just log internal
-        pass
+    except: pass
     return None
 
 def get_openai_client():
@@ -43,16 +38,12 @@ def get_openai_client():
     try:
         from openai import OpenAI
         key = os.environ.get("OPENAI_API_KEY")
-        if not key:
-            try:
-                if hasattr(st, "secrets"):
-                    key = st.secrets.get("OPENAI_API_KEY")
+        if not key and hasattr(st, "secrets"):
+            try: key = st.secrets.get("OPENAI_API_KEY")
             except: pass
-            
         if key and "실제_키" not in key:
             return OpenAI(api_key=key)
-    except:
-        pass
+    except: pass
     return None
 
 # ─────────────────────────────────────────────
@@ -64,11 +55,8 @@ st.set_page_config(
     layout="wide",
 )
 
-# ── UI Header ──
-st.warning("⚠️ GLOBAL STABLE (v3.1) - Production Live")
-st.markdown('<div style="text-align:center; padding:2rem 0; border-bottom:1px solid #23232A; margin-bottom:2rem;">'
-            '<h1 style="font-size:2.2rem; color:white; margin-bottom:0.5rem;">YouTube Core Concept Analyzer</h1>'
-            '<p style="color:#A0A0A9;">Global Edition • Professional Insight Engine</p></div>', unsafe_allow_html=True)
+# ───── DEBUG MODE (Subtle) ─────
+DEBUG = "debug" in st.query_params
 
 # ── Force Session State ──
 if "user" not in st.session_state: st.session_state.user = None
@@ -77,22 +65,28 @@ if "player_video_id" not in st.session_state: st.session_state.player_video_id =
 if "selected_ts" not in st.session_state: st.session_state.selected_ts = 0
 
 # ─────────────────────────────────────────────
-#  Logic Section
+#  Logic Section: OAuth Callback Handling
 # ─────────────────────────────────────────────
 supabase = get_supabase_client()
 
 if supabase:
-    # Handle Callback
+    # 1. URL Callback Handling (?code=...)
     if "code" in st.query_params:
+        auth_code = st.query_params["code"]
         try:
-            res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
+            res = supabase.auth.exchange_code_for_session({"auth_code": auth_code})
             if res and res.user:
                 st.session_state.user = res.user
+                # Clean up URL params and refresh
                 st.query_params.clear()
                 st.rerun()
-        except: pass
+            else:
+                st.error("Auth exchange failed: No user found in response.")
+        except Exception as e:
+            st.error(f"Authentication Error: {e}")
+            if DEBUG: st.write(f"Raw Code: {auth_code}")
 
-    # Restore Session
+    # 2. Persistence Check
     if not st.session_state.user:
         try:
             user_res = supabase.auth.get_user()
@@ -100,25 +94,42 @@ if supabase:
                 st.session_state.user = user_res.user
         except: pass
 
+# ── UI Header ──
+st.warning("⚠️ GLOBAL VERSION (v3.2) - LOGIN OPTIMIZED")
+st.markdown('<div style="text-align:center; padding:1.5rem 0; border-bottom:1px solid #23232A; margin-bottom:2rem;">'
+            '<h1 style="font-size:2rem; color:white; margin-bottom:0.4rem;">YouTube Core Concept Analyzer</h1>'
+            '<p style="color:#A0A0A9;">Global Edition • Specialized AI Insight</p></div>', unsafe_allow_html=True)
+
 # ─────────────────────────────────────────────
-#  Authentication Section
+#  Authentication UI
 # ─────────────────────────────────────────────
-st.markdown('<div style="background:rgba(26,26,33,0.6); padding:2rem; border-radius:20px; border:1px solid #32323D; text-align:center; margin-bottom:1.5rem;">', unsafe_allow_html=True)
+st.markdown('<div style="background:rgba(26,26,33,0.5); padding:2rem; border-radius:16px; border:1px solid #32323D; text-align:center; margin-bottom:2rem;">', unsafe_allow_html=True)
 
 if not st.session_state.user:
     if supabase:
         try:
-            redirect_url = os.environ.get("REDIRECT_URL") or "https://trytimeback.com"
-            res = supabase.auth.sign_in_with_oauth({"provider": "google", "options": {"redirect_to": redirect_url}})
-            st.link_button("🌐 Sign in with Google", res.url, use_container_width=True)
-            st.markdown("<small style='color:#6E6E7A;'>Access full features and daily summaries with a Google account.</small>", unsafe_allow_html=True)
+            # ── REDIRECT LOGIC v3.2: Use base URL without trailing slash for Google compatibility ──
+            base_url = os.environ.get("REDIRECT_URL") or "https://trytimeback.com"
+            base_url = base_url.rstrip("/") 
+            
+            res = supabase.auth.sign_in_with_oauth({
+                "provider": "google",
+                "options": {
+                    "redirect_to": base_url,
+                    "skip_browser_redirect": False
+                }
+            })
+            if res and hasattr(res, 'url'):
+                st.link_button("🌐 Sign in with Google", res.url, use_container_width=True)
+                st.markdown("<small style='color:#6E6E7A;'>Access full features and daily summaries with your Google account.</small>", unsafe_allow_html=True)
+            else:
+                st.error("Could not generate Login URL. Please check Supabase Auth settings.")
         except Exception as e:
-            st.error(f"OAuth initialization failed: {e}")
+            st.error(f"OAuth Initialization Error: {e}")
     else:
-        st.error("🔑 API Keys Missing: Please set UPABASE_URL and SUPABASE_ANON_KEY in Railway Variables.")
-        st.info("The application requires a database connection to enable Google Login.")
+        st.error("🔑 Database configuration missing. Please ensure SUPABASE_URL is set.")
 else:
-    st.markdown(f"<center><span style='font-size:1.1rem;'>👤 Logged in as: <b>{st.session_state.user.email}</b></span></center>", unsafe_allow_html=True)
+    st.markdown(f"👤 Logged in as: **{st.session_state.user.email}**", unsafe_allow_html=True)
     if st.button("Logout", use_container_width=True):
         if supabase: supabase.auth.sign_out()
         st.session_state.user = None
@@ -132,10 +143,10 @@ st.markdown('</div>', unsafe_allow_html=True)
 t1, t2 = st.tabs(["Analyze Video", "Pricing Plans"])
 
 with t1:
-    url = st.text_input("Enter YouTube Video URL", placeholder="https://www.youtube.com/watch?v=...")
+    url = st.text_input("YouTube Video URL", placeholder="https://www.youtube.com/watch?v=...")
     if st.button("Start Analysis →", use_container_width=True):
         if not url: st.error("Please enter a URL"); st.stop()
-        if not st.session_state.user: st.error("Please sign in to analyze videos."); st.stop()
+        if not st.session_state.user: st.error("Please sign in with Google first."); st.stop()
         
         vid_match = re.search(r"(?:v=|\/|be\/)([A-Za-z0-9_\-]{11})", url)
         vid = vid_match.group(1) if vid_match else None
@@ -144,7 +155,7 @@ with t1:
         client = get_openai_client()
         if not client: st.error("AI Service Unavailable (Missing API Key)"); st.stop()
         
-        with st.spinner("Analyzing..."):
+        with st.spinner("Extracting insights..."):
             try:
                 from youtube_transcript_api import YouTubeTranscriptApi
                 ytt = YouTubeTranscriptApi()
@@ -155,7 +166,7 @@ with t1:
                 
                 res_gpt = client.chat.completions.create(
                     model="gpt-4o",
-                    messages=[{"role": "system", "content": "Extract 3 core concepts in English. JSON format."}, {"role": "user", "content": text[:10000]}],
+                    messages=[{"role": "system", "content": "Extract 3 core concepts in English. Format: JSON."}, {"role": "user", "content": text[:10000]}],
                     response_format={"type": "json_object"}
                 )
                 gpt_data = json.loads(res_gpt.choices[0].message.content)
@@ -186,10 +197,10 @@ with t1:
             st.markdown(f'<iframe width="100%" height="380" src="{embed}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border-radius:12px;"></iframe>', unsafe_allow_html=True)
 
 with t2:
-    st.markdown("<center><h3>Pricing Plans</h3></center>", unsafe_allow_html=True)
+    st.markdown("<center><h3>Select Your Plan</h3></center>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
-    with c1: st.info("**Free**\n\n$0/mo")
+    with c1: st.info("**Basic**\n\n$0/mo")
     with c2: st.success("**Pro**\n\n$14.99/mo")
-    with c3: st.warning("**Yearly**\n\n$99/yr")
+    with c3: st.warning("**Scale**\n\n$99/yr")
 
-st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • Global v3.1 Stable</center>", unsafe_allow_html=True)
+st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • Optimized v3.2</center>", unsafe_allow_html=True)
