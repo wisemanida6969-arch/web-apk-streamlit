@@ -431,7 +431,7 @@ try:
     </div>
     """, unsafe_allow_html=True)
 
-    st.markdown('<div class="glass-card" style="text-align:center;">', unsafe_allow_html=True)
+    # Logged out state: Login Button
     if not st.session_state.user:
         if supabase:
             try:
@@ -441,21 +441,30 @@ try:
                     "provider": "google", 
                     "options": {"redirect_to": redirect_url}
                 })
-                st.link_button(f"🌐 {_('btn_login_google')}", res.url, use_container_width=True)
+                
+                if res and hasattr(res, 'url') and res.url:
+                    col1, col2, col3 = st.columns([1, 2, 1])
+                    with col1: st.write("")
+                    with col2:
+                        st.link_button(f"🌐 {_('btn_login_google')}", res.url, use_container_width=True)
+                    with col3: st.write("")
+                else:
+                    st.error("Failed to generate Google Login URL. Please check your Supabase Provider settings.")
             except Exception as e:
                 st.error(f"Login button error: {e}")
-                st.info("Please check if your Supabase URL and Key are correct in secrets.toml")
+                st.info("Check your Supabase/Google configuration in the dashboard.")
         else:
             st.warning("Login is disabled (Supabase not configured)")
+    
+    # Logged in state: User Info & Logout
     else:
-        col1, col2, col3 = st.columns([1,2,1])
+        col1, col2, col3 = st.columns([1, 2, 1])
         with col2:
-            st.markdown(f"<p>{st.session_state.user.email}</p>", unsafe_allow_html=True)
-            if st.button(_("btn_logout")):
+            st.markdown(f"<div style='text-align:center; margin-bottom:10px;'>👤 {st.session_state.user.email}</div>", unsafe_allow_html=True)
+            if st.button(_("btn_logout"), key="logout_btn_top", use_container_width=True):
                 supabase.auth.sign_out()
                 st.session_state.user = None
                 st.rerun()
-    st.markdown('</div>', unsafe_allow_html=True)
 
     tab1, tab2 = st.tabs([_("tab_home"), _("tab_pricing")])
 
