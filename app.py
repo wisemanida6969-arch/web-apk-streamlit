@@ -426,7 +426,7 @@ def render_youtube_player(video_id: str, start_time: int):
 try:
     st.markdown(f"""
     <div class="hero-header">
-        <h1>{_("app_title")}</h1>
+        <h1>{_("app_title")} (v2.0)</h1>
         <p>{_("app_desc")}</p>
     </div>
     """, unsafe_allow_html=True)
