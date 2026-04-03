@@ -603,3 +603,4 @@ except Exception as e:
             if k in st.session_state:
                 del st.session_state[k]
         st.rerun()
+# Triggering fresh build after SyntaxError fix
