@@ -436,7 +436,7 @@ try:
         if supabase:
             try:
                 # IMPORTANT: redirect_to must match your settings in Supabase dashboard
-                redirect_url = st.secrets.get("REDIRECT_URL", "https://trytimeback.com")
+                redirect_url = get_secret("REDIRECT_URL", "https://trytimeback.com")
                 res = supabase.auth.sign_in_with_oauth({
                     "provider": "google", 
                     "options": {"redirect_to": redirect_url}
