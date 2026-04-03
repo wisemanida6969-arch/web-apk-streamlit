@@ -76,5 +76,8 @@
   "pricing_yearly_price": "$99<span class='price-mo'>/yr</span>",
   "pricing_yearly_desc": "Best Value",
   "pricing_best_value": "BEST VALUE",
-  "btn_upgrade_now": "Upgrade Now"
+  "btn_upgrade_now": "Upgrade Now",
+  "err_unexpected": "An unexpected error occurred. Please try again.",
+  "btn_restart_app": "Reset & Restart Application",
+  "err_details": "Technical details: "
 }
