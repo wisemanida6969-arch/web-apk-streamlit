@@ -38,9 +38,8 @@ def load_locale(lang):
     except:
         return {}
 
-if "locale" not in st.session_state:
-    st.session_state.locale = "en"
-
+# Force English as the default and only language for this globalized version
+st.session_state.locale = "en"
 lang_data = load_locale(st.session_state.locale)
 
 def _(key, **kwargs):
@@ -76,28 +75,33 @@ supabase_url = st.secrets.get("SUPABASE_URL", "")
 supabase_key = st.secrets.get("SUPABASE_ANON_KEY", "")
 supabase = None
 
-if supabase_url and supabase_key:
-    supabase = create_client(supabase_url, supabase_key)
+if supabase_url and "your-project-id" not in supabase_url and supabase_key:
+    try:
+        supabase = create_client(supabase_url, supabase_key)
 
-    # Intercept OAuth Callback
-    if "code" in st.query_params:
-        try:
-            res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
-            st.session_state.user = res.user
-        except Exception as e:
-            st.error(f"Auth Error: {e}")
-        finally:
-            st.query_params.clear()
-            st.rerun()
+        # Intercept OAuth Callback
+        if "code" in st.query_params:
+            try:
+                res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
+                st.session_state.user = res.user
+            except Exception as e:
+                st.error(f"Auth Error: {e}")
+            finally:
+                st.query_params.clear()
+                st.rerun()
 
-    # Check for existing session
-    if not st.session_state.user:
-        try:
-            session = supabase.auth.get_session()
-            if session:
-                st.session_state.user = session.user
-        except:
-            pass
+        # Check for existing session
+        if not st.session_state.user:
+            try:
+                session = supabase.auth.get_session()
+                if session:
+                    st.session_state.user = session.user
+            except:
+                pass
+    except Exception as e:
+        st.warning(f"Supabase Connection Failed: {e}")
+else:
+    st.info("Supabase is not configured. Some features like login and global cache will be limited.")
 
 # ─────────────────────────────────────────────
 #  Custom CSS
@@ -295,8 +299,7 @@ html, body, [class*="css"] {
 api_key = st.secrets.get("OPENAI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
 
 with st.sidebar:
-    # Ensure default locale is English
-    st.session_state.locale = "en"
+    # Locale is now forced at the top
     
     st.markdown("---")
     if api_key:
@@ -372,127 +375,158 @@ def render_youtube_player(video_id: str, start_time: int):
 # ─────────────────────────────────────────────
 #  Main UI
 # ─────────────────────────────────────────────
-st.markdown(f"""
-<div class="hero-header">
-    <h1>{_("app_title")}</h1>
-    <p>{_("app_desc")}</p>
-</div>
-""", unsafe_allow_html=True)
+# ─────────────────────────────────────────────
+#  Main UI with Global Error Handler
+# ─────────────────────────────────────────────
+try:
+    st.markdown(f"""
+    <div class="hero-header">
+        <h1>{_("app_title")}</h1>
+        <p>{_("app_desc")}</p>
+    </div>
+    """, unsafe_allow_html=True)
 
-st.markdown('<div class="glass-card" style="text-align:center;">', unsafe_allow_html=True)
-if not st.session_state.user:
-    if supabase:
-        res = supabase.auth.sign_in_with_oauth({"provider": "google", "options": {"redirect_to": "https://trytimeback.com"}})
-        st.link_button(f"🌐 {_('btn_login_google')}", res.url, use_container_width=True)
-else:
-    col1, col2, col3 = st.columns([1,2,1])
-    with col2:
-        st.markdown(f"<p>{st.session_state.user.email}</p>", unsafe_allow_html=True)
-        if st.button(_("btn_logout")):
-            supabase.auth.sign_out()
-            st.session_state.user = None
-            st.rerun()
-st.markdown('</div>', unsafe_allow_html=True)
-
-tab1, tab2 = st.tabs([_("tab_home"), _("tab_pricing")])
-
-with tab1:
-    url_input = st.text_input(_("input_url_label"), placeholder="YouTube URL...")
-    analyze_btn = st.button(_("btn_start_analysis"), use_container_width=True)
-
-    @st.dialog("Upgrade to Pro")
-    def show_paywall():
-        st.warning("Daily Limit Reached (3/3)")
-        st.link_button("Upgrade Now", "https://stripe.com/", use_container_width=True)
-
-    if analyze_btn:
-        if not st.session_state.user: st.error("Login required"); st.stop()
-        vid = extract_video_id(url_input)
-        if not vid: st.error("Invalid URL"); st.stop()
-        
-        is_admin = (st.session_state.user.email == ADMIN_EMAIL)
-        cached = None
+    st.markdown('<div class="glass-card" style="text-align:center;">', unsafe_allow_html=True)
+    if not st.session_state.user:
         if supabase:
-            res_c = supabase.table("video_summaries").select("*").eq("video_id", vid).maybe_single().execute()
-            cached = res_c.data
-        
-        if not cached and not is_admin:
-            if get_global_daily_cost() >= DAILY_BUDGET_LIMIT: st.error("Budget exceeded"); st.stop()
-            if get_daily_usage(st.session_state.user.id) >= 3: show_paywall(); st.stop()
-
-        if cached:
-            st.success("Loaded from Global Cache")
-            res_data = cached
+            try:
+                # IMPORTANT: redirect_to must match your settings in Supabase dashboard
+                redirect_url = st.secrets.get("REDIRECT_URL", "https://trytimeback.com")
+                res = supabase.auth.sign_in_with_oauth({
+                    "provider": "google", 
+                    "options": {"redirect_to": redirect_url}
+                })
+                st.link_button(f"🌐 {_('btn_login_google')}", res.url, use_container_width=True)
+            except Exception as e:
+                st.error(f"Login button error: {e}")
+                st.info("Please check if your Supabase URL and Key are correct in secrets.toml")
         else:
-            with st.spinner("Analyzing..."):
-                transcript = get_transcript(vid)
-                timed_text = build_timed_text(transcript)
-                gpt_res = analyze_with_gpt(timed_text, api_key)
-                res_data = {
-                    "video_id": vid, "concepts": gpt_res["concepts"], "keywords": gpt_res["keywords"],
-                    "timed_text": timed_text, "total_entries": len(transcript), "duration": seconds_to_mmss(transcript[-1]["start"])
-                }
-                add_global_cost(COST_PER_SUMMARY)
-                increment_daily_usage(st.session_state.user.id)
-                if supabase: supabase.table("video_summaries").upsert(res_data).execute()
-        
-        st.session_state.analysis_results = res_data
-        st.session_state.player_video_id = vid
-        st.session_state.selected_ts = 0
-        quotes = lang_data.get("quotes", [])
-        st.session_state.selected_poem = random.choice(quotes) if quotes else None
+            st.warning("Login is disabled (Supabase not configured)")
+    else:
+        col1, col2, col3 = st.columns([1,2,1])
+        with col2:
+            st.markdown(f"<p>{st.session_state.user.email}</p>", unsafe_allow_html=True)
+            if st.button(_("btn_logout")):
+                supabase.auth.sign_out()
+                st.session_state.user = None
+                st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
 
-    if st.session_state.analysis_results:
-        r = st.session_state.analysis_results
-        col_l, col_r = st.columns(2)
-        with col_l:
-            for i, c in enumerate(r["concepts"]):
-                st.markdown(f"""<div class="concept-card"><div class="concept-number">CONCEPT {c['number']}</div><div class="concept-title">{c['title']}</div><div class="concept-summary">{c['summary']}</div></div>""", unsafe_allow_html=True)
-                if st.button(f"Play from {c['timestamp']}", key=f"p_{i}"):
-                    ts = c['timestamp'].split(':')
-                    st.session_state.selected_ts = int(ts[0])*60 + int(ts[1])
-                    st.rerun()
-        with col_r:
-            render_youtube_player(r["video_id"], st.session_state.selected_ts)
-        
-        questions = fetch_exam_questions(r["keywords"])
-        if questions:
-            st.markdown("### 📚 Related Exam Questions")
-            for q in questions:
-                st.markdown(f"""<div class="exam-card"><div class="exam-source-badge">{q['source']}</div><div>{q['question_text']}</div></div>""", unsafe_allow_html=True)
-        
-        if st.session_state.selected_poem:
-            p = st.session_state.selected_poem
-            st.markdown(f"""<div class="poem-card"><div class="poem-text">{p['text']}</div><div style="color:#A0A0A9;">— {p['author']}</div></div>""", unsafe_allow_html=True)
+    tab1, tab2 = st.tabs([_("tab_home"), _("tab_pricing")])
 
-with tab2:
-    col_f, col_m, col_y = st.columns(3)
-    with col_f:
-        st.markdown(f"""
-            <div class="pricing-card">
-                <div class="pricing-title">{_("pricing_free_title")}</div>
-                <div class="pricing-price">{_("pricing_free_price")}</div>
-                <div class="pricing-desc">{_("pricing_free_desc")}</div>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_m:
-        st.markdown(f"""
-            <div class="pricing-card">
-                <div class="pricing-title">{_("pricing_monthly_title")}</div>
-                <div class="pricing-price">{_("pricing_monthly_price")}</div>
-                <div class="pricing-desc">{_("pricing_monthly_desc")}</div>
-                <button style="background:#B19B72; color:#0F0F13; border:none; border-radius:50px; padding:0.5rem 1rem; width:100%; font-weight:700; cursor:pointer;">{_("btn_upgrade_now")}</button>
-            </div>
-        """, unsafe_allow_html=True)
-    with col_y:
-        st.markdown(f"""
-            <div class="pricing-card best-value">
-                <div class="pricing-badge">{_("pricing_best_value")}</div>
-                <div class="pricing-title">{_("pricing_yearly_title")}</div>
-                <div class="pricing-price">{_("pricing_yearly_price")}</div>
-                <div class="pricing-desc">{_("pricing_yearly_desc")}</div>
-                <button style="background:#B19B72; color:#0F0F13; border:none; border-radius:50px; padding:0.5rem 1rem; width:100%; font-weight:700; cursor:pointer;">{_("btn_upgrade_now")}</button>
-            </div>
-        """, unsafe_allow_html=True)
+    with tab1:
+        url_input = st.text_input(_("input_url_label"), placeholder="YouTube URL...")
+        analyze_btn = st.button(_("btn_start_analysis"), use_container_width=True)
 
-st.markdown("<p style='text-align:center; color:#6E6E7A; padding:2rem;'>© 2026 YouTube Core Concept Analyzer</p>", unsafe_allow_html=True)
+        @st.dialog("Upgrade to Pro")
+        def show_paywall():
+            st.warning("Daily Limit Reached (3/3)")
+            st.link_button("Upgrade Now", "https://stripe.com/", use_container_width=True)
+
+        if analyze_btn:
+            if not st.session_state.user: st.error("Login required"); st.stop()
+            vid = extract_video_id(url_input)
+            if not vid: st.error("Invalid URL"); st.stop()
+            
+            is_admin = (st.session_state.user.email == ADMIN_EMAIL)
+            cached = None
+            if supabase:
+                res_c = supabase.table("video_summaries").select("*").eq("video_id", vid).maybe_single().execute()
+                cached = res_c.data
+            
+            if not cached and not is_admin:
+                if get_global_daily_cost() >= DAILY_BUDGET_LIMIT: st.error("Budget exceeded"); st.stop()
+                if get_daily_usage(st.session_state.user.id) >= 3: show_paywall(); st.stop()
+
+            if cached:
+                st.success("Loaded from Global Cache")
+                res_data = cached
+            else:
+                with st.spinner("Analyzing..."):
+                    transcript = get_transcript(vid)
+                    timed_text = build_timed_text(transcript)
+                    gpt_res = analyze_with_gpt(timed_text, api_key)
+                    res_data = {
+                        "video_id": vid, "concepts": gpt_res["concepts"], "keywords": gpt_res["keywords"],
+                        "timed_text": timed_text, "total_entries": len(transcript), "duration": seconds_to_mmss(transcript[-1]["start"])
+                    }
+                    add_global_cost(COST_PER_SUMMARY)
+                    increment_daily_usage(st.session_state.user.id)
+                    if supabase: supabase.table("video_summaries").upsert(res_data).execute()
+            
+            st.session_state.analysis_results = res_data
+            st.session_state.player_video_id = vid
+            st.session_state.selected_ts = 0
+            quotes = lang_data.get("quotes", [])
+            st.session_state.selected_poem = random.choice(quotes) if quotes else None
+
+        if st.session_state.analysis_results:
+            r = st.session_state.analysis_results
+            col_l, col_r = st.columns(2)
+            with col_l:
+                for i, c in enumerate(r["concepts"]):
+                    st.markdown(f"""<div class="concept-card"><div class="concept-number">CONCEPT {c['number']}</div><div class="concept-title">{c['title']}</div><div class="concept-summary">{c['summary']}</div></div>""", unsafe_allow_html=True)
+                    if st.button(f"Play from {c['timestamp']}", key=f"p_{i}"):
+                        ts = c['timestamp'].split(':')
+                        st.session_state.selected_ts = int(ts[0])*60 + int(ts[1])
+                        st.rerun()
+            with col_r:
+                render_youtube_player(r["video_id"], st.session_state.selected_ts)
+            
+            questions = fetch_exam_questions(r["keywords"])
+            if questions:
+                st.markdown("### 📚 Related Exam Questions")
+                for q in questions:
+                    st.markdown(f"""<div class="exam-card"><div class="exam-source-badge">{q['source']}</div><div>{q['question_text']}</div></div>""", unsafe_allow_html=True)
+            
+            if st.session_state.selected_poem:
+                p = st.session_state.selected_poem
+                st.markdown(f"""<div class="poem-card"><div class="poem-text">{p['text']}</div><div style="color:#A0A0A9;">— {p['author']}</div></div>""", unsafe_allow_html=True)
+
+    with tab2:
+        col_f, col_m, col_y = st.columns(3)
+        with col_f:
+            st.markdown(f"""
+                <div class="pricing-card">
+                    <div class="pricing-title">{_("pricing_free_title")}</div>
+                    <div class="pricing-price">{_("pricing_free_price")}</div>
+                    <div class="pricing-desc">{_("pricing_free_desc")}</div>
+                </div>
+            """, unsafe_allow_html=True)
+        with col_m:
+            st.markdown(f"""
+                <div class="pricing-card">
+                    <div class="pricing-title">{_("pricing_monthly_title")}</div>
+                    <div class="pricing-price">{_("pricing_monthly_price")}</div>
+                    <div class="pricing-desc">{_("pricing_monthly_desc")}</div>
+                    <button style="background:#B19B72; color:#0F0F13; border:none; border-radius:50px; padding:0.5rem 1rem; width:100%; font-weight:700; cursor:pointer;">{_("btn_upgrade_now")}</button>
+                </div>
+            """, unsafe_allow_html=True)
+        with col_y:
+            st.markdown(f"""
+                <div class="pricing-card best-value">
+                    <div class="pricing-badge">{_("pricing_best_value")}</div>
+                    <div class="pricing-title">{_("pricing_yearly_title")}</div>
+                    <div class="pricing-price">{_("pricing_yearly_price")}</div>
+                    <div class="pricing-desc">{_("pricing_yearly_desc")}</div>
+                    <button style="background:#B19B72; color:#0F0F13; border:none; border-radius:50px; padding:0.5rem 1rem; width:100%; font-weight:700; cursor:pointer;">{_("btn_upgrade_now")}</button>
+                </div>
+            """, unsafe_allow_html=True)
+
+    st.markdown("<p style='text-align:center; color:#6E6E7A; padding:2rem;'>© 2026 YouTube Core Concept Analyzer</p>", unsafe_allow_html=True)
+
+except Exception as e:
+    st.markdown(f"""
+    <div class="glass-card" style="border-color: #ef4444; background: rgba(239, 68, 68, 0.05);">
+        <h2 style="color: #ef4444; margin-top: 0;">{_("err_unexpected")}</h2>
+        <p style="color: #A0A0A9;">{_("err_details")}<code>{str(e)}</code></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button(_("btn_restart_app")):
+        # Clear only relevant non-auth state to allow fresh start
+        keys_to_clear = ["analysis_results", "player_video_id", "selected_ts", "selected_poem"]
+        for k in keys_to_clear:
+            if k in st.session_state:
+                del st.session_state[k]
+        st.rerun()
