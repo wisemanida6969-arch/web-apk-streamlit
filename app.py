@@ -71,8 +71,23 @@ if "selected_poem" not in st.session_state:
 if "user" not in st.session_state:
     st.session_state.user = None
 
-supabase_url = (st.secrets.get("SUPABASE_URL", "")).strip()
-supabase_key = (st.secrets.get("SUPABASE_ANON_KEY", "")).strip()
+# Safe key retriever (works even if st.secrets file is missing)
+def get_secret(key, default=""):
+    try:
+        # Check environment first (most reliable on server)
+        env_val = os.environ.get(key)
+        if env_val: return env_val.strip()
+        # Check st.secrets only if it exists
+        if hasattr(st, "secrets") and key in st.secrets:
+            return str(st.secrets[key]).strip()
+    except:
+        pass
+    return default
+
+# Initialize Config
+supabase_url = get_secret("SUPABASE_URL")
+supabase_key = get_secret("SUPABASE_ANON_KEY")
+api_key = get_secret("OPENAI_API_KEY")
 supabase = None
 
 # Validation helper
@@ -300,7 +315,6 @@ html, body, [class*="css"] {
 # ─────────────────────────────────────────────
 #  Sidebar & Admin Dashboard
 # ─────────────────────────────────────────────
-api_key = st.secrets.get("OPENAI_API_KEY", "") or os.environ.get("OPENAI_API_KEY", "")
 
 with st.sidebar:
     st.markdown(f"### ⚙️ {_('sidebar_settings')}")
@@ -318,8 +332,10 @@ with st.sidebar:
 
         # Source detection
         def get_source(key_name):
-            if key_name in st.secrets: return "📁 (Secrets.toml)"
-            if os.getenv(key_name): return "🌐 (Environment Var)"
+            if os.environ.get(key_name): return "🌐 (Env Var)"
+            try:
+                if key_name in st.secrets: return "📁 (Secrets.toml)"
+            except: pass
             return ""
 
         st.markdown(f"**OpenAI API:** {mask_key(api_key)} {get_source('OPENAI_API_KEY')}")
