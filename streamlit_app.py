@@ -15,26 +15,22 @@ import json
 #  Lazy Loading & Connectivity Helpers
 # ─────────────────────────────────────────────
 def get_supabase_client():
-    """Robust Supabase client loader for Railway environment."""
     try:
         from supabase import create_client
         url = os.environ.get("SUPABASE_URL")
         key = os.environ.get("SUPABASE_ANON_KEY")
-        
         if not url or not key:
             try:
                 if hasattr(st, "secrets"):
                     url = url or st.secrets.get("SUPABASE_URL")
                     key = key or st.secrets.get("SUPABASE_ANON_KEY")
             except: pass
-        
         if url and key and "your-project" not in url:
             return create_client(url, key)
     except: pass
     return None
 
 def get_openai_client():
-    """Robust OpenAI client loader."""
     try:
         from openai import OpenAI
         key = os.environ.get("OPENAI_API_KEY")
@@ -55,9 +51,6 @@ st.set_page_config(
     layout="wide",
 )
 
-# ───── DEBUG MODE (Subtle) ─────
-DEBUG = "debug" in st.query_params
-
 # ── Force Session State ──
 if "user" not in st.session_state: st.session_state.user = None
 if "analysis_results" not in st.session_state: st.session_state.analysis_results = None
@@ -65,26 +58,26 @@ if "player_video_id" not in st.session_state: st.session_state.player_video_id =
 if "selected_ts" not in st.session_state: st.session_state.selected_ts = 0
 
 # ─────────────────────────────────────────────
-#  Logic Section: OAuth Callback Handling
+#  Logic Section: OAuth Callback Handling (Improved v3.2.1)
 # ─────────────────────────────────────────────
 supabase = get_supabase_client()
 
 if supabase:
-    # 1. URL Callback Handling (?code=...)
+    # 1. Capture code from URL
     if "code" in st.query_params:
-        auth_code = st.query_params["code"]
-        try:
-            res = supabase.auth.exchange_code_for_session({"auth_code": auth_code})
-            if res and res.user:
-                st.session_state.user = res.user
-                # Clean up URL params and refresh
-                st.query_params.clear()
-                st.rerun()
-            else:
-                st.error("Auth exchange failed: No user found in response.")
-        except Exception as e:
-            st.error(f"Authentication Error: {e}")
-            if DEBUG: st.write(f"Raw Code: {auth_code}")
+        with st.spinner("🔏 Verifying Google Session..."):
+            auth_code = st.query_params["code"]
+            try:
+                res = supabase.auth.exchange_code_for_session({"auth_code": auth_code})
+                if res and res.user:
+                    st.session_state.user = res.user
+                    st.query_params.clear()
+                    st.toast(f"Welcome back, {res.user.email}!", icon="👋")
+                    st.rerun()
+                else:
+                    st.error("Authentication failed: Code exchange did not return a user.")
+            except Exception as e:
+                st.error(f"Login failed: {e}")
 
     # 2. Persistence Check
     if not st.session_state.user:
@@ -95,10 +88,10 @@ if supabase:
         except: pass
 
 # ── UI Header ──
-st.warning("⚠️ GLOBAL VERSION (v3.2) - LOGIN OPTIMIZED")
+st.warning("⚠️ GLOBAL VERSION (v3.2.1) - LOGIN FEEDBACK ENABLED")
 st.markdown('<div style="text-align:center; padding:1.5rem 0; border-bottom:1px solid #23232A; margin-bottom:2rem;">'
             '<h1 style="font-size:2rem; color:white; margin-bottom:0.4rem;">YouTube Core Concept Analyzer</h1>'
-            '<p style="color:#A0A0A9;">Global Edition • Specialized AI Insight</p></div>', unsafe_allow_html=True)
+            '<p style="color:#B19B72; font-weight: 500;">Premium Insight Engine</p></div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
 #  Authentication UI
@@ -108,10 +101,8 @@ st.markdown('<div style="background:rgba(26,26,33,0.5); padding:2rem; border-rad
 if not st.session_state.user:
     if supabase:
         try:
-            # ── REDIRECT LOGIC v3.2: Use base URL without trailing slash for Google compatibility ──
-            base_url = os.environ.get("REDIRECT_URL") or "https://trytimeback.com"
-            base_url = base_url.rstrip("/") 
-            
+            # Base URL auto-detection fallback
+            base_url = "https://trytimeback.com"
             res = supabase.auth.sign_in_with_oauth({
                 "provider": "google",
                 "options": {
@@ -120,17 +111,17 @@ if not st.session_state.user:
                 }
             })
             if res and hasattr(res, 'url'):
-                st.link_button("🌐 Sign in with Google", res.url, use_container_width=True)
-                st.markdown("<small style='color:#6E6E7A;'>Access full features and daily summaries with your Google account.</small>", unsafe_allow_html=True)
+                st.link_button("🚀 Sign in with Google Account", res.url, use_container_width=True)
+                st.markdown("<small style='color:#A0A0A9;'>Access your custom dashboard and unlimited summaries.</small>", unsafe_allow_html=True)
             else:
-                st.error("Could not generate Login URL. Please check Supabase Auth settings.")
+                st.error("Initialization failed. Please refresh.")
         except Exception as e:
-            st.error(f"OAuth Initialization Error: {e}")
+            st.error(f"UI Error: {e}")
     else:
-        st.error("🔑 Database configuration missing. Please ensure SUPABASE_URL is set.")
+        st.error("🔑 API CONFIG MISSING. Sign-in disabled.")
 else:
-    st.markdown(f"👤 Logged in as: **{st.session_state.user.email}**", unsafe_allow_html=True)
-    if st.button("Logout", use_container_width=True):
+    st.markdown(f"👤 Account: **{st.session_state.user.email}**", unsafe_allow_html=True)
+    if st.button("Logout from System", use_container_width=True):
         if supabase: supabase.auth.sign_out()
         st.session_state.user = None
         st.rerun()
@@ -146,14 +137,14 @@ with t1:
     url = st.text_input("YouTube Video URL", placeholder="https://www.youtube.com/watch?v=...")
     if st.button("Start Analysis →", use_container_width=True):
         if not url: st.error("Please enter a URL"); st.stop()
-        if not st.session_state.user: st.error("Please sign in with Google first."); st.stop()
+        if not st.session_state.user: st.error("Please sign in to analyze."); st.stop()
         
         vid_match = re.search(r"(?:v=|\/|be\/)([A-Za-z0-9_\-]{11})", url)
         vid = vid_match.group(1) if vid_match else None
-        if not vid: st.error("Invalid YouTube URL"); st.stop()
+        if not vid: st.error("Invalid URL format"); st.stop()
         
         client = get_openai_client()
-        if not client: st.error("AI Service Unavailable (Missing API Key)"); st.stop()
+        if not client: st.error("AI Service Offline"); st.stop()
         
         with st.spinner("Extracting insights..."):
             try:
@@ -179,7 +170,7 @@ with t1:
                 except: pass
                 st.rerun()
             except Exception as e:
-                st.error(f"Analysis failed: {e}")
+                st.error(f"Processing Error: {e}")
 
     if st.session_state.analysis_results:
         r = st.session_state.analysis_results
@@ -197,10 +188,10 @@ with t1:
             st.markdown(f'<iframe width="100%" height="380" src="{embed}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border-radius:12px;"></iframe>', unsafe_allow_html=True)
 
 with t2:
-    st.markdown("<center><h3>Select Your Plan</h3></center>", unsafe_allow_html=True)
+    st.markdown("<center><h3>Plans & Billing</h3></center>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
-    with c1: st.info("**Basic**\n\n$0/mo")
-    with c2: st.success("**Pro**\n\n$14.99/mo")
-    with c3: st.warning("**Scale**\n\n$99/yr")
+    with c1: st.info("**Free Tier**\n\n$0/mo")
+    with c2: st.success("**Pro Tier**\n\n$14.99/mo")
+    with c3: st.warning("**Enterprise**\n\n$99/yr")
 
-st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • Optimized v3.2</center>", unsafe_allow_html=True)
+st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • v3.2.1 Stable Build</center>", unsafe_allow_html=True)
