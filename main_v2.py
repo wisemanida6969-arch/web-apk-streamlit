@@ -170,6 +170,7 @@ def analyze_with_gpt(text, key):
 #  Main UI
 # ─────────────────────────────────────────────
 try:
+    st.warning("⚠️ SYSTEM UPDATED (v2.1) - If you see this, the cache is cleared. No more proxy errors!")
     st.markdown('<div class="hero-header"><h1>YouTube Core Concept Analyzer (v2.1 - GLOBAL)</h1><p>Extract 3 core concepts and timestamps from any video transcript.</p></div>', unsafe_allow_html=True)
 
     # Auth Section
