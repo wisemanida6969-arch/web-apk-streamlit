@@ -306,20 +306,24 @@ with st.sidebar:
     st.markdown(f"### ⚙️ {_('sidebar_settings')}")
     
     # System Diagnostics (Developer View)
-    with st.expander("🔍 System Status", expanded=not is_configured(api_key, "실제_키")):
-        st.write("Check if your environment variables are correctly loaded from Railway/Secrets.")
+    with st.expander("🔍 System Status", expanded=True):
+        st.write("Checking if environment variables are loaded...")
         
-        status_openai = "✅" if is_configured(api_key, "실제_키") else "❌"
-        status_supabase = "✅" if supabase else "❌"
+        def mask_key(val):
+            if not val or len(val) < 8: return "❌ Missing"
+            if "your-project" in val or "실제_키" in val or "여기에" in val:
+                return "⚠️ Placeholder Detected"
+            return f"✅ {val[:4]}...{val[-4:]}"
+
+        st.markdown(f"**OpenAI API:** {mask_key(api_key)}")
+        st.markdown(f"**Supabase URL:** {mask_key(supabase_url)}")
+        st.markdown(f"**Supabase Anon:** {mask_key(supabase_key)}")
         
-        st.markdown(f"**OpenAI API:** {status_openai}")
-        st.markdown(f"**Supabase Auth:** {status_supabase}")
-        
-        if not is_configured(api_key, "실제_키") or not supabase:
-            st.info("To enable all features, add your API keys to Railway Variables.")
+        if st.button("🔄 Sync Check"):
+            st.rerun()
 
     st.markdown("---")
-    if is_configured(api_key, "실제_키"):
+    if is_configured(api_key, "실제_키") and supabase:
         st.success(_("sidebar_service_active"))
     else:
         st.error(_("sidebar_key_err"))
