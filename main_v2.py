@@ -13,6 +13,11 @@ except ImportError:
 from openai import OpenAI
 from supabase import create_client, Client
 
+# ── FIX: Purge proxy env vars to prevent 'unexpected keyword argument proxy' error ──
+for env_key in ["HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"]:
+    if env_key in os.environ:
+        del os.environ[env_key]
+
 from db import (
     get_cached, save_to_cache, is_db_connected, 
     get_daily_usage, increment_daily_usage,
