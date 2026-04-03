@@ -362,7 +362,8 @@ def build_timed_text(transcript) -> str:
     lines = []
     for e in transcript:
         ts = seconds_to_mmss(e["start"])
-        lines.append(f"[{ts}] {e['text'].replace('\n',' ')}")
+        clean_text = e['text'].replace('\n',' ')
+        lines.append(f"[{ts}] {clean_text}")
     return "\n".join(lines)
 
 def analyze_with_gpt(timed_text: str, api_key: str) -> dict:
