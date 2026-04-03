@@ -311,13 +311,20 @@ with st.sidebar:
         
         def mask_key(val):
             if not val or len(val) < 8: return "❌ Missing"
-            if "your-project" in val or "실제_키" in val or "여기에" in val:
-                return "⚠️ Placeholder Detected"
-            return f"✅ {val[:4]}...{val[-4:]}"
+            # Explicit check for placeholder text
+            if any(p in val for p in ["your-project-id", "실제_키", "여기에", "your-anon-key"]):
+                return "⚠️ Placeholder Detected (Check Secrets)"
+            return f"✅ {val[:6]}...{val[-4:]}"
 
-        st.markdown(f"**OpenAI API:** {mask_key(api_key)}")
-        st.markdown(f"**Supabase URL:** {mask_key(supabase_url)}")
-        st.markdown(f"**Supabase Anon:** {mask_key(supabase_key)}")
+        # Source detection
+        def get_source(key_name):
+            if key_name in st.secrets: return "📁 (Secrets.toml)"
+            if os.getenv(key_name): return "🌐 (Environment Var)"
+            return ""
+
+        st.markdown(f"**OpenAI API:** {mask_key(api_key)} {get_source('OPENAI_API_KEY')}")
+        st.markdown(f"**Supabase URL:** {mask_key(supabase_url)} {get_source('SUPABASE_URL')}")
+        st.markdown(f"**Supabase Anon:** {mask_key(supabase_key)} {get_source('SUPABASE_ANON_KEY')}")
         
         if st.button("🔄 Sync Check"):
             st.rerun()
