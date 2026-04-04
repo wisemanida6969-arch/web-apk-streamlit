@@ -358,6 +358,7 @@ st.markdown("""
         </p>
         <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
             GLOBAL STABLE v7.2.2 (SMART DOMAIN SYNC)
+            <br>Last Build: 2026-04-05 02:29 UTC
         </p>
     </div>
 </div>
