@@ -125,10 +125,15 @@ page = st.query_params.get("page", "home")
 #  Functional Logic Components
 # ─────────────────────────────────────────────
 def get_supabase():
+    if "supabase" in st.session_state:
+        return st.session_state.supabase
     try:
         from supabase import create_client
         u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
-        if u and k: return create_client(u, k)
+        if u and k:
+            client = create_client(u, k)
+            st.session_state.supabase = client
+            return client
     except: pass
     return None
 
@@ -139,7 +144,8 @@ def handle_oauth_callback():
         supabase = get_supabase()
         if supabase:
             try:
-                # Exchange code for session
+                # Use the persistent client to exchange code for session
+                # The code_verifier should be in the client's internal storage
                 res = supabase.auth.exchange_code_for_session({
                     "auth_code": code,
                 })
@@ -154,6 +160,9 @@ def handle_oauth_callback():
                     st.rerun()
             except Exception as e:
                 st.error(f"Session exchange failed: {e}")
+                if st.button("❌ Authentication Error: Try Again"):
+                    st.query_params.clear()
+                    st.rerun()
 
 def analyze_video(video_url):
     vid = extract_video_id(video_url)
@@ -323,7 +332,7 @@ st.markdown("""
         <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
     </p>
     <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.9.2
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.9.5
     </p>
 </div>
 """, unsafe_allow_html=True)
