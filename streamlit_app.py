@@ -25,8 +25,8 @@ except Exception as e:
     st.error(f"Initialization Error: {e}")
 
 # ── Global Configuration ──────────────────────────────
-REDIRECT_URI = "https://trytimeback.com"
-STORAGE_KEY = "trytimeback-auth-v62"
+REDIRECT_URI = "https://trytimeback.com/auth/callback"
+STORAGE_KEY = "sb-trytimeback-auth"  # Standardized for localStorage compatibility
 
 # ─────────────────────────────────────────────────────
 #  Functional Logic Components (v5.5 Atomic Fix)
@@ -51,15 +51,13 @@ def get_supabase():
     if "supabase" in st.session_state:
         return st.session_state.supabase
     try:
-        from supabase import create_client, ClientOptions
+        from supabase import create_client
         u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
         if u and k:
-            # v6.0: Explicit storageKey and persistSession for maximum reliability.
-            opts = ClientOptions(
-                persist_session=True,
-                storage=StreamlitSessionStorage(key=STORAGE_KEY)
-            )
-            client = create_client(u, k, options=opts)
+            # v6.3: Direct initialization for universal support.
+            client = create_client(u, k)
+            st.session_state.supabase = client
+            return client
             st.session_state.supabase = client
             return client
     except Exception as e:
@@ -67,16 +65,15 @@ def get_supabase():
     return None
 
 def handle_oauth_callback():
-    """Handles OAuth redirect and session exchange (v6.2 JS-to-Py Bridge)."""
-    # 1. Check for 'code' (Auth Code Flow / PKCE fallback)
-    # 2. Check for 'st_access_token' (Implicit Flow via JS Bridge)
-    code = st.query_params.get("code")
+    """Handles OAuth redirect and session exchange (v6.3 Robust Implicit Fix)."""
+    # Tokens are passed as query params after the JS Bridge reloads the page
     st_access = st.query_params.get("st_access_token")
+    st_refresh = st.query_params.get("st_refresh_token")
     
     if not st.session_state.user:
         supabase = get_supabase()
         if supabase:
-            # First, check if we already have a persistent session
+            # First, check for existing persistent session in st.session_state
             try:
                 user_res = supabase.auth.get_user()
                 if user_res and user_res.user:
@@ -88,10 +85,10 @@ def handle_oauth_callback():
                     st.query_params.clear(); st.rerun()
             except: pass
 
-            # Handle Implicit Token (Redirected from JS Bridge)
+            # Handle Implicit Token (Redirected from JS Bridge / ?st_access_token=...)
             if st_access:
                 try:
-                    res = supabase.auth.set_session(st_access, st.query_params.get("st_refresh_token", ""))
+                    res = supabase.auth.set_session(st_access, st_refresh or "")
                     if res.user:
                         st.session_state.user = {
                             "id": res.user.id, "email": res.user.email,
@@ -100,21 +97,6 @@ def handle_oauth_callback():
                         st.query_params.clear(); st.rerun()
                 except Exception as e:
                     st.error(f"Session recovery error: {e}")
-
-            # Handle Auth Code
-            if code:
-                try:
-                    res = supabase.auth.exchange_code_for_session({"auth_code": code})
-                    if res.user:
-                        st.session_state.user = {
-                            "id": res.user.id, "email": res.user.email,
-                            "name": res.user.user_metadata.get("full_name", "Learner")
-                        }
-                        st.query_params.clear(); st.rerun()
-                except Exception as e:
-                    st.error(f"Login failed: {e}")
-                    if st.button("🔄 Clear & Retry"):
-                        st.query_params.clear(); st.rerun()
 
 # ── Analysis Helpers ─────────────────────────────────
 
@@ -185,19 +167,38 @@ def apply_platinum_design():
             #MainMenu, footer, header {visibility: hidden;}
         </style>
         <script>
-            // v6.2 JS Bridge: Python can't see the #fragment. Convert to ?search params.
-            const hash = window.location.hash;
-            if (hash && (hash.includes("access_token") || hash.includes("code"))) {
-                const params = new URLSearchParams(hash.replace("#", "?"));
-                const access = params.get("access_token");
-                const refresh = params.get("refresh_token");
-                const code = params.get("code");
-                let newUrl = window.location.pathname + "?";
-                if (access) newUrl += "st_access_token=" + access;
-                if (refresh) newUrl += "&st_refresh_token=" + refresh;
-                if (code) newUrl += "&code=" + code;
-                window.location.href = newUrl;
-            }
+            // v6.3 Simple Implicit Bridge: Handle #fragment and localStorage
+            (function() {
+                const hash = window.location.hash;
+                const urlParams = new URLSearchParams(window.location.search);
+                
+                // 1. If we have fragments (from Supabase redirect)
+                if (hash && hash.includes("access_token")) {
+                    const params = new URLSearchParams(hash.replace("#", "?"));
+                    const access = params.get("access_token");
+                    const refresh = params.get("refresh_token");
+                    
+                    if (access) {
+                        // Persist to localStorage for stability
+                        localStorage.setItem('sb-trytimeback-access', access);
+                        if (refresh) localStorage.setItem('sb-trytimeback-refresh', refresh);
+                        
+                        // Redirect to main page without the fragment
+                        window.location.href = window.location.origin + window.location.pathname + "?st_access_token=" + access;
+                    }
+                }
+                
+                // 2. Persistent Login Check: If Python doesn't have the token but localStorage does
+                if (!urlParams.get("st_access_token") && localStorage.getItem('sb-trytimeback-access')) {
+                    // Short-circuit: If we are on the main page, feed the token back to Python
+                    const savedToken = localStorage.getItem('sb-trytimeback-access');
+                    const savedRefresh = localStorage.getItem('sb-trytimeback-refresh') || '';
+                    if (savedToken && window.location.search === '') {
+                        window.location.href = window.location.origin + window.location.pathname + 
+                            "?st_access_token=" + savedToken + "&st_refresh_token=" + savedRefresh;
+                    }
+                }
+            })();
         </script>
     """, unsafe_allow_html=True)
 
@@ -236,22 +237,14 @@ else:
             
             if temp_url: st.warning("⚠️ Login required to analyze this video!")
             
-            supabase = get_supabase()
-            if supabase:
+            u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
+            if u and k:
                 if st.button("🚀 Analyze Now & Login with Google", use_container_width=True, type="primary"):
-                    # v6.0: Explicitly removed flow_type: 'pkce' and all verifier logic.
-                    res = supabase.auth.sign_in_with_oauth({
-                        "provider": "google", 
-                        "options": {
-                            "redirect_to": REDIRECT_URI,
-                            # Standard flow - no PKCE needed
-                        }
-                    })
-                    if res.url:
-                        st.session_state.temp_url = temp_url
-                        # Forced HTTPS redirect for Cloudflare/Proxy Protocol support.
-                        st.markdown(f'<meta http-equiv="refresh" content="0;url={res.url}">', unsafe_allow_html=True)
-                        st.stop()
+                    # v6.3: Manually construct Implicit Flow URL to bypass PKCE enforcement.
+                    res_url = f"{u}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}&response_type=token"
+                    st.session_state.temp_url = temp_url
+                    st.markdown(f'<meta http-equiv="refresh" content="0;url={res_url}">', unsafe_allow_html=True)
+                    st.stop()
             st.markdown('</div>', unsafe_allow_html=True)
         
         # Props section
@@ -287,14 +280,34 @@ else:
 
 # ── Global Footer ────────────────────────────────────
 st.markdown(f"""
-<div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:8rem;">
-    <p style='color:#64748B; font-size:0.85rem;'>
-        Contact: <a href="mailto:admin@trytimeback.com" style="color:#3B82F6;">admin@trytimeback.com</a> | 
-        <a href="?page=terms" target="_self" style="color:#3B82F6; text-decoration:none;">Terms of Service</a> | 
-        <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
-    </p>
-    <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • GLOBAL STABLE v6.2 (JS BRIDGE)
-    </p>
+<div style="background-color: #0F172A; padding: 4rem 4rem 2rem 4rem; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 8rem;">
+    <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem; margin-bottom: 3rem; width: 100%;">
+        <div style="color: #94A3B8; font-size: 0.9rem; font-weight: 500; text-align: left; flex: 1;">
+            Copyright © 2026 <span style="color: #FFFFFF;">Trytimeback.</span> All rights reserved.
+        </div>
+        <div style="display: flex; gap: 2.5rem; flex-wrap: wrap;">
+            <a href="mailto:admin@trytimeback.com" style="color: #64748B; text-decoration: none; font-size: 0.85rem; transition: color 0.3s; font-weight: 500;">
+                <i class="fas fa-envelope" style="margin-right: 0.5rem;"></i>admin@trytimeback.com
+            </a>
+            <a href="?page=terms" target="_self" style="color: #64748B; text-decoration: none; font-size: 0.85rem; transition: color 0.3s; font-weight: 500;">
+                <i class="fas fa-file-contract" style="margin-right: 0.5rem;"></i>Terms of Service
+            </a>
+            <a href="?page=privacy" target="_self" style="color: #64748B; text-decoration: none; font-size: 0.85rem; transition: color 0.3s; font-weight: 500;">
+                <i class="fas fa-shield-halved" style="margin-right: 0.5rem;"></i>Privacy Policy
+            </a>
+        </div>
+    </div>
+    <div style="border-top: 1px solid rgba(255,255,255,0.05); padding-top: 2rem; text-align: center;">
+        <p style="color: #475569; font-size: 0.75rem; line-height: 1.6; max-width: 800px; margin: 0 auto;">
+            Trytimeback does not own the original video content. All rights belong to the creators. 
+            This service is for educational purposes only.
+        </p>
+        <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
+            GLOBAL STABLE v6.3 (IMPLICIT ENGINE)
+        </p>
+    </div>
 </div>
+<style>
+    a:hover {{ color: #3B82F6 !important; }}
+</style>
 """, unsafe_allow_html=True)
