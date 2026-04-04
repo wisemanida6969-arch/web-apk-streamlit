@@ -15,7 +15,7 @@ import json
 #  Lazy Loading & Connectivity Helpers
 # ─────────────────────────────────────────────
 def get_supabase_client():
-    """Robust Supabase client loader - v3.5 FINAL GLOBAL"""
+    """Robust Supabase client loader - v3.7 GLOBAL ENGLISH"""
     try:
         from supabase import create_client
         url = os.environ.get("SUPABASE_URL")
@@ -32,7 +32,7 @@ def get_supabase_client():
     return None
 
 def get_openai_client():
-    """Robust OpenAI client loader - v3.5 FINAL GLOBAL"""
+    """Robust OpenAI client loader - v3.7 GLOBAL ENGLISH"""
     try:
         from openai import OpenAI
         key = os.environ.get("OPENAI_API_KEY")
@@ -60,14 +60,15 @@ if "analysis_results" not in st.session_state: st.session_state.analysis_results
 if "player_video_id" not in st.session_state: st.session_state.player_video_id = None
 if "selected_ts" not in st.session_state: st.session_state.selected_ts = 0
 
-# ── Header ──
-st.warning("GLOBAL STABLE BUILD (v3.5) - EVERYTHING FIXED")
+# ── Header (Forcing English with metadata hint) ──
+st.markdown('<html lang="en">', unsafe_allow_html=True)
+st.warning("⚠️ GLOBAL STABLE BUILD (v3.7) - ENGLISH ONLY VERSION")
 st.markdown('<div style="text-align:center; padding:1.5rem 0; border-bottom:1px solid #23232A; margin-bottom:2rem;">'
             '<h1 style="font-size:2rem; color:white; margin-bottom:0.4rem;">YouTube Core Concept Analyzer</h1>'
-            '<p style="color:#B19B72; font-weight: 500;">Premium Insight Engine - Global Edition</p></div>', unsafe_allow_html=True)
+            '<p style="color:#B19B72; font-weight: 500;">Premium AI Insight Engine - Global Platinum Edition</p></div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-#  Logic: Auth Handling (v3.5 PKCE FIXED)
+#  Logic: Auth Handling (v3.7 PKCE FIXED)
 # ─────────────────────────────────────────────
 supabase = get_supabase_client()
 
@@ -140,8 +141,8 @@ st.markdown('</div>', unsafe_allow_html=True)
 t1, t2 = st.tabs(["Analyze Video", "Pricing Plans"])
 
 with t1:
-    url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...")
-    if st.button("Start Analysis →", use_container_width=True):
+    url = st.text_input("YouTube Video URL", placeholder="https://www.youtube.com/watch?v=...")
+    if st.button("Launch Analysis →", use_container_width=True):
         if not url: st.error("Please enter a valid URL."); st.stop()
         if not st.session_state.user: st.error("Please sign in first."); st.stop()
         
@@ -152,14 +153,13 @@ with t1:
         client = get_openai_client()
         if not client: st.error("AI Service Unavailable."); st.stop()
         
-        with st.spinner("Extracting insights..."):
+        with st.spinner("Processing video content..."):
             try:
                 from youtube_transcript_api import YouTubeTranscriptApi
                 ytt = YouTubeTranscriptApi()
                 try: trans = ytt.fetch(vid, languages=['en', 'ko'])
                 except: trans = ytt.fetch(vid)
                 
-                # Robust f-string without backslash for python compatibility
                 lines = []
                 for e in trans:
                     mm = int(e['start'] // 60)
@@ -191,7 +191,7 @@ with t1:
         with col1:
             for i, c in enumerate(r.get("concepts", [])):
                 st.markdown(f'<div style="background:#1A1A21; padding:1.2rem; border-radius:12px; border-left:4px solid #B19B72; margin-bottom:1rem;">'
-                            f'<h4>{c.get("title", "Concept")}</h4><p style="font-size:0.9rem;">{c.get("summary", "")}</p></div>', unsafe_allow_html=True)
+                            f'<h4>{c.get("title", "Core Trend")}</h4><p style="font-size:0.9rem;">{c.get("summary", "")}</p></div>', unsafe_allow_html=True)
                 if st.button(f"Jump to {c.get('timestamp','00:00')}", key=f"btn_{i}"):
                     ts_str = c.get('timestamp','00:00').split(':')
                     st.session_state.selected_ts = int(ts_str[0])*60 + int(ts_str[1])
@@ -201,10 +201,10 @@ with t1:
             st.markdown(f'<iframe width="100%" height="380" src="{embed}" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen style="border-radius:12px;"></iframe>', unsafe_allow_html=True)
 
 with t2:
-    st.markdown("<center><h3>Pricing Plans</h3></center>", unsafe_allow_html=True)
+    st.markdown("<center><h3>Global Tiers & Pricing</h3></center>", unsafe_allow_html=True)
     c1, c2, c3 = st.columns(3)
-    with c1: st.info("**Standard**\n\n$0/mo")
+    with c1: st.info("**Basic**\n\n$0/mo")
     with c2: st.success("**Professional**\n\n$14.99/mo")
     with c3: st.warning("**Enterprise**\n\n$99/yr")
 
-st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • GLOBAL v3.5 FINAL</center>", unsafe_allow_html=True)
+st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • GLOBAL v3.7 ENGLISH PLATINUM</center>", unsafe_allow_html=True)
