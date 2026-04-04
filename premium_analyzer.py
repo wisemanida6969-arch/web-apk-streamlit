@@ -245,13 +245,13 @@ else:
             supabase = get_supabase()
             if supabase:
                 try:
-                    # Enforce explicit Manual PKCE flow
-                    if st.button("🚀 Analyze Now (Requires Login)", use_container_width=True, type="primary"):
-                        # 1. Generate Manual PKCE Pair
+                    # Unified High-Performance Auth Button
+                    if st.button("🚀 Analyze Now & Login with Google", use_container_width=True, type="primary"):
+                        # 1. Generate & Persist Manual PKCE Pair
                         verifier, challenge = generate_pkce_pair()
                         st.session_state.pkce_verifier = verifier
                         
-                        # 2. Request Auth URL with manual challenge
+                        # 2. Request Auth URL with manual challenge injection
                         res = supabase.auth.sign_in_with_oauth({
                             "provider": "google", 
                             "options": {
@@ -267,23 +267,11 @@ else:
                             st.markdown(f'<meta http-equiv="refresh" content="0;url={res.url}">', unsafe_allow_html=True)
                             st.stop()
                         else:
-                            st.error("Auth server error.")
-                    
-                    # Direct Login Link (also with PKCE)
-                    verifier_link, challenge_link = generate_pkce_pair()
-                    res_link = supabase.auth.sign_in_with_oauth({
-                        "provider": "google", 
-                        "options": {
-                            "redirect_to": "https://trytimeback.com",
-                            "flow_type": "pkce",
-                            "code_challenge": challenge_link,
-                            "code_challenge_method": "S256"
-                        }
-                    })
-                    if res_link.url:
-                        st.markdown(f"<p style='text-align:center; font-size:0.85rem; color:#64748B; margin-top:1rem;'>Continue with <a href='{res_link.url}' style='color:#3B82F6; text-decoration:none;' onclick='{st.session_state.update(pkce_verifier=verifier_link)}'>Google Account</a></p>", unsafe_allow_html=True)
+                            st.error("Auth server error. Please check your connection.")
+                            
+                    st.markdown("<p style='text-align:center; font-size:0.85rem; color:#64748B; margin-top:1rem;'>Intelligence access requires Google authentication.</p>", unsafe_allow_html=True)
                 except Exception as e:
-                    st.error(f"Error: {e}")
+                    st.error(f"Security Engine Error: {e}")
             else:
                 st.warning("🔒 Auth Server Offline.")
             st.markdown('</div>', unsafe_allow_html=True)
@@ -371,7 +359,7 @@ st.markdown("""
         <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
     </p>
     <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.1
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.2
     </p>
 </div>
 """, unsafe_allow_html=True)
