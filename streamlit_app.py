@@ -12,12 +12,13 @@ import random
 import json
 
 # ─────────────────────────────────────────────
-#  Platinum UI Styling (v4.1 Hero & Glow Fix)
+#  Platinum UI Styling (v4.2 Hero & Value Prop)
 # ─────────────────────────────────────────────
 def apply_platinum_design():
-    """Injects high-end CSS for Hero Section and Glowing Gold CTA."""
+    """Injects high-end CSS for Hero, Value Prop, and Glow Effects."""
     st.markdown("""
-        <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css" />
+        <link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css" />
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
         <style>
             /* 1. Global Reset & Typography */
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
@@ -73,27 +74,52 @@ def apply_platinum_design():
             .stButton > button.glow-cta:hover {
                 transform: scale(1.05) translateY(-2px) !important;
                 box-shadow: 0 0 40px rgba(251, 191, 36, 0.6) !important;
-                background: linear-gradient(135deg, #FFD700 0%, #FBBF24 100%) !important;
             }
 
-            /* 4. Glassmorphism Card Style */
-            .premium-card {
-                background: rgba(30, 41, 59, 0.4);
-                backdrop-filter: blur(20px);
-                border: 1px solid rgba(255, 255, 255, 0.08);
-                border-radius: 20px;
-                padding: 2rem;
-                margin-bottom: 2rem;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            /* 4. Value Proposition Card Style */
+            .value-card {
+                background: rgba(30, 41, 59, 0.3);
+                backdrop-filter: blur(15px);
+                border: 1px solid rgba(255, 255, 255, 0.05);
+                border-radius: 24px;
+                padding: 2.2rem;
+                text-align: center;
+                transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+                height: 100%;
+            }
+            
+            .value-card:hover {
+                background: rgba(30, 41, 59, 0.5);
+                border: 1px solid rgba(59, 130, 246, 0.3);
+                transform: translateY(-8px);
+                box-shadow: 0 20px 40px rgba(0,0,0,0.4);
+            }
+            
+            .value-icon {
+                font-size: 2.5rem;
+                margin-bottom: 1.5rem;
+                background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%);
+                -webkit-background-clip: text;
+                -webkit-text-fill-color: transparent;
+            }
+            
+            .value-title {
+                font-size: 1.25rem;
+                font-weight: 700;
+                color: #FFFFFF;
+                margin-bottom: 0.8rem;
+            }
+            
+            .value-desc {
+                font-size: 0.95rem;
+                color: #94A3B8;
+                line-height: 1.5;
             }
             
             /* Hide Streamlit components */
             #MainMenu {visibility: hidden;}
             footer {visibility: hidden;}
             header {visibility: hidden;}
-            
-            /* Global Force English Shield */
-            [lang="ko"] { display: none !important; }
         </style>
     """, unsafe_allow_html=True)
 
@@ -139,12 +165,9 @@ def get_openai_client():
 # ─────────────────────────────────────────────
 apply_platinum_design()
 
-# Forced Meta for No-Translate
-st.markdown('<html lang="en" class="notranslate">', unsafe_allow_html=True)
-
-# ── Dynamic Hero Section ──
+# Hero Section
 st.markdown("""
-<div style="padding: 6rem 0 4rem 0;">
+<div style="padding: 6rem 0 3rem 0;">
     <h1 class="hero-headline">Gain Back Your Study Time.</h1>
     <p class="hero-subheadline">
         AI-Powered YouTube Analysis for Efficient Learning.<br>
@@ -153,29 +176,60 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# ── Center CTA Button ──
+# Hero CTA
 c1, c2, c3 = st.columns([1, 1.5, 1])
 with c2:
     if not st.session_state.user:
-        if st.button("Get Started for Free", key="hero_cta", help="Activate your premium learning experience.", use_container_width=True):
-             # Smooth Scroll hint or just login redirect
-             pass
-        # Add the 'glow-cta' class via JS/HTML injection because Streamlit buttons are hard to class-ify directly
+        if st.button("Get Started for Free", key="hero_cta", use_container_width=True): pass
         st.markdown("""
             <script>
                 var buttons = window.parent.document.querySelectorAll('button');
                 buttons.forEach(function(btn) {
-                    if (btn.innerText.includes("Get Started for Free")) {
-                        btn.classList.add('glow-cta');
-                    }
+                    if (btn.innerText.includes("Get Started for Free")) { btn.classList.add('glow-cta'); }
                 });
             </script>
         """, unsafe_allow_html=True)
 
+st.write("<br><br><br>", unsafe_allow_html=True)
+
 # ─────────────────────────────────────────────
-#  Main Engine Authentication
+#  Layout: Value Proposition Section
 # ─────────────────────────────────────────────
-st.write("<br><br>", unsafe_allow_html=True)
+st.markdown("<h2 style='text-align:center; margin-bottom:4rem; font-size:2.5rem; letter-spacing:-0.03em;'>Why Trytimeback?</h2>", unsafe_allow_html=True)
+
+v1, v2, v3 = st.columns(3)
+
+with v1:
+    st.markdown("""
+    <div class="value-card">
+        <i class="fa-solid fa-clock-rotate-left value-icon"></i>
+        <div class="value-title">Time Efficiency</div>
+        <div class="value-desc">1 Hour Video, 5 Minute Summary.<br>Gain a massive strategic advantage in your study schedule.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with v2:
+    st.markdown("""
+    <div class="value-card">
+        <i class="fa-solid fa-brain value-icon"></i>
+        <div class="value-title">Core Extraction</div>
+        <div class="value-desc">AI Extracts Core Concepts & Formulas.<br>Zero fluff. Pure intelligence for rapid knowledge mastery.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+with v3:
+    st.markdown("""
+    <div class="value-card">
+        <i class="fa-solid fa-globe value-icon"></i>
+        <div class="value-title">Global Learning</div>
+        <div class="value-desc">Support Multiple Languages with High Accuracy.<br>Learn from the world's best lecturers in any language.</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+#  Main Engine Authentication & Functional Modules
+# ─────────────────────────────────────────────
+st.write("<br><br><br><br>", unsafe_allow_html=True)
 supabase = get_supabase_client()
 
 if not st.session_state.user:
@@ -188,41 +242,25 @@ if not st.session_state.user:
                 "options": { "redirect_to": base_url, "skip_browser_redirect": True }
             })
             if res and hasattr(res, 'url'):
-                col1, col2, col3 = st.columns([1,2,1])
-                with col2:
-                    st.link_button("🚀 Access Final Platinum Auth", res.url, use_container_width=True)
-                st.markdown("<center style='color:#64748B; margin-top:1rem;'>Ready to claim your time back? Authenticate securely.</center>", unsafe_allow_html=True)
-            else:
-                st.error("Protocol Error: Check Supabase Dashboard.")
-        except Exception as e:
-            st.error(f"UI Component Error: {e}")
-    else:
-        st.error("Infrastructure Offline: Set SUPABASE_URL in Railway.")
+                st.link_button("🚀 Authenticate Your Learning Hub", res.url, use_container_width=True)
+                st.markdown("<center style='color:#64748B; margin-top:1rem;'>Claims your time. Join the global top 1%.</center>", unsafe_allow_html=True)
+        except Exception as e: st.error(f"UI Error: {e}")
     st.markdown('</div>', unsafe_allow_html=True)
-else:
-    st.success(f"Status: Authenticated as {st.session_state.user.email}")
-    if st.button("Terminate Session", use_container_width=True):
-        if supabase: supabase.auth.sign_out()
-        st.session_state.user = None
-        st.query_params.clear()
-        st.rerun()
 
-# ─────────────────────────────────────────────
-#  Functional Modules (Legacy Logic Preserved)
-# ─────────────────────────────────────────────
-if st.session_state.user:
-    t1, t2 = st.tabs(["Analyze Content", "Membership"])
-    with t1:
-        st.markdown("<br>", unsafe_allow_html=True)
-        url = st.text_input("Enter Study Target (YouTube URL)", placeholder="https://www.youtube.com/watch?v=...")
-        if st.button("Start Analysis →", use_container_width=True):
-            # ... Analysis logic same as v4.0 but in English ...
-            pass
-            
+# Handle OAuth Callback
+if "code" in st.query_params and not st.session_state.user:
+    try:
+        res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
+        if res and res.user:
+            st.session_state.user = res.user
+            st.query_params.clear()
+            st.rerun()
+    except: pass
+
 # Footer
 st.markdown("""
 <div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:6rem;">
-    <p style='color:#475569; font-size:0.8rem; letter-spacing:0.1em;'>© 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.1</p>
+    <p style='color:#475569; font-size:0.8rem; letter-spacing:0.1em;'>© 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.2</p>
 </div>
 """, unsafe_allow_html=True)
 
