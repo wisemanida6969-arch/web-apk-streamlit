@@ -211,6 +211,10 @@ else:
         
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
+            st.markdown('<div class="premium-card" style="margin-top:-2rem; margin-bottom:2rem;">', unsafe_allow_html=True)
+            st.markdown("<p style='color:#3B82F6; font-weight:600; margin-bottom:0.8rem; text-align:center;'>Paste YouTube URL to Begin Intelligence Extraction</p>", unsafe_allow_html=True)
+            temp_url = st.text_input("", placeholder="https://youtube.com/watch?v=...", label_visibility="collapsed", key="unauth_url")
+            
             supabase = get_supabase()
             if supabase:
                 try:
@@ -219,14 +223,19 @@ else:
                         "options": {"redirect_to": "https://trytimeback.com"}
                     })
                     if res.url:
-                        st.link_button("🚀 Get Started for Free (Google Login)", res.url, use_container_width=True, type="primary")
-                        st.markdown("<p style='text-align:center; font-size:0.9rem; color:#64748B; margin-top:0.5rem;'>Login to access the High-Performance Analysis Engine.</p>", unsafe_allow_html=True)
+                        if st.button("🚀 Analyze Now (Requires Login)", use_container_width=True, type="primary"):
+                            # Store URL in temp session and redirect
+                            st.session_state.temp_url = temp_url
+                            st.markdown(f'<meta http-equiv="refresh" content="0;url={res.url}">', unsafe_allow_html=True)
+                            st.stop()
+                        st.markdown(f"<p style='text-align:center; font-size:0.85rem; color:#64748B; margin-top:1rem;'>Continue with <a href='{res.url}' style='color:#3B82F6; text-decoration:none;'>Google Account</a></p>", unsafe_allow_html=True)
                     else:
-                        st.error("Auth URL generation failed.")
+                        st.error("Auth server error.")
                 except Exception as e:
-                    st.error(f"Supabase Error: {e}")
+                    st.error(f"Error: {e}")
             else:
                 st.warning("🔒 Auth Server Offline.")
+            st.markdown('</div>', unsafe_allow_html=True)
 
         # 2. Value Propositions (Why Trytimeback?)
         st.markdown("<div style='margin-top:8rem; text-align:center;'><h2 style='color:#FFFFFF; font-size:2.5rem; font-weight:700;'>Why Trytimeback?</h2></div>", unsafe_allow_html=True)
