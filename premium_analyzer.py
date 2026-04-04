@@ -29,7 +29,7 @@ REDIRECT_URI = "https://trytimeback.com/auth/callback"
 STORAGE_KEY = "sb-trytimeback-auth"
 
 # ─────────────────────────────────────────────────────
-#  Functional Logic Components (v5.5 Atomic Fix)
+#  Functional Logic Components (v7.0 Pure Implicit Fix)
 # ─────────────────────────────────────────────────────
 
 class StreamlitSessionStorage:
@@ -136,7 +136,7 @@ def analyze_video(video_url):
             st.error(f"Analysis failed: {e}")
 
 # ─────────────────────────────────────────────────────
-#  Platinum UI Styling (v5.5 Functional Hub)
+#  Platinum UI Styling (v7.0 Pure Implicit Flow)
 # ─────────────────────────────────────────────────────
 
 def apply_platinum_design():
@@ -312,7 +312,7 @@ st.markdown("""
             This service is for educational purposes only.
         </p>
         <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
-            GLOBAL STABLE v6.3 (IMPLICIT ENGINE)
+            GLOBAL STABLE v7.0 (PURE IMPLICIT FLOW)
         </p>
     </div>
 </div>
