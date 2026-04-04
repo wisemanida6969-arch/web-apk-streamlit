@@ -122,28 +122,26 @@ if "results" not in st.session_state: st.session_state.results = None
 page = st.query_params.get("page", "home")
 
 # ── Functional Logic Components ──────────────────────
-class StreamlitSessionStorage:
-    """Custom storage for Supabase PKCE flow in Streamlit."""
-    def get_item(self, key): return st.session_state.get(key)
-    def set_item(self, key, value): st.session_state[key] = value
-    def remove_item(self, key): 
-        if key in st.session_state: del st.session_state[key]
+import base64
+import hashlib
+import secrets
+
+def generate_pkce_pair():
+    """Manually generate PKCE verifier and challenge for maximum persistence control."""
+    verifier = secrets.token_urlsafe(64)
+    digest = hashlib.sha256(verifier.encode('utf-8')).digest()
+    challenge = base64.urlsafe_b64encode(digest).decode('utf-8').replace('=', '')
+    return verifier, challenge
 
 def get_supabase():
-    """Initializes persistent Supabase client with custom storage."""
+    """Initializes persistent Supabase client."""
     if "supabase" in st.session_state:
         return st.session_state.supabase
     try:
-        from supabase import create_client, ClientOptions
+        from supabase import create_client
         u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
         if u and k:
-            # Use custom storage to preserve code_verifier across redirects
-            opts = ClientOptions(
-                persist_session=True,
-                auto_refresh_token=True,
-                storage=StreamlitSessionStorage()
-            )
-            client = create_client(u, k, options=opts)
+            client = create_client(u, k)
             st.session_state.supabase = client
             return client
     except Exception as e:
@@ -151,15 +149,22 @@ def get_supabase():
     return None
 
 def handle_oauth_callback():
-    """Handles the redirect from Google OAuth and sets the session."""
+    """Handles the redirect from Google OAuth and sets the session with manual PKCE verifier."""
     code = st.query_params.get("code")
     if code and not st.session_state.user:
         supabase = get_supabase()
         if supabase:
             try:
-                # Exchange code for session (Storage handles code_verifier automatically)
+                # Retrieve the manually stored verifier from session state
+                verifier = st.session_state.get("pkce_verifier")
+                if not verifier:
+                    st.error("Security mismatch: PKCE verifier lost. Please try logging in again.")
+                    return
+                
+                # Explicitly pass the verifier to solve the 'non-empty' error once and for all
                 res = supabase.auth.exchange_code_for_session({
                     "auth_code": code,
+                    "code_verifier": verifier
                 })
                 if res.user:
                     st.session_state.user = {
@@ -240,23 +245,43 @@ else:
             supabase = get_supabase()
             if supabase:
                 try:
-                    # Enforce explicit PKCE flow and exact redirect URL
-                    res = supabase.auth.sign_in_with_oauth({
-                        "provider": "google", 
-                        "options": {
-                            "redirect_to": "https://trytimeback.com",
-                            "flow_type": "pkce"
-                        }
-                    })
-                    if res.url:
-                        if st.button("🚀 Analyze Now (Requires Login)", use_container_width=True, type="primary"):
-                            # Store URL in temp session and redirect
+                    # Enforce explicit Manual PKCE flow
+                    if st.button("🚀 Analyze Now (Requires Login)", use_container_width=True, type="primary"):
+                        # 1. Generate Manual PKCE Pair
+                        verifier, challenge = generate_pkce_pair()
+                        st.session_state.pkce_verifier = verifier
+                        
+                        # 2. Request Auth URL with manual challenge
+                        res = supabase.auth.sign_in_with_oauth({
+                            "provider": "google", 
+                            "options": {
+                                "redirect_to": "https://trytimeback.com",
+                                "flow_type": "pkce",
+                                "code_challenge": challenge,
+                                "code_challenge_method": "S256"
+                            }
+                        })
+                        
+                        if res.url:
                             st.session_state.temp_url = temp_url
                             st.markdown(f'<meta http-equiv="refresh" content="0;url={res.url}">', unsafe_allow_html=True)
                             st.stop()
-                        st.markdown(f"<p style='text-align:center; font-size:0.85rem; color:#64748B; margin-top:1rem;'>Continue with <a href='{res.url}' style='color:#3B82F6; text-decoration:none;'>Google Account</a></p>", unsafe_allow_html=True)
-                    else:
-                        st.error("Auth server error.")
+                        else:
+                            st.error("Auth server error.")
+                    
+                    # Direct Login Link (also with PKCE)
+                    verifier_link, challenge_link = generate_pkce_pair()
+                    res_link = supabase.auth.sign_in_with_oauth({
+                        "provider": "google", 
+                        "options": {
+                            "redirect_to": "https://trytimeback.com",
+                            "flow_type": "pkce",
+                            "code_challenge": challenge_link,
+                            "code_challenge_method": "S256"
+                        }
+                    })
+                    if res_link.url:
+                        st.markdown(f"<p style='text-align:center; font-size:0.85rem; color:#64748B; margin-top:1rem;'>Continue with <a href='{res_link.url}' style='color:#3B82F6; text-decoration:none;' onclick='{st.session_state.update(pkce_verifier=verifier_link)}'>Google Account</a></p>", unsafe_allow_html=True)
                 except Exception as e:
                     st.error(f"Error: {e}")
             else:
@@ -346,7 +371,7 @@ st.markdown("""
         <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
     </p>
     <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.0
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.1
     </p>
 </div>
 """, unsafe_allow_html=True)
