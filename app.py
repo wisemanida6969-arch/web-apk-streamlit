@@ -84,39 +84,57 @@ def apply_platinum_design():
 page = st.query_params.get("page", "home")
 
 # ─────────────────────────────────────────────
-#  Terms of Service Page
+#  Terms of Service Page (v4.5 Formal)
 # ─────────────────────────────────────────────
 def show_terms_page():
     st.markdown('<div class="legal-container">', unsafe_allow_html=True)
     st.markdown('<h1 class="legal-title">Terms of Service</h1>', unsafe_allow_html=True)
+    st.markdown("<p style='color:#94A3B8; margin-bottom:2rem;'>Last Updated: April 4, 2026</p>", unsafe_allow_html=True)
     
     st.markdown("""
     <div class="legal-section">
-        <h2 class="legal-h2">1. Educational Purpose & AI Role</h2>
-        <p>Trytimeback is an AI-powered analysis tool designed strictly for educational and academic insight enhancement. Our technology transforms existing video data into concise summaries to facilitate more efficient learning.</p>
+        <p>Welcome to Trytimeback.com. By using our AI-powered YouTube analysis and summary service, you agree to the following terms.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">1. Nature of Service</h2>
+        <p>Trytimeback.com is an independent AI tool that provides transformative summaries and analysis of public YouTube content. We do not provide video hosting or downloading services.</p>
     </div>
     
     <div class="legal-section">
         <h2 class="legal-h2">2. Intellectual Property & Copyright</h2>
-        <p><b>Trytimeback does not own, store, or redistribute original YouTube video content.</b> All intellectual property rights, trademarks, and copyrights belong to the respective original content creators and owners. Our summaries are derivative works intended for "Fair Use" educational transformation.</p>
+        <p>• <b>Original Content:</b> All rights, titles, and interests in the original video content belong to the respective copyright owners (YouTube creators). Trytimeback does not claim any ownership over the source material.<br>
+        • <b>Fair Use:</b> Our service is designed for educational and informational purposes, consistent with the principles of "Fair Use" (Section 107 of the U.S. Copyright Act). We transform long-form video data into concise insights.<br>
+        • <b>Attribution:</b> We encourage users to visit the original creator's channel. Each summary includes a link to the original source video.</p>
     </div>
     
     <div class="legal-section">
         <h2 class="legal-h2">3. User Responsibility</h2>
-        <p>Users are responsible for ensuring their use of summarized content complies with applicable copyright laws. Trytimeback is not liable for any misuse of the generated insights outside of educational contexts.</p>
+        <p>Users are responsible for ensuring that their use of the AI-generated summaries complies with their local laws and regulations. You agree not to use this service for any illegal purposes.</p>
     </div>
     
     <div class="legal-section">
-        <h2 class="legal-h2">4. Service Limitations</h2>
-        <p>As an AI-driven service, accuracy may vary based on video complexity and transcript availability. Trytimeback provides these insights on an "as-is" basis for study assistance.</p>
+        <h2 class="legal-h2">4. Subscription and Credits</h2>
+        <p>Trytimeback provides summaries based on a credit system (Minutes). Refunds are processed according to our Refund Policy, provided the credits have not been significantly consumed.</p>
     </div>
     
     <div class="legal-section">
-        <p style='margin-top:2rem;'>Contact for Inquiries: <a href="mailto:admin@trytimeback.com" class="footer-link">admin@trytimeback.com</a></p>
+        <h2 class="legal-h2">5. Limitation of Liability</h2>
+        <p>Trytimeback provides AI-generated content "as is." While we strive for high accuracy, we are not responsible for any inaccuracies in the AI's summaries or any decisions made based on them.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">6. Takedown Requests (DMCA)</h2>
+        <p>We respect intellectual property. If you are a copyright owner and wish to have a specific video excluded from our analysis, please contact us at <b>admin@trytimeback.com</b>.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">7. Contact Us</h2>
+        <p>For any legal inquiries, please reach out to: <a href="mailto:admin@trytimeback.com" class="footer-link">admin@trytimeback.com</a></p>
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("← Return to Home"):
+    if st.button("← Return to Learning Hub"):
         st.query_params.clear()
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
