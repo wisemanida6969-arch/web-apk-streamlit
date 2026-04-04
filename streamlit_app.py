@@ -29,7 +29,7 @@ REDIRECT_URI = "https://trytimeback.com/auth/callback"
 STORAGE_KEY = "sb-trytimeback-auth"  # Standardized for localStorage compatibility
 
 # ─────────────────────────────────────────────────────
-#  Functional Logic Components (v7.0 Pure Implicit Fix)
+#  Functional Logic Components (v7.0.1 FORCED SYNC - 2026-04-04)
 # ─────────────────────────────────────────────────────
 
 class StreamlitSessionStorage:
@@ -314,7 +314,7 @@ st.markdown("""
             This service is for educational purposes only.
         </p>
         <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
-            GLOBAL STABLE v7.0 (PURE IMPLICIT FLOW)
+            GLOBAL STABLE v7.0.1 (FORCED SYNC)
         </p>
     </div>
 </div>
