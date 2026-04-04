@@ -70,7 +70,9 @@ def handle_oauth_callback():
     st_access = st.query_params.get("st_access_token")
     st_refresh = st.query_params.get("st_refresh_token")
     
-    if not st.session_state.user:
+    # v6.6: Escape Lock - Do not process if user already exists in session.
+    if st.session_state.get("user"):
+        return
         supabase = get_supabase()
         if supabase:
             # First, check for existing persistent session in st.session_state
@@ -190,12 +192,11 @@ def apply_platinum_design():
                 
                 // 2. Persistent Login Check: If Python doesn't have the token but localStorage does
                 if (!urlParams.get("st_access_token") && localStorage.getItem('sb-trytimeback-access')) {
-                    // Short-circuit: If we are on the main page, feed the token back to Python
-                    const savedToken = localStorage.getItem('sb-trytimeback-access');
-                    const savedRefresh = localStorage.getItem('sb-trytimeback-refresh') || '';
-                    if (savedToken && window.location.search === '') {
-                        window.location.href = window.location.origin + window.location.pathname + 
-                            "?st_access_token=" + savedToken + "&st_refresh_token=" + savedRefresh;
+                    // v6.6: Only redirect if not already in a token-processing state to prevent refresh loops.
+                    if (window.location.search === '' && !window.location.hash.includes("access_token")) {
+                        const savedToken = localStorage.getItem('sb-trytimeback-access');
+                        const savedRefresh = localStorage.getItem('sb-trytimeback-refresh') || '';
+                        window.location.href = window.location.origin + "/?st_access_token=" + savedToken + "&st_refresh_token=" + savedRefresh;
                     }
                 }
             })();
@@ -206,12 +207,16 @@ def apply_platinum_design():
 #  Main Application Execution
 # ─────────────────────────────────────────────────────
 
+# ── v6.6: GLOBAL DEBUGGER ─────────────────────────────
+st.write("🔍 SESSION DEBUG:", st.session_state.to_dict() if hasattr(st.session_state, "to_dict") else st.session_state)
+
 if "user" not in st.session_state: st.session_state.user = None
 if "results" not in st.session_state: st.session_state.results = None
 page = st.query_params.get("page", "home")
 
-apply_platinum_design()
+# v6.6: PRIORITY PARSING RE-ORDER
 handle_oauth_callback()
+apply_platinum_design()
 
 if page == "terms":
     st.markdown("<h1 style='text-align:center; color:#FFFFFF; margin-top:4rem;'>Terms of Service</h1>", unsafe_allow_html=True)
