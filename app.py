@@ -15,7 +15,7 @@ import json
 #  Lazy Loading & Connectivity Helpers
 # ─────────────────────────────────────────────
 def get_supabase_client():
-    """Robust Supabase client loader - v3.4 GLOBAL"""
+    """Robust Supabase client loader - v3.5 FINAL GLOBAL"""
     try:
         from supabase import create_client
         url = os.environ.get("SUPABASE_URL")
@@ -32,7 +32,7 @@ def get_supabase_client():
     return None
 
 def get_openai_client():
-    """Robust OpenAI client loader - v3.4 GLOBAL"""
+    """Robust OpenAI client loader - v3.5 FINAL GLOBAL"""
     try:
         from openai import OpenAI
         key = os.environ.get("OPENAI_API_KEY")
@@ -61,29 +61,27 @@ if "player_video_id" not in st.session_state: st.session_state.player_video_id =
 if "selected_ts" not in st.session_state: st.session_state.selected_ts = 0
 
 # ── Header ──
-st.warning("GLOBAL STABLE BUILD (v3.4) - ENFORCED ENGLISH & AUTH FIX")
+st.warning("GLOBAL STABLE BUILD (v3.5) - EVERYTHING FIXED")
 st.markdown('<div style="text-align:center; padding:1.5rem 0; border-bottom:1px solid #23232A; margin-bottom:2rem;">'
             '<h1 style="font-size:2rem; color:white; margin-bottom:0.4rem;">YouTube Core Concept Analyzer</h1>'
-            '<p style="color:#B19B72; font-weight: 500;">Premium Insight Engine for Global Users</p></div>', unsafe_allow_html=True)
+            '<p style="color:#B19B72; font-weight: 500;">Premium Insight Engine - Global Edition</p></div>', unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-#  Logic: Auth Handling (v3.4 PKCE FIX)
+#  Logic: Auth Handling (v3.5 PKCE FIXED)
 # ─────────────────────────────────────────────
 supabase = get_supabase_client()
 
 if supabase:
     # 1. Handle OAuth Callback
-    # If returned with ?code=..., we check for session first (fallback) then exchange
     if "code" in st.query_params:
         try:
-            # Fallback Check: Maybe session is already there?
+            # Fallback Check
             user_res = supabase.auth.get_user()
             if user_res and user_res.user:
                 st.session_state.user = user_res.user
                 st.query_params.clear()
                 st.rerun()
             else:
-                # Exchange Code
                 with st.spinner("🔒 Finalizing Secure Session..."):
                     res = supabase.auth.exchange_code_for_session({"auth_code": st.query_params["code"]})
                     if res and res.user:
@@ -91,11 +89,9 @@ if supabase:
                         st.query_params.clear()
                         st.rerun()
         except Exception as e:
-            # If PKCE fails, show instructions
-            st.error(f"Login Verification Error: {e}")
-            st.info("Tip: If you see a 'verifier missing' error, please refresh the page or restart the login flow. This is a security sync issue.")
+            st.error(f"Login failed: {e}")
 
-    # 2. Persistence Check
+    # 2. Daily Session Persistence
     if not st.session_state.user:
         try:
             user_res = supabase.auth.get_user()
@@ -112,7 +108,6 @@ if not st.session_state.user:
     if supabase:
         try:
             base_url = "https://trytimeback.com"
-            # v3.4: Try to generate the authorize URL manually if needed
             res = supabase.auth.sign_in_with_oauth({
                 "provider": "google",
                 "options": {
@@ -124,17 +119,16 @@ if not st.session_state.user:
                 st.link_button("🚀 Sign in with Google Account", res.url, use_container_width=True)
                 st.markdown("<small style='color:#A0A0A9;'>Unlimited analysis with one-click secure login.</small>", unsafe_allow_html=True)
             else:
-                st.error("Error generating login link. Please check your internet connection.")
+                st.error("Error generating login link.")
         except Exception as e:
             st.error(f"UI Error: {e}")
     else:
-        st.error("Missing Database Configuration: Set SUPABASE_URL in Railway Dashboard.")
+        st.error("Missing Database Config (Supabase).")
 else:
     st.markdown(f"Account: **{st.session_state.user.email}**", unsafe_allow_html=True)
     if st.button("Logout", use_container_width=True):
         if supabase: supabase.auth.sign_out()
         st.session_state.user = None
-        # Clean query params on logout too
         st.query_params.clear()
         st.rerun()
 
@@ -143,7 +137,7 @@ st.markdown('</div>', unsafe_allow_html=True)
 # ─────────────────────────────────────────────
 #  Functional Tabs
 # ─────────────────────────────────────────────
-t1, t2 = st.tabs(["Analyze Video", "Subscription Plans"])
+t1, t2 = st.tabs(["Analyze Video", "Pricing Plans"])
 
 with t1:
     url = st.text_input("YouTube URL", placeholder="https://www.youtube.com/watch?v=...")
@@ -165,7 +159,14 @@ with t1:
                 try: trans = ytt.fetch(vid, languages=['en', 'ko'])
                 except: trans = ytt.fetch(vid)
                 
-                text = "\n".join([f"[{int(e['start']//60):02d}:{int(e['start']%60):02d}] {e['text']}" for e in trans])
+                # Robust f-string without backslash for python compatibility
+                lines = []
+                for e in trans:
+                    mm = int(e['start'] // 60)
+                    ss = int(e['start'] % 60)
+                    ts = f"{mm:02d}:{ss:02d}"
+                    lines.append(f"[{ts}] {e['text']}")
+                text = "\n".join(lines)
                 
                 res_gpt = client.chat.completions.create(
                     model="gpt-4o",
@@ -206,4 +207,4 @@ with t2:
     with c2: st.success("**Professional**\n\n$14.99/mo")
     with c3: st.warning("**Enterprise**\n\n$99/yr")
 
-st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • GLOBAL v3.4 FINAL</center>", unsafe_allow_html=True)
+st.markdown("<center style='color:#6E6E7A; padding:2rem; font-size:0.8rem;'>© 2026 YouTube Core Concept Analyzer • GLOBAL v3.5 FINAL</center>", unsafe_allow_html=True)
