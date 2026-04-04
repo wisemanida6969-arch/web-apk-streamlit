@@ -136,15 +136,74 @@ def get_video_metadata(video_id):
     except:
         return {"title": "YouTube Video", "author": "Creator"}
 
+def extract_audio_and_transcribe(video_id):
+    """Fallback: Downloads audio and transcribes via OpenAI Whisper (v7.3)."""
+    import yt_dlp
+    import tempfile
+    
+    # Video Length Limit (20 mins to ensure 25MB Whisper limit)
+    try:
+        with yt_dlp.YoutubeDL({'quiet': True}) as ydl:
+            inf = ydl.extract_info(f"https://www.youtube.com/watch?v={video_id}", download=False)
+            if inf.get('duration', 0) > 1200:
+                st.error("⚠️ Video too long (Max 20 mins) for AI audio analysis.")
+                return None
+    except: pass
+
+    with st.status("🎧 Subtitles not found. Initializing AI Audio Analysis...", expanded=True) as status:
+        st.write("📥 Extracting audio stream (Speed Optimization)...")
+        tmp_dir = tempfile.gettempdir()
+        file_path = os.path.join(tmp_dir, f"{video_id}.mp3")
+        
+        ydl_opts = {
+            'format': 'bestaudio/best',
+            'outtmpl': file_path,
+            'quiet': True,
+            'postprocessors': [{
+                'key': 'FFmpegExtractAudio',
+                'preferredcodec': 'mp3',
+                'preferredquality': '128',
+            }],
+        }
+        
+        try:
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                ydl.download([f"https://www.youtube.com/watch?v={video_id}"])
+            
+            st.write("🧠 AI Transcription in progress (Whisper Deep Engine)...")
+            client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+            with open(file_path, "rb") as audio_file:
+                transcription = client.audio.transcriptions.create(
+                    model="whisper-1", 
+                    file=audio_file
+                )
+            
+            if os.path.exists(file_path): os.remove(file_path)
+            status.update(label="✅ Audio Intelligence Ready!", state="complete")
+            return transcription.text
+            
+        except Exception as e:
+            if os.path.exists(file_path): os.remove(file_path)
+            st.error(f"AI Audio Extraction Fault: {e}")
+            return None
+
 def analyze_video(video_url):
+    """Main analysis engine with Audio Intelligence fallback (v7.3)."""
     vid = extract_video_id(video_url)
     if not vid: return st.error("Invalid YouTube URL.")
     
-    with st.spinner("🚀 Extracting intelligence from the timeline..."):
+    full_text = None
+    # Strategy: Try high-speed transcript first, then fallback to heavy AI audio analysis
+    try:
+        transcript_list = YouTubeTranscriptApi.get_transcript(vid, languages=['ko', 'en'])
+        full_text = " ".join([t['text'] for t in transcript_list])
+    except:
+        full_text = extract_audio_and_transcribe(vid)
+    
+    if not full_text: return
+    
+    with st.spinner("🚀 Finalizing Intelligence Summary from AI Intelligence..."):
         try:
-            transcript_list = YouTubeTranscriptApi.get_transcript(vid, languages=['ko', 'en'])
-            full_text = " ".join([t['text'] for t in transcript_list])
-            
             client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
             response = client.chat.completions.create(
                 model="gpt-4o",
@@ -164,7 +223,7 @@ def analyze_video(video_url):
             }
             st.rerun()
         except Exception as e:
-            st.error(f"Analysis failed: {e}")
+            st.error(f"Intelligence Processing Failed (v7.3): {e}")
 
 # ─────────────────────────────────────────────────────
 #  Platinum UI Styling (v7.0 Pure Implicit Flow)
@@ -345,8 +404,8 @@ st.markdown("""
             This service is for educational purposes only.
         </p>
         <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
-            GLOBAL STABLE v7.2.2 (SMART DOMAIN SYNC)
-            <br>Last Build: 2026-04-05 02:29 UTC
+            GLOBAL STABLE v7.3 (AUDIO INTELLIGENCE)
+            <br>Last Build: 2026-04-05 02:51 UTC
         </p>
     </div>
 </div>
