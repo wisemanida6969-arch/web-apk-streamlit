@@ -303,7 +303,7 @@ else:
 st.markdown("""
 <div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:8rem;">
     <p style='color:#475569; font-size:0.85rem; margin-bottom:0.7rem;'>
-        <b>Educational AI Analyzer:</b> Transformative learning for everyone.
+        Trytimeback is an AI analysis tool for educational purposes. We do not own or store original video content.
     </p>
     <p style='color:#64748B; font-size:0.85rem;'>
         Contact: <a href="mailto:admin@trytimeback.com" style="color:#3B82F6;">admin@trytimeback.com</a> | 
@@ -311,7 +311,7 @@ st.markdown("""
         <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
     </p>
     <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.9.1
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.9.2
     </p>
 </div>
 """, unsafe_allow_html=True)
