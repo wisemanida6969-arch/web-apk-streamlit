@@ -260,7 +260,8 @@ if "code" in st.query_params and not st.session_state.user:
 # Footer
 st.markdown("""
 <div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:6rem;">
-    <p style='color:#475569; font-size:0.8rem; letter-spacing:0.1em;'>© 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.2</p>
+    <p style='color:#475569; font-size:0.85rem; margin-bottom:0.5rem;'>Legal Disclaimer: Trytimeback is an AI analysis tool for educational purposes. We do not own or store original video content.</p>
+    <p style='color:#64748B; font-size:0.8rem; letter-spacing:0.1em; margin:0;'>© 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.3</p>
 </div>
 """, unsafe_allow_html=True)
 
