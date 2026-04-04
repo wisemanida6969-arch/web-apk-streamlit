@@ -26,14 +26,15 @@ except Exception as e:
 
 # ── Global Configuration ──────────────────────────────
 REDIRECT_URI = "https://trytimeback.com"
+STORAGE_KEY = "trytimeback-auth-v62"
 
 # ─────────────────────────────────────────────────────
 #  Functional Logic Components (v5.5 Atomic Fix)
 # ─────────────────────────────────────────────────────
 
 class StreamlitSessionStorage:
-    """Custom storage for Supabase PKCE flow using st.session_state (v5.5)."""
-    def __init__(self, key="sb-auth-token"):
+    """Robust storage for Supabase session using st.session_state (v6.0)."""
+    def __init__(self, key=STORAGE_KEY):
         self.key = key
     def get_item(self, key): 
         return st.session_state.get(f"{self.key}-{key}")
@@ -43,25 +44,20 @@ class StreamlitSessionStorage:
         if f"{self.key}-{key}" in st.session_state: 
             del st.session_state[f"{self.key}-{key}"]
 
-def generate_pkce_pair():
-    """Manually generate PKCE verifier and challenge for maximum persistence control."""
-    verifier = secrets.token_urlsafe(64)
-    digest = hashlib.sha256(verifier.encode('utf-8')).digest()
-    challenge = base64.urlsafe_b64encode(digest).decode('utf-8').replace('=', '')
-    return verifier, challenge
+# PKCE Generation removed (v6.0 Transition to Standard/Implicit Flow)
 
 def get_supabase():
-    """Initializes persistent Supabase client (v5.5 - Fixes storage_key init crash)."""
+    """Initializes persistent Supabase client (v6.0 Standard Flow)."""
     if "supabase" in st.session_state:
         return st.session_state.supabase
     try:
         from supabase import create_client, ClientOptions
         u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
         if u and k:
-            # v5.5: REMOVED storage_key as it causes crash in Python SyncClientOptions
+            # v6.0: Explicit storageKey and persistSession for maximum reliability.
             opts = ClientOptions(
                 persist_session=True,
-                storage=StreamlitSessionStorage(key="sb-auth-token")
+                storage=StreamlitSessionStorage(key=STORAGE_KEY)
             )
             client = create_client(u, k, options=opts)
             st.session_state.supabase = client
@@ -71,36 +67,54 @@ def get_supabase():
     return None
 
 def handle_oauth_callback():
-    """Handles OAuth redirect and session exchange with verifier recovery."""
+    """Handles OAuth redirect and session exchange (v6.2 JS-to-Py Bridge)."""
+    # 1. Check for 'code' (Auth Code Flow / PKCE fallback)
+    # 2. Check for 'st_access_token' (Implicit Flow via JS Bridge)
     code = st.query_params.get("code")
-    if code and not st.session_state.user:
+    st_access = st.query_params.get("st_access_token")
+    
+    if not st.session_state.user:
         supabase = get_supabase()
         if supabase:
+            # First, check if we already have a persistent session
             try:
-                # Recover verifier from session (Manual or Storage key compatible)
-                verifier = st.session_state.get("pkce_verifier") or \
-                           st.session_state.get("sb-auth-token-pkce_verifier")
-                
-                if not verifier:
-                    st.error("Security mismatch: PKCE verifier lost. Please try logging in again.")
-                    return
-                
-                res = supabase.auth.exchange_code_for_session({
-                    "auth_code": code,
-                    "code_verifier": verifier
-                })
-                if res.user:
+                user_res = supabase.auth.get_user()
+                if user_res and user_res.user:
                     st.session_state.user = {
-                        "id": res.user.id,
-                        "email": res.user.email,
-                        "name": res.user.user_metadata.get("full_name", "Learner")
+                        "id": user_res.user.id,
+                        "email": user_res.user.email,
+                        "name": user_res.user.user_metadata.get("full_name", "Learner")
                     }
-                    st.query_params.clear()
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Session exchange failed: {e}")
-                if st.button("❌ Authentication Error: Try Again"):
                     st.query_params.clear(); st.rerun()
+            except: pass
+
+            # Handle Implicit Token (Redirected from JS Bridge)
+            if st_access:
+                try:
+                    res = supabase.auth.set_session(st_access, st.query_params.get("st_refresh_token", ""))
+                    if res.user:
+                        st.session_state.user = {
+                            "id": res.user.id, "email": res.user.email,
+                            "name": res.user.user_metadata.get("full_name", "Learner")
+                        }
+                        st.query_params.clear(); st.rerun()
+                except Exception as e:
+                    st.error(f"Session recovery error: {e}")
+
+            # Handle Auth Code
+            if code:
+                try:
+                    res = supabase.auth.exchange_code_for_session({"auth_code": code})
+                    if res.user:
+                        st.session_state.user = {
+                            "id": res.user.id, "email": res.user.email,
+                            "name": res.user.user_metadata.get("full_name", "Learner")
+                        }
+                        st.query_params.clear(); st.rerun()
+                except Exception as e:
+                    st.error(f"Login failed: {e}")
+                    if st.button("🔄 Clear & Retry"):
+                        st.query_params.clear(); st.rerun()
 
 # ── Analysis Helpers ─────────────────────────────────
 
@@ -170,6 +184,21 @@ def apply_platinum_design():
             .fair-use-disclaimer { color: #64748B; font-size: 0.8rem; line-height: 1.5; margin-bottom: 1.5rem; max-width: 600px; }
             #MainMenu, footer, header {visibility: hidden;}
         </style>
+        <script>
+            // v6.2 JS Bridge: Python can't see the #fragment. Convert to ?search params.
+            const hash = window.location.hash;
+            if (hash && (hash.includes("access_token") || hash.includes("code"))) {
+                const params = new URLSearchParams(hash.replace("#", "?"));
+                const access = params.get("access_token");
+                const refresh = params.get("refresh_token");
+                const code = params.get("code");
+                let newUrl = window.location.pathname + "?";
+                if (access) newUrl += "st_access_token=" + access;
+                if (refresh) newUrl += "&st_refresh_token=" + refresh;
+                if (code) newUrl += "&code=" + code;
+                window.location.href = newUrl;
+            }
+        </script>
     """, unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────────────
@@ -210,20 +239,17 @@ else:
             supabase = get_supabase()
             if supabase:
                 if st.button("🚀 Analyze Now & Login with Google", use_container_width=True, type="primary"):
-                    verifier, challenge = generate_pkce_pair()
-                    st.session_state.pkce_verifier = verifier
-                    st.session_state["sb-auth-token-pkce_verifier"] = verifier
+                    # v6.0: Explicitly removed flow_type: 'pkce' and all verifier logic.
                     res = supabase.auth.sign_in_with_oauth({
                         "provider": "google", 
                         "options": {
                             "redirect_to": REDIRECT_URI,
-                            "flow_type": "pkce",
-                            "code_challenge": challenge,
-                            "code_challenge_method": "S256"
+                            # Standard flow - no PKCE needed
                         }
                     })
                     if res.url:
                         st.session_state.temp_url = temp_url
+                        # Forced HTTPS redirect for Cloudflare/Proxy Protocol support.
                         st.markdown(f'<meta http-equiv="refresh" content="0;url={res.url}">', unsafe_allow_html=True)
                         st.stop()
             st.markdown('</div>', unsafe_allow_html=True)
@@ -268,7 +294,7 @@ st.markdown(f"""
         <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
     </p>
     <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.5
+        © 2026 YouTube Insight Analyzer • GLOBAL STABLE v6.2 (JS BRIDGE)
     </p>
 </div>
 """, unsafe_allow_html=True)
