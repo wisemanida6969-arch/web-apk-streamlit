@@ -235,12 +235,14 @@ else:
             
             if temp_url: st.warning("⚠️ Login required to analyze this video!")
             
-            u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
+            # v6.4: Support both st.secrets (local) and os.environ (production)
+            u = os.environ.get("SUPABASE_URL") or (st.secrets.get("SUPABASE_URL") if hasattr(st, "secrets") else None)
+            k = os.environ.get("SUPABASE_ANON_KEY") or (st.secrets.get("SUPABASE_ANON_KEY") if hasattr(st, "secrets") else None)
+            
             if u and k:
                 if st.button("🚀 Analyze Now & Login with Google", use_container_width=True, type="primary"):
-                    # v6.3: HARD REMOVAL of SDK initiation to prevent PKCE enforcement.
-                    # Manually construct Implicit Flow URL.
-                    res_url = f"{u}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}"
+                    # v6.3: Manually construct Implicit Flow URL to bypass PKCE enforcement.
+                    res_url = f"{u}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}&response_type=token"
                     st.session_state.temp_url = temp_url
                     st.markdown(f'<meta http-equiv="refresh" content="0;url={res_url}">', unsafe_allow_html=True)
                     st.stop()
@@ -278,7 +280,7 @@ else:
             st.markdown('</div>', unsafe_allow_html=True)
 
 # ── Global Footer ────────────────────────────────────
-st.markdown(f"""
+st.markdown("""
 <div style="background-color: #0F172A; padding: 4rem 4rem 2rem 4rem; border-top: 1px solid rgba(255,255,255,0.08); margin-top: 8rem;">
     <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 2rem; margin-bottom: 3rem; width: 100%;">
         <div style="color: #94A3B8; font-size: 0.9rem; font-weight: 500; text-align: left; flex: 1;">
@@ -307,6 +309,6 @@ st.markdown(f"""
     </div>
 </div>
 <style>
-    a:hover {{ color: #3B82F6 !important; }}
+    a:hover { color: #3B82F6 !important; }
 </style>
 """, unsafe_allow_html=True)
