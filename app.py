@@ -25,7 +25,7 @@ except Exception as e:
     st.error(f"Initialization Error: {e}")
 
 # ── Global Configuration ──────────────────────────────
-REDIRECT_URI = "https://trytimeback.com/auth/callback"
+REDIRECT_URI = "https://trytimeback.streamlit.app/"
 STORAGE_KEY = "sb-trytimeback-auth"  # Standardized for localStorage compatibility
 
 # ─────────────────────────────────────────────────────
@@ -158,34 +158,34 @@ def apply_platinum_design():
             #MainMenu, footer, header {visibility: hidden;}
         </style>
         <script>
-            // v7.0 Pure Implicit Bridge: Aggressive Token Capture
+            // v7.1 Final Bridge: Cross-Frame Token Extraction
             (function() {
-                const hash = window.location.hash;
-                const urlParams = new URLSearchParams(window.location.search);
-                const currentSearch = window.location.search;
-                
-                // 1. Capture tokens from Supabase fragment (#access_token=...)
-                if (hash && hash.includes("access_token")) {
-                    const params = new URLSearchParams(hash.replace("#", "?"));
-                    const access = params.get("access_token");
-                    const refresh = params.get("refresh_token");
+                try {
+                    const topHash = window.top.location.hash;
+                    const topSearch = window.top.location.search;
                     
-                    if (access) {
-                        localStorage.setItem('sb-trytimeback-access', access);
-                        if (refresh) localStorage.setItem('sb-trytimeback-refresh', refresh);
-                        // Redirect to a clean URL with the access token for Python consumption
-                        window.location.href = window.location.origin + window.location.pathname + "?st_access_token=" + access + "&st_refresh_token=" + (refresh || '');
+                    if (topHash && topHash.includes("access_token")) {
+                        const params = new URLSearchParams(topHash.replace("#", "?"));
+                        const access = params.get("access_token");
+                        const refresh = params.get("refresh_token");
+                        if (access) {
+                            localStorage.setItem('sb-trytimeback-access', access);
+                            if (refresh) localStorage.setItem('sb-trytimeback-refresh', refresh);
+                            window.top.location.href = window.top.location.origin + window.top.location.pathname + "?st_access_token=" + access + "&st_refresh_token=" + (refresh || '');
+                            return;
+                        }
                     }
-                }
-                
-                // 2. Persistent recovery from localStorage if Python is empty
-                if (!urlParams.get("st_access_token") && localStorage.getItem('sb-trytimeback-access')) {
-                    const savedToken = localStorage.getItem('sb-trytimeback-access');
-                    const savedRefresh = localStorage.getItem('sb-trytimeback-refresh') || '';
-                    // Only redirect if absolutely necessary to prevent flicker
-                    if (currentSearch === '' && !hash.includes("access_token")) {
-                        window.location.href = window.location.origin + window.location.pathname + "?st_access_token=" + savedToken + "&st_refresh_token=" + savedRefresh;
+                    
+                    const urlParams = new URLSearchParams(topSearch);
+                    if (!urlParams.get("st_access_token") && localStorage.getItem('sb-trytimeback-access')) {
+                        const savedToken = localStorage.getItem('sb-trytimeback-access');
+                        const savedRefresh = localStorage.getItem('sb-trytimeback-refresh') || '';
+                        if (topSearch === '' && !topHash.includes("access_token")) {
+                            window.top.location.href = window.top.location.origin + window.top.location.pathname + "?st_access_token=" + savedToken + "&st_refresh_token=" + savedRefresh;
+                        }
                     }
+                } catch (e) {
+                    console.error("Auth Bridge Frame Error:", e);
                 }
             })();
         </script>
@@ -312,7 +312,7 @@ st.markdown("""
             This service is for educational purposes only.
         </p>
         <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
-            GLOBAL STABLE v7.0.1 (FORCED SYNC)
+            GLOBAL STABLE v7.1 (FINAL BRIDGE)
         </p>
     </div>
 </div>
