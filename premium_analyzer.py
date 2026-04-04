@@ -98,6 +98,9 @@ def handle_oauth_callback():
             except Exception as e:
                 st.error(f"Auth Exchange Failed (v7.2): {e}")
 
+# Industrial-Grade OAuth Callback (v7.2.1 Automatic Activation)
+handle_oauth_callback()
+
 # Fallback for older Implicit Flow tokens (v7.2 Legacy Support)
 st_access = st.query_params.get("st_access_token")
 if st_access and not st.session_state.get("user"):
