@@ -121,20 +121,33 @@ if "user" not in st.session_state: st.session_state.user = None
 if "results" not in st.session_state: st.session_state.results = None
 page = st.query_params.get("page", "home")
 
-# ─────────────────────────────────────────────
-#  Functional Logic Components
-# ─────────────────────────────────────────────
+# ── Functional Logic Components ──────────────────────
+class StreamlitSessionStorage:
+    """Custom storage for Supabase PKCE flow in Streamlit."""
+    def get_item(self, key): return st.session_state.get(key)
+    def set_item(self, key, value): st.session_state[key] = value
+    def remove_item(self, key): 
+        if key in st.session_state: del st.session_state[key]
+
 def get_supabase():
+    """Initializes persistent Supabase client with custom storage."""
     if "supabase" in st.session_state:
         return st.session_state.supabase
     try:
-        from supabase import create_client
+        from supabase import create_client, ClientOptions
         u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
         if u and k:
-            client = create_client(u, k)
+            # Use custom storage to preserve code_verifier across redirects
+            opts = ClientOptions(
+                persist_session=True,
+                auto_refresh_token=True,
+                storage=StreamlitSessionStorage()
+            )
+            client = create_client(u, k, options=opts)
             st.session_state.supabase = client
             return client
-    except: pass
+    except Exception as e:
+        st.error(f"Supabase Init Error: {e}")
     return None
 
 def handle_oauth_callback():
@@ -144,8 +157,7 @@ def handle_oauth_callback():
         supabase = get_supabase()
         if supabase:
             try:
-                # Use the persistent client to exchange code for session
-                # The code_verifier should be in the client's internal storage
+                # Exchange code for session (Storage handles code_verifier automatically)
                 res = supabase.auth.exchange_code_for_session({
                     "auth_code": code,
                 })
@@ -155,14 +167,12 @@ def handle_oauth_callback():
                         "email": res.user.email,
                         "name": res.user.user_metadata.get("full_name", "Learner")
                     }
-                    # Clear query params for a clean UI
                     st.query_params.clear()
                     st.rerun()
             except Exception as e:
                 st.error(f"Session exchange failed: {e}")
                 if st.button("❌ Authentication Error: Try Again"):
-                    st.query_params.clear()
-                    st.rerun()
+                    st.query_params.clear(); st.rerun()
 
 def analyze_video(video_url):
     vid = extract_video_id(video_url)
@@ -230,9 +240,13 @@ else:
             supabase = get_supabase()
             if supabase:
                 try:
+                    # Enforce explicit PKCE flow and exact redirect URL
                     res = supabase.auth.sign_in_with_oauth({
                         "provider": "google", 
-                        "options": {"redirect_to": "https://trytimeback.com"}
+                        "options": {
+                            "redirect_to": "https://trytimeback.com",
+                            "flow_type": "pkce"
+                        }
                     })
                     if res.url:
                         if st.button("🚀 Analyze Now (Requires Login)", use_container_width=True, type="primary"):
@@ -332,7 +346,7 @@ st.markdown("""
         <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
     </p>
     <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.9.5
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.0
     </p>
 </div>
 """, unsafe_allow_html=True)
