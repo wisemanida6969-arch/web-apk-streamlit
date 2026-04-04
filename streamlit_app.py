@@ -84,7 +84,7 @@ def apply_platinum_design():
 page = st.query_params.get("page", "home")
 
 # ─────────────────────────────────────────────
-#  Terms of Service Page (v4.5 Formal)
+#  Terms of Service Page (v4.6 Formal)
 # ─────────────────────────────────────────────
 def show_terms_page():
     st.markdown('<div class="legal-container">', unsafe_allow_html=True)
@@ -134,7 +134,74 @@ def show_terms_page():
     </div>
     """, unsafe_allow_html=True)
     
-    if st.button("← Return to Learning Hub"):
+    if st.button("← Return to Learning Hub", key="back_from_terms"):
+        st.query_params.clear()
+        st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+
+# ─────────────────────────────────────────────
+#  Privacy Policy Page (v4.6 Formal)
+# ─────────────────────────────────────────────
+def show_privacy_page():
+    st.markdown('<div class="legal-container">', unsafe_allow_html=True)
+    st.markdown('<h1 class="legal-title">Privacy Policy</h1>', unsafe_allow_html=True)
+    st.markdown("<p style='color:#94A3B8; margin-bottom:2rem;'>Effective Date: April 4, 2026</p>", unsafe_allow_html=True)
+    
+    st.markdown("""
+    <div class="legal-section">
+        <p>Trytimeback.com ("we," "our," or "us") is committed to protecting your privacy. This Privacy Policy explains how we collect, use, and safeguard your information when you use our AI summary service.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">1. Information We Collect</h2>
+        <p>• <b>Account Information:</b> When you sign in via Google, we receive your email address, name, and profile picture to create your account and manage your summary credits.<br>
+        • <b>Usage Data:</b> We collect information on how you interact with our service, such as the YouTube URLs you summarize and the remaining minutes in your account.<br>
+        • <b>Payment Information:</b> Payment processing is handled by our third-party provider (e.g., Paddle). We do not store your full credit card details on our servers.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">2. How We Use Your Information</h2>
+        <p>• To provide and maintain our AI summary service.<br>
+        • To manage your user account and track your usage credits.<br>
+        • To communicate with you regarding service updates or customer support (admin@trytimeback.com).<br>
+        • To prevent fraudulent activity and ensure the security of our platform.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">3. Data Storage and Security</h2>
+        <p>We use industry-standard security measures (including Supabase for database management and Cloudflare for network security) to protect your data. However, no method of transmission over the internet is 100% secure.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">4. Third-Party Services</h2>
+        <p>We may share limited data with trusted third-party providers only to facilitate our service:<br>
+        • <b>Google OAuth:</b> For secure user authentication.<br>
+        • <b>Payment Processors:</b> To handle secure transactions.<br>
+        • <b>AI Models:</b> To process summaries (data sent is anonymous and does not include your personal profile).</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">5. Your Rights</h2>
+        <p>You have the right to access, update, or delete your personal information at any time. You can request data deletion by contacting us at <b>admin@trytimeback.com</b>.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">6. Cookies</h2>
+        <p>We use cookies to keep you logged in and to analyze our website traffic to improve user experience.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">7. Changes to This Policy</h2>
+        <p>We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new policy on this page.</p>
+    </div>
+    
+    <div class="legal-section">
+        <h2 class="legal-h2">8. Contact Us</h2>
+        <p>If you have any questions about this Privacy Policy, please contact us: <a href="mailto:admin@trytimeback.com" class="footer-link">admin@trytimeback.com</a></p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    if st.button("← Return to Learning Hub", key="back_from_privacy"):
         st.query_params.clear()
         st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)
@@ -146,6 +213,8 @@ apply_platinum_design()
 
 if page == "terms":
     show_terms_page()
+elif page == "privacy":
+    show_privacy_page()
 else:
     # ── [Normal Home Page Logic Starts Here] ──
     st.markdown("""
@@ -160,7 +229,7 @@ else:
     st.markdown("<center><h3>High Performance Analysis Center Active.</h3></center>", unsafe_allow_html=True)
 
 # ─────────────────────────────────────────────
-#  Footer 2.0 (The Legal Shield)
+#  Footer 2.0 (The Legal Shield v4.6)
 # ─────────────────────────────────────────────
 st.markdown("""
 <div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:6rem;">
@@ -169,10 +238,11 @@ st.markdown("""
     </p>
     <p style='color:#64748B; font-size:0.8rem;'>
         Contact: <a href="mailto:admin@trytimeback.com" class="footer-link">admin@trytimeback.com</a> | 
-        <a href="?page=terms" target="_self" class="footer-link">Terms of Service</a>
+        <a href="?page=terms" target="_self" class="footer-link">Terms of Service</a> | 
+        <a href="?page=privacy" target="_self" class="footer-link">Privacy Policy</a>
     </p>
-    <p style='color:#475569; font-size:0.75rem; margin-top:1rem;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.4
+    <p style='color:#475569; font-size:0.75rem; margin-top:10px;'>
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.6
     </p>
 </div>
 """, unsafe_allow_html=True)
