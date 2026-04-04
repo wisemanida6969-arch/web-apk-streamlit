@@ -65,40 +65,31 @@ def get_supabase():
     return None
 
 def handle_oauth_callback():
-    """Handles OAuth redirect and session exchange (v6.3 Robust Implicit Fix)."""
-    # Tokens are passed as query params after the JS Bridge reloads the page
+    """Handles manual session injection fromcaptured tokens (v7.0 Pure Implicit Fix)."""
     st_access = st.query_params.get("st_access_token")
     st_refresh = st.query_params.get("st_refresh_token")
     
     # v6.6: Escape Lock - Do not process if user already exists in session.
     if st.session_state.get("user"):
         return
+    
+    # v7.0: If we have a token from the JS Bridge, inject it directly.
+    if st_access:
         supabase = get_supabase()
         if supabase:
-            # First, check for existing persistent session in st.session_state
             try:
-                user_res = supabase.auth.get_user()
-                if user_res and user_res.user:
+                # Force manual session setup to bypass PKCE verifier checks.
+                res = supabase.auth.set_session(st_access, st_refresh or "")
+                if res and res.user:
                     st.session_state.user = {
-                        "id": user_res.user.id,
-                        "email": user_res.user.email,
-                        "name": user_res.user.user_metadata.get("full_name", "Learner")
+                        "id": res.user.id, "email": res.user.email,
+                        "name": res.user.user_metadata.get("full_name", "Learner")
                     }
-                    st.query_params.clear(); st.rerun()
-            except: pass
-
-            # Handle Implicit Token (Redirected from JS Bridge / ?st_access_token=...)
-            if st_access:
-                try:
-                    res = supabase.auth.set_session(st_access, st_refresh or "")
-                    if res.user:
-                        st.session_state.user = {
-                            "id": res.user.id, "email": res.user.email,
-                            "name": res.user.user_metadata.get("full_name", "Learner")
-                        }
-                        st.query_params.clear(); st.rerun()
-                except Exception as e:
-                    st.error(f"Session recovery error: {e}")
+                    # Aggressive cleanup and refresh
+                    st.query_params.clear()
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Manual Session Injection Failed: {e}")
 
 # ── Analysis Helpers ─────────────────────────────────
 
@@ -169,34 +160,33 @@ def apply_platinum_design():
             #MainMenu, footer, header {visibility: hidden;}
         </style>
         <script>
-            // v6.3 Simple Implicit Bridge: Handle #fragment and localStorage
+            // v7.0 Pure Implicit Bridge: Aggressive Token Capture
             (function() {
                 const hash = window.location.hash;
                 const urlParams = new URLSearchParams(window.location.search);
+                const currentSearch = window.location.search;
                 
-                // 1. If we have fragments (from Supabase redirect)
+                // 1. Capture tokens from Supabase fragment (#access_token=...)
                 if (hash && hash.includes("access_token")) {
                     const params = new URLSearchParams(hash.replace("#", "?"));
                     const access = params.get("access_token");
                     const refresh = params.get("refresh_token");
                     
                     if (access) {
-                        // Persist to localStorage for stability
                         localStorage.setItem('sb-trytimeback-access', access);
                         if (refresh) localStorage.setItem('sb-trytimeback-refresh', refresh);
-                        
-                        // Redirect to main page without the fragment
-                        window.location.href = window.location.origin + window.location.pathname + "?st_access_token=" + access;
+                        // Redirect to a clean URL with the access token for Python consumption
+                        window.location.href = window.location.origin + window.location.pathname + "?st_access_token=" + access + "&st_refresh_token=" + (refresh || '');
                     }
                 }
                 
-                // 2. Persistent Login Check: If Python doesn't have the token but localStorage does
+                // 2. Persistent recovery from localStorage if Python is empty
                 if (!urlParams.get("st_access_token") && localStorage.getItem('sb-trytimeback-access')) {
-                    // v6.6: Only redirect if not already in a token-processing state to prevent refresh loops.
-                    if (window.location.search === '' && !window.location.hash.includes("access_token")) {
-                        const savedToken = localStorage.getItem('sb-trytimeback-access');
-                        const savedRefresh = localStorage.getItem('sb-trytimeback-refresh') || '';
-                        window.location.href = window.location.origin + "/?st_access_token=" + savedToken + "&st_refresh_token=" + savedRefresh;
+                    const savedToken = localStorage.getItem('sb-trytimeback-access');
+                    const savedRefresh = localStorage.getItem('sb-trytimeback-refresh') || '';
+                    // Only redirect if absolutely necessary to prevent flicker
+                    if (currentSearch === '' && !hash.includes("access_token")) {
+                        window.location.href = window.location.origin + window.location.pathname + "?st_access_token=" + savedToken + "&st_refresh_token=" + savedRefresh;
                     }
                 }
             })();
