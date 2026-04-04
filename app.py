@@ -185,15 +185,23 @@ else:
         st.markdown('<h1 class="hero-headline">Gain Back Your Study Time.</h1>', unsafe_allow_html=True)
         st.markdown('<p style="text-align:center; color:#94A3B8; font-size:1.3rem;">Stop Watching, Start Learning with AI.</p>', unsafe_allow_html=True)
         
-        c1, c2, c3 = st.columns([1, 1.5, 1])
+        c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
             supabase = get_supabase()
             if supabase:
-                res = supabase.auth.sign_in_with_oauth({
-                    "provider": "google", "options": {"redirect_to": "https://trytimeback.com", "skip_browser_redirect": True}
-                })
-                if st.button("🚀 Get Started for Free", key="cta_main", use_container_width=True): pass
-                st.markdown(f'<a href="{res.url}" target="_self" style="text-decoration:none;"><div class="glow-cta" style="text-align:center; padding:12px; border-radius:10px; color:#0F172A; background:#FBBF24; font-weight:700;">Authenticate with Google</div></a>', unsafe_allow_html=True)
+                try:
+                    res = supabase.auth.sign_in_with_oauth({
+                        "provider": "google", 
+                        "options": {"redirect_to": "https://trytimeback.com"}
+                    })
+                    if res.url:
+                        st.link_button("🚀 Authenticate with Google", res.url, use_container_width=True, type="primary")
+                    else:
+                        st.error("Auth URL generation failed. Please check Supabase config.")
+                except Exception as e:
+                    st.error(f"Supabase Error: {e}")
+            else:
+                st.warning("🔒 Authentication server is currently offline. Please contact admin@trytimeback.com")
     else:
         # ── LOGGED IN: ANALYSIS HUB ──
         st.markdown(f'<h1 class="hero-headline" style="font-size:2.5rem !important;">Welcome, Learner</h1>', unsafe_allow_html=True)
