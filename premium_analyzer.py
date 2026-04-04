@@ -215,6 +215,9 @@ else:
             st.markdown("<p style='color:#3B82F6; font-weight:600; margin-bottom:0.8rem; text-align:center;'>Paste YouTube URL to Begin Intelligence Extraction</p>", unsafe_allow_html=True)
             temp_url = st.text_input("", placeholder="https://youtube.com/watch?v=...", label_visibility="collapsed", key="unauth_url")
             
+            if temp_url:
+                st.warning("⚠️ Login required to analyze this video!")
+            
             supabase = get_supabase()
             if supabase:
                 try:
