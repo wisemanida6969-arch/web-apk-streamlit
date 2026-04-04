@@ -205,9 +205,9 @@ elif page == "privacy":
 else:
     # ── HOME PAGE ──
     if not st.session_state.user:
-        # Hero Section
+        # 1. Hero Section
         st.markdown('<h1 class="hero-headline">Gain Back Your Study Time.</h1>', unsafe_allow_html=True)
-        st.markdown('<p style="text-align:center; color:#94A3B8; font-size:1.3rem;">Stop Watching, Start Learning with AI.</p>', unsafe_allow_html=True)
+        st.markdown('<p style="text-align:center; color:#94A3B8; font-size:1.4rem; margin-bottom:3rem;">AI-Powered YouTube Analysis for Efficient Learning. Stop Watching, Start Learning.</p>', unsafe_allow_html=True)
         
         c1, c2, c3 = st.columns([1, 2, 1])
         with c2:
@@ -219,25 +219,64 @@ else:
                         "options": {"redirect_to": "https://trytimeback.com"}
                     })
                     if res.url:
-                        st.link_button("🚀 Authenticate with Google", res.url, use_container_width=True, type="primary")
+                        st.link_button("🚀 Get Started for Free (Google Login)", res.url, use_container_width=True, type="primary")
+                        st.markdown("<p style='text-align:center; font-size:0.9rem; color:#64748B; margin-top:0.5rem;'>Login to access the High-Performance Analysis Engine.</p>", unsafe_allow_html=True)
                     else:
-                        st.error("Auth URL generation failed. Please check Supabase config.")
+                        st.error("Auth URL generation failed.")
                 except Exception as e:
                     st.error(f"Supabase Error: {e}")
             else:
-                st.warning("🔒 Authentication server is currently offline. Please contact admin@trytimeback.com")
+                st.warning("🔒 Auth Server Offline.")
+
+        # 2. Value Propositions (Why Trytimeback?)
+        st.markdown("<div style='margin-top:8rem; text-align:center;'><h2 style='color:#FFFFFF; font-size:2.5rem; font-weight:700;'>Why Trytimeback?</h2></div>", unsafe_allow_html=True)
+        
+        v1, v2, v3 = st.columns(3)
+        with v1:
+            st.markdown("""
+            <div class="premium-card" style="padding:2rem; min-height:280px; transition: 0.3s ease-in-out;">
+                <div style="color:#3B82F6; font-size:2.5rem; margin-bottom:1rem;"><i class="fas fa-bolt"></i></div>
+                <h3 style="color:#FFFFFF; font-size:1.4rem; margin-bottom:1rem;">1 Hour Video, 5 Minute Summary</h3>
+                <p style="color:#94A3B8; font-size:1rem; line-height:1.6;">Don't waste time on long intros. Get deep insights in seconds with our optimized AI extraction.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with v2:
+            st.markdown("""
+            <div class="premium-card" style="padding:2rem; min-height:280px;">
+                <div style="color:#FBBF24; font-size:2.5rem; margin-bottom:1rem;"><i class="fas fa-brain"></i></div>
+                <h3 style="color:#FFFFFF; font-size:1.4rem; margin-bottom:1rem;">AI Extracts Core Concepts</h3>
+                <p style="color:#94A3B8; font-size:1rem; line-height:1.6;">Our engine identifies non-obvious patterns and formulas, acting as your personal study assistant.</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        with v3:
+            st.markdown("""
+            <div class="premium-card" style="padding:2rem; min-height:280px;">
+                <div style="color:#10B981; font-size:2.5rem; margin-bottom:1rem;"><i class="fas fa-globe"></i></div>
+                <h3 style="color:#FFFFFF; font-size:1.4rem; margin-bottom:1rem;">High Accuracy Global Learning</h3>
+                <p style="color:#94A3B8; font-size:1rem; line-height:1.6;">Language is no barrier. We support and summarize lectures from across the world with precision.</p>
+            </div>
+            """, unsafe_allow_html=True)
+
     else:
         # ── LOGGED IN: ANALYSIS HUB ──
-        st.markdown(f'<h1 class="hero-headline" style="font-size:2.5rem !important;">Welcome, Learner</h1>', unsafe_allow_html=True)
+        st.markdown(f'<h1 class="hero-headline" style="font-size:2.8rem !important; margin-top:2rem;">Intelligence Dashboard</h1>', unsafe_allow_html=True)
+        st.markdown(f'<p style="text-align:center; color:#94A3B8; font-size:1.1rem; margin-bottom:2rem;">Welcome back, <b>{st.session_state.user["name"]}</b>. What would you like to master today?</p>', unsafe_allow_html=True)
+        
         st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-        yt_url = st.text_input("Drop a YouTube URL to extract intelligence:", placeholder="https://youtube.com/watch?v=...")
-        if st.button("Extract Deep Insights", use_container_width=True):
-            analyze_video(yt_url)
+        st.markdown("<p style='color:#3B82F6; font-weight:600; margin-bottom:0.5rem;'>YouTube Intelligence Extraction</p>", unsafe_allow_html=True)
+        yt_url = st.text_input("", placeholder="Paste the YouTube URL here to extract concepts...", label_visibility="collapsed")
+        c_btn1, c_btn2, c_btn3 = st.columns([1, 2, 1])
+        with c_btn2:
+            if st.button("🚀 Analyze Now", use_container_width=True, type="primary"):
+                analyze_video(yt_url)
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.session_state.results:
+            # Report display logic ...
             st.markdown('<div class="premium-card">', unsafe_allow_html=True)
-            st.markdown(f"### Intelligence Report")
+            st.markdown(f"<h2 style='color:#FFFFFF; font-size:1.8rem; margin-bottom:2rem;'>Intelligence Report</h2>", unsafe_allow_html=True)
             res = st.session_state.results
             for c in res.get("concepts", []):
                 st.markdown(f"""
@@ -247,7 +286,7 @@ else:
                 </div>
                 """, unsafe_allow_html=True)
             
-            # ── Source Attribution Section (v4.7) ──
+            # Source Attribution Section (v4.7)
             meta = res.get("meta", {})
             st.markdown(f"""
             <div class="attribution-box">
@@ -262,10 +301,17 @@ else:
 
 # ── Footer ──
 st.markdown("""
-<div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:6rem;">
-    <p style='color:#64748B; font-size:0.8rem;'>
+<div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:8rem;">
+    <p style='color:#475569; font-size:0.85rem; margin-bottom:0.7rem;'>
+        <b>Educational AI Analyzer:</b> Transformative learning for everyone.
+    </p>
+    <p style='color:#64748B; font-size:0.85rem;'>
         Contact: <a href="mailto:admin@trytimeback.com" style="color:#3B82F6;">admin@trytimeback.com</a> | 
-        © 2026 PLATINUM v4.9
+        <a href="?page=terms" target="_self" style="color:#3B82F6; text-decoration:none;">Terms of Service</a> | 
+        <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
+    </p>
+    <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.9.1
     </p>
 </div>
 """, unsafe_allow_html=True)
