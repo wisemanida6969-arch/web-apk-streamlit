@@ -24,8 +24,23 @@ try:
 except Exception as e:
     st.error(f"Initialization Error: {e}")
 
-# ── Global Configuration ──────────────────────────────
-REDIRECT_URI = "https://trytimeback.streamlit.app/"
+# ── Global Configuration (v7.2.2 Smart Domain Sync) ───
+def get_dynamic_redirect_uri():
+    """Detects the current host to ensure matching redirect domains (v7.2.2)."""
+    try:
+        # Check query params for domain hints (Streamlit often passes context here)
+        if "trytimeback.com" in str(st.query_params):
+            return "https://trytimeback.com/"
+        # Check standard headers via websocket context if available
+        from streamlit.web.server.websocket_headers import _get_websocket_headers
+        headers = _get_websocket_headers()
+        if headers and "trytimeback.com" in headers.get("Host", ""):
+            return "https://trytimeback.com/"
+    except:
+        pass
+    return "https://trytimeback.streamlit.app/"
+
+REDIRECT_URI = get_dynamic_redirect_uri()
 STORAGE_KEY = "sb-trytimeback-auth"  # Standardized for localStorage compatibility
 
 # ─────────────────────────────────────────────────────
@@ -330,7 +345,7 @@ st.markdown("""
             This service is for educational purposes only.
         </p>
         <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
-            GLOBAL STABLE v7.2 (INDUSTRIAL GRADE)
+            GLOBAL STABLE v7.2.2 (SMART DOMAIN SYNC)
         </p>
     </div>
 </div>
