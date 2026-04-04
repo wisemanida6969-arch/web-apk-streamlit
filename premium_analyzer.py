@@ -46,6 +46,14 @@ class StreamlitSessionStorage:
 
 # PKCE Generation removed (v6.0 Transition to Standard/Implicit Flow)
 
+def generate_pkce_pair():
+    """Generates a secure PKCE verifier and challenge pair (v7.2)."""
+    verifier = secrets.token_urlsafe(64)
+    # Convert to SHA256 challenge string
+    sha256 = hashlib.sha256(verifier.encode('ascii')).digest()
+    challenge = base64.urlsafe_b64encode(sha256).decode('ascii').replace('=', '')
+    return verifier, challenge
+
 def get_supabase():
     """Initializes persistent Supabase client (v6.0 Standard Flow)."""
     if "supabase" in st.session_state:
@@ -54,7 +62,6 @@ def get_supabase():
         from supabase import create_client
         u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
         if u and k:
-            # v6.3: Direct initialization for universal support.
             client = create_client(u, k)
             st.session_state.supabase = client
             return client
@@ -63,31 +70,45 @@ def get_supabase():
     return None
 
 def handle_oauth_callback():
-    """Handles manual session injection fromcaptured tokens (v7.0 Pure Implicit Fix)."""
-    st_access = st.query_params.get("st_access_token")
-    st_refresh = st.query_params.get("st_refresh_token")
+    """Industrial-Grade OAuth Callback (v7.2 Query Reflect)."""
+    # 1. Capture code from Google and our reflected verifier from the URL
+    code = st.query_params.get("code")
+    my_verifier = st.query_params.get("my_verifier")
     
-    # v6.6: Escape Lock - Do not process if user already exists in session.
     if st.session_state.get("user"):
         return
     
-    # v7.0: If we have a token from the JS Bridge, inject it directly.
-    if st_access:
+    if code and my_verifier:
         supabase = get_supabase()
         if supabase:
             try:
-                # Force manual session setup to bypass PKCE verifier checks.
-                res = supabase.auth.set_session(st_access, st_refresh or "")
+                # 2. Exchange the code for a session using the reflected verifier
+                res = supabase.auth.exchange_code_for_session({
+                    "auth_code": code,
+                    "code_verifier": my_verifier
+                })
                 if res and res.user:
                     st.session_state.user = {
                         "id": res.user.id, "email": res.user.email,
                         "name": res.user.user_metadata.get("full_name", "Learner")
                     }
-                    # Aggressive cleanup and refresh
+                    # 3. Clean up the URL and refresh
                     st.query_params.clear()
                     st.rerun()
             except Exception as e:
-                st.error(f"Manual Session Injection Failed: {e}")
+                st.error(f"Auth Exchange Failed (v7.2): {e}")
+
+# Fallback for older Implicit Flow tokens (v7.2 Legacy Support)
+st_access = st.query_params.get("st_access_token")
+if st_access and not st.session_state.get("user"):
+    supabase = get_supabase()
+    if supabase:
+        try:
+            res = supabase.auth.set_session(st_access, st.query_params.get("st_refresh_token") or "")
+            if res and res.user:
+                st.session_state.user = {"id": res.user.id, "email": res.user.email, "name": res.user.user_metadata.get("full_name", "Learner")}
+                st.query_params.clear(); st.rerun()
+        except: pass
 
 # ── Analysis Helpers ─────────────────────────────────
 
@@ -253,10 +274,12 @@ else:
             
             if u and k:
                 if st.button("🚀 Analyze Now & Login with Google", use_container_width=True, type="primary"):
-                    # v6.3: Manually construct Implicit Flow URL to bypass PKCE enforcement.
-                    res_url = f"{u}/auth/v1/authorize?provider=google&redirect_to={REDIRECT_URI}&response_type=token"
+                    # v7.2 Industrial Tech: Manual PKCE + Query Reflect
+                    verifier, challenge = generate_pkce_pair()
+                    final_redirect = f"{REDIRECT_URI}?my_verifier={verifier}"
+                    auth_url = f"{u}/auth/v1/authorize?provider=google&redirect_to={final_redirect}&code_challenge={challenge}&code_challenge_method=S256&response_type=code"
                     st.session_state.temp_url = temp_url
-                    st.markdown(f'<meta http-equiv="refresh" content="0;url={res_url}">', unsafe_allow_html=True)
+                    st.markdown(f'<meta http-equiv="refresh" content="0;url={auth_url}">', unsafe_allow_html=True)
                     st.stop()
             st.markdown('</div>', unsafe_allow_html=True)
         
@@ -316,7 +339,7 @@ st.markdown("""
             This service is for educational purposes only.
         </p>
         <p style="margin-top: 1.5rem; color: #334155; font-size: 0.65rem; letter-spacing: 0.1rem; text-transform: uppercase;">
-            GLOBAL STABLE v7.1 (FINAL BRIDGE)
+            GLOBAL STABLE v7.2 (INDUSTRIAL GRADE)
         </p>
     </div>
 </div>
