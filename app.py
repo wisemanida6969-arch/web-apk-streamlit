@@ -132,6 +132,29 @@ def get_supabase():
     except: pass
     return None
 
+def handle_oauth_callback():
+    """Handles the redirect from Google OAuth and sets the session."""
+    code = st.query_params.get("code")
+    if code and not st.session_state.user:
+        supabase = get_supabase()
+        if supabase:
+            try:
+                # Exchange code for session
+                res = supabase.auth.exchange_code_for_session({
+                    "auth_code": code,
+                })
+                if res.user:
+                    st.session_state.user = {
+                        "id": res.user.id,
+                        "email": res.user.email,
+                        "name": res.user.user_metadata.get("full_name", "Learner")
+                    }
+                    # Clear query params for a clean UI
+                    st.query_params.clear()
+                    st.rerun()
+            except Exception as e:
+                st.error(f"Session exchange failed: {e}")
+
 def analyze_video(video_url):
     vid = extract_video_id(video_url)
     if not vid: return st.error("Invalid YouTube URL.")
@@ -170,6 +193,7 @@ def analyze_video(video_url):
 #  Main Execution Logic
 # ─────────────────────────────────────────────
 apply_platinum_design()
+handle_oauth_callback()
 
 if page == "terms":
     # ... (ToS logic shared before) ...
