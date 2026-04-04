@@ -265,7 +265,7 @@ st.markdown("""
 <div style="text-align:center; padding:4rem 2rem; border-top:1px solid rgba(255,255,255,0.05); margin-top:6rem;">
     <p style='color:#64748B; font-size:0.8rem;'>
         Contact: <a href="mailto:admin@trytimeback.com" style="color:#3B82F6;">admin@trytimeback.com</a> | 
-        © 2026 PLATINUM v4.7
+        © 2026 PLATINUM v4.9
     </p>
 </div>
 """, unsafe_allow_html=True)
