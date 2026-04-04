@@ -225,4 +225,3 @@ st.markdown("""
     <p style='color:#475569; font-size:0.8rem; letter-spacing:0.1em;'>© 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v4.1</p>
 </div>
 """, unsafe_allow_html=True)
-
