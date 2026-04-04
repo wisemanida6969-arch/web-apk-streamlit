@@ -235,9 +235,22 @@ else:
             
             if temp_url: st.warning("⚠️ Login required to analyze this video!")
             
-            # v6.4: Support both st.secrets (local) and os.environ (production)
-            u = os.environ.get("SUPABASE_URL") or (st.secrets.get("SUPABASE_URL") if hasattr(st, "secrets") else None)
-            k = os.environ.get("SUPABASE_ANON_KEY") or (st.secrets.get("SUPABASE_ANON_KEY") if hasattr(st, "secrets") else None)
+            # v6.5: Universal Key Compatibility (Detect both Anon Key and Key)
+            def get_cred(key):
+                val = os.environ.get(key)
+                if val: return val
+                try:
+                    if hasattr(st, "secrets"):
+                        if key in st.secrets: return st.secrets[key]
+                        # Compatibility fallback for 'SUPABASE_KEY'
+                        if key == "SUPABASE_ANON_KEY" and "SUPABASE_KEY" in st.secrets:
+                            return st.secrets["SUPABASE_KEY"]
+                except:
+                    pass
+                return None
+
+            u = get_cred("SUPABASE_URL")
+            k = get_cred("SUPABASE_ANON_KEY")
             
             if u and k:
                 if st.button("🚀 Analyze Now & Login with Google", use_container_width=True, type="primary"):
