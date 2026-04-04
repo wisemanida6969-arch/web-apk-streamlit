@@ -28,11 +28,11 @@ except Exception as e:
 REDIRECT_URI = "https://trytimeback.com"
 
 # ─────────────────────────────────────────────────────
-#  Functional Logic Components (v5.4 Pro Auth)
+#  Functional Logic Components (v5.5 Atomic Fix)
 # ─────────────────────────────────────────────────────
 
 class StreamlitSessionStorage:
-    """Custom storage for Supabase PKCE flow using st.session_state (v5.4)."""
+    """Custom storage for Supabase PKCE flow using st.session_state (v5.5)."""
     def __init__(self, key="sb-auth-token"):
         self.key = key
     def get_item(self, key): 
@@ -51,16 +51,16 @@ def generate_pkce_pair():
     return verifier, challenge
 
 def get_supabase():
-    """Initializes persistent Supabase client with explicit storage settings (v5.4)."""
+    """Initializes persistent Supabase client (v5.5 - Fixes storage_key init crash)."""
     if "supabase" in st.session_state:
         return st.session_state.supabase
     try:
         from supabase import create_client, ClientOptions
         u, k = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_ANON_KEY")
         if u and k:
+            # v5.5: REMOVED storage_key as it causes crash in Python SyncClientOptions
             opts = ClientOptions(
                 persist_session=True,
-                storage_key="sb-auth-token",
                 storage=StreamlitSessionStorage(key="sb-auth-token")
             )
             client = create_client(u, k, options=opts)
@@ -77,7 +77,7 @@ def handle_oauth_callback():
         supabase = get_supabase()
         if supabase:
             try:
-                # Recover verifier from session (Manual or Storage key)
+                # Recover verifier from session (Manual or Storage key compatible)
                 verifier = st.session_state.get("pkce_verifier") or \
                            st.session_state.get("sb-auth-token-pkce_verifier")
                 
@@ -149,7 +149,7 @@ def analyze_video(video_url):
             st.error(f"Analysis failed: {e}")
 
 # ─────────────────────────────────────────────────────
-#  Platinum UI Styling (v4.7 Functional Hub)
+#  Platinum UI Styling (v5.5 Functional Hub)
 # ─────────────────────────────────────────────────────
 
 def apply_platinum_design():
@@ -230,7 +230,13 @@ else:
         
         # Props section
         st.markdown("<div style='margin-top:8rem; text-align:center;'><h2 style='color:#FFFFFF; font-size:2.5rem; font-weight:700;'>Why Trytimeback?</h2></div>", unsafe_allow_html=True)
-        st.columns(3) # etc. (Simplified for core logic recovery)
+        v1, v2, v3 = st.columns(3)
+        with v1:
+            st.markdown('<div class="premium-card" style="padding:2rem; min-height:280px;"><div style="color:#3B82F6; font-size:2.5rem; margin-bottom:1rem;"><i class="fas fa-bolt"></i></div><h3 style="color:#FFFFFF; font-size:1.4rem; margin-bottom:1rem;">1 Hour Video, 5 Min Summary</h3><p style="color:#94A3B8; font-size:1rem; line-height:1.6;">Don\'t waste time on long intros. Get deep insights in seconds with AI.</p></div>', unsafe_allow_html=True)
+        with v2:
+            st.markdown('<div class="premium-card" style="padding:2rem; min-height:280px;"><div style="color:#FBBF24; font-size:2.5rem; margin-bottom:1rem;"><i class="fas fa-brain"></i></div><h3 style="color:#FFFFFF; font-size:1.4rem; margin-bottom:1rem;">AI Core Concept Extraction</h3><p style="color:#94A3B8; font-size:1rem; line-height:1.6;">Identifying non-obvious patterns and acting as your study assistant.</p></div>', unsafe_allow_html=True)
+        with v3:
+            st.markdown('<div class="premium-card" style="padding:2rem; min-height:280px;"><div style="color:#10B981; font-size:2.5rem; margin-bottom:1rem;"><i class="fas fa-globe"></i></div><h3 style="color:#FFFFFF; font-size:1.4rem; margin-bottom:1rem;">High Accuracy Global Learning</h3><p style="color:#94A3B8; font-size:1rem; line-height:1.6;">Precise summaries from lectures across the world in any language.</p></div>', unsafe_allow_html=True)
 
     else:
         # ── AUTHENTICATED DASHBOARD ──
@@ -262,7 +268,7 @@ st.markdown(f"""
         <a href="?page=privacy" target="_self" style="color:#3B82F6; text-decoration:none;">Privacy Policy</a>
     </p>
     <p style='color:#475569; font-size:0.75rem; margin-top:15px;'>
-        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.4
+        © 2026 YouTube Insight Analyzer • PLATINUM GLOBAL ATOMIC v5.5
     </p>
 </div>
 """, unsafe_allow_html=True)
