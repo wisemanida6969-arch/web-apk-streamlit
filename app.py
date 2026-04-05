@@ -1412,3 +1412,12 @@ Users may request to view, modify, or delete their personal information at any t
         if st.button("Close", key="close_privacy"):
             st.session_state["show_privacy"] = False
             st.rerun()
+
+# ─── Footer ───
+st.markdown("---")
+st.markdown(
+    "<div style='text-align: center; color: gray; font-size: 0.85rem;'>"
+    "📧 문의사항: <a href='mailto:admin@trytimeback.com' style='color: gray;'>admin@trytimeback.com</a>"
+    "</div>",
+    unsafe_allow_html=True,
+)
