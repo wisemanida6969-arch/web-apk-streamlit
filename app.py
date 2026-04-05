@@ -929,40 +929,13 @@ if analyze:
 # ══════════════════════════════════════
 if st.session_state.get("show_library", False):
     st.markdown("---")
-    st.markdown("""
-    <div style="text-align:center; margin-bottom:24px;">
-        <div style="
-            font-size: 2rem; font-weight: 800;
-            background: linear-gradient(135deg, #a78bfa, #818cf8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 6px;
-        ">📚 My Library</div>
-        <div style="color:rgba(160,160,195,0.7); font-size:0.95rem;">
-            Your past summaries — click to reload any analysis
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
+    st.subheader("📚 My Library")
+    st.caption("이전 분석 결과 — 클릭하면 다시 볼 수 있습니다")
 
     library = load_library(user_email)
 
     if not library:
-        st.markdown("""
-        <div style="
-            text-align:center; padding:60px 20px;
-            background: rgba(15,15,35,0.4);
-            border: 1px dashed rgba(255,255,255,0.08);
-            border-radius: 20px;
-        ">
-            <div style="font-size:3rem; margin-bottom:12px;">📭</div>
-            <div style="color:rgba(160,160,195,0.7); font-size:1.05rem; font-weight:500;">
-                No summaries yet
-            </div>
-            <div style="color:rgba(140,140,170,0.5); font-size:0.88rem; margin-top:6px;">
-                Analyze a YouTube video and it will appear here automatically
-            </div>
-        </div>
-        """, unsafe_allow_html=True)
+        st.info("📭 아직 저장된 요약이 없습니다. 영상을 분석하면 자동으로 저장됩니다.")
     else:
         for i, record in enumerate(library):
             vid = record["video_id"]
@@ -971,64 +944,30 @@ if st.session_state.get("show_library", False):
             src = record.get("source", "subtitle")
             points_data = json.loads(record["points"]) if isinstance(record["points"], str) else record["points"]
             titles_preview = " · ".join([p.get("title", "")[:30] for p in points_data[:3]])
-
             src_icon = "🎙️" if src == "whisper" else "📝"
-            thumb_url = f"https://img.youtube.com/vi/{vid}/mqdefault.jpg"
 
-            st.markdown(f"""
-            <div style="
-                background: rgba(15,15,35,0.6);
-                backdrop-filter: blur(16px);
-                border: 1px solid rgba(255,255,255,0.06);
-                border-radius: 16px;
-                padding: 16px 20px;
-                margin-bottom: 12px;
-                display: flex;
-                align-items: center;
-                gap: 18px;
-                transition: all 0.3s;
-            ">
-                <img src="{thumb_url}" style="
-                    width: 160px; height: 90px;
-                    border-radius: 10px;
-                    object-fit: cover;
-                    flex-shrink: 0;
-                " />
-                <div style="flex:1; min-width:0;">
-                    <div style="
-                        font-size: 0.8rem; color: rgba(140,140,170,0.6);
-                        margin-bottom: 4px;
-                    ">{created} · {src_icon} {src.capitalize()} · {fmt(duration)}</div>
-                    <div style="
-                        font-size: 0.95rem; font-weight: 600;
-                        color: rgba(220,220,240,0.9);
-                        white-space: nowrap;
-                        overflow: hidden;
-                        text-overflow: ellipsis;
-                    ">{titles_preview}</div>
-                    <div style="
-                        font-size: 0.78rem; color: rgba(140,140,170,0.5);
-                        margin-top: 4px;
-                    ">{len(points_data)} key points</div>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            col_load, col_del, col_space = st.columns([1, 1, 4])
-            with col_load:
-                if st.button("▶️ Load", key=f"load_{i}", use_container_width=True):
-                    st.session_state["result"] = {
-                        "videoId": vid,
-                        "totalDuration": duration,
-                        "source": src,
-                        "points": points_data,
-                    }
-                    st.session_state["show_library"] = False
-                    st.rerun()
-            with col_del:
-                if st.button("🗑️ Delete", key=f"del_{i}", use_container_width=True):
-                    delete_from_library(record["id"])
-                    st.rerun()
+            with st.container():
+                col_thumb, col_info, col_load, col_del = st.columns([1, 3, 1, 1])
+                with col_thumb:
+                    st.image(f"https://img.youtube.com/vi/{vid}/mqdefault.jpg", use_container_width=True)
+                with col_info:
+                    st.markdown(f"**{titles_preview}**")
+                    st.caption(f"{created} · {src_icon} {src.capitalize()} · {fmt(duration)} · {len(points_data)} key points")
+                with col_load:
+                    if st.button("▶️ Load", key=f"load_{i}", use_container_width=True):
+                        st.session_state["result"] = {
+                            "videoId": vid,
+                            "totalDuration": duration,
+                            "source": src,
+                            "points": points_data,
+                        }
+                        st.session_state["show_library"] = False
+                        st.rerun()
+                with col_del:
+                    if st.button("🗑️", key=f"del_{i}", use_container_width=True):
+                        delete_from_library(record["id"])
+                        st.rerun()
+                st.divider()
 
 # Results
 if "result" in st.session_state:
