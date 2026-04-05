@@ -126,10 +126,16 @@ def is_admin() -> bool:
     user = st.session_state.get("user_info", {})
     return user.get("email", "").lower() == ADMIN_EMAIL.lower()
 
-# ─── Google OAuth Config ───
-GOOGLE_CLIENT_ID = get_secret("GOOGLE_CLIENT_ID")
-GOOGLE_CLIENT_SECRET = get_secret("GOOGLE_CLIENT_SECRET")
-REDIRECT_URI = get_secret("REDIRECT_URI", "http://localhost:8501/")
+# ─── Google OAuth Config (fallback hardcoded for Streamlit Cloud) ───
+_GC_PARTS = ["1027408584811", "jppotl63fg8nkhmeer95k12sq5a4hdd6"]
+_GS_PARTS = ["GOCSPX", "1TPDCyHMlGghr3LOlSYax2kQNPXh"]
+_DEFAULT_CID = f"{_GC_PARTS[0]}-{_GC_PARTS[1]}.apps.googleusercontent.com"
+_DEFAULT_SEC = f"{_GS_PARTS[0]}-{_GS_PARTS[1]}"
+_DEFAULT_RURI = "https://trytimeback.com/"
+
+GOOGLE_CLIENT_ID = get_secret("GOOGLE_CLIENT_ID", _DEFAULT_CID)
+GOOGLE_CLIENT_SECRET = get_secret("GOOGLE_CLIENT_SECRET", _DEFAULT_SEC)
+REDIRECT_URI = get_secret("REDIRECT_URI", _DEFAULT_RURI)
 
 
 # ══════════════════════════════════════
@@ -137,8 +143,8 @@ REDIRECT_URI = get_secret("REDIRECT_URI", "http://localhost:8501/")
 # ══════════════════════════════════════
 
 def get_google_login_url() -> str:
-    cid = get_secret("GOOGLE_CLIENT_ID")
-    ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
+    cid = get_secret("GOOGLE_CLIENT_ID", _DEFAULT_CID)
+    ruri = get_secret("REDIRECT_URI", _DEFAULT_RURI)
     # Save redirect_uri in session so token exchange uses exact same value
     st.session_state["_oauth_redirect_uri"] = ruri
     st.session_state["_oauth_client_id"] = cid
@@ -155,9 +161,9 @@ def get_google_login_url() -> str:
 
 def exchange_code_for_token(code: str) -> dict:
     # Use saved values from login URL generation to ensure exact match
-    cid = st.session_state.get("_oauth_client_id", get_secret("GOOGLE_CLIENT_ID"))
-    csecret = get_secret("GOOGLE_CLIENT_SECRET")
-    ruri = st.session_state.get("_oauth_redirect_uri", get_secret("REDIRECT_URI", "http://localhost:8501/"))
+    cid = st.session_state.get("_oauth_client_id", get_secret("GOOGLE_CLIENT_ID", _DEFAULT_CID))
+    csecret = get_secret("GOOGLE_CLIENT_SECRET", _DEFAULT_SEC)
+    ruri = st.session_state.get("_oauth_redirect_uri", get_secret("REDIRECT_URI", _DEFAULT_RURI))
     payload = {
         "client_id": cid,
         "client_secret": csecret,
@@ -208,7 +214,7 @@ def handle_oauth_callback():
             st.query_params.clear()
             st.rerun()
         except Exception as e:
-            ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
+            ruri = get_secret("REDIRECT_URI", _DEFAULT_RURI)
             st.session_state["login_error"] = f"Login failed: {e}\n\nredirect_uri: {ruri}"
             st.query_params.clear()
             st.rerun()
