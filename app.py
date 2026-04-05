@@ -838,6 +838,7 @@ with st.sidebar:
     st.divider()
     st.markdown("**Features**")
     st.markdown("- 📝 자막 추출 (자동 생성 자막 포함)")
+    st.markdown("- 🎙️ 자막 없는 영상은 Whisper 음성 인식으로 분석")
     st.markdown("- 🤖 GPT-4o-mini 핵심 포인트 분석")
 
 # URL Input
@@ -850,6 +851,8 @@ with col1:
     )
 with col2:
     analyze = st.button("🚀 Analyze", use_container_width=True, type="primary")
+
+st.warning("🎙️ **음성 분석 제한:** 자막이 없는 영상은 음성(Whisper)을 통해 분석됩니다. 음성 기반 분석을 위해서는 영상 길이를 **15분 이내**로 유지해 주세요.")
 
 st.info("""
 ⚠️ **Copyright & Usage Notice**
