@@ -377,9 +377,27 @@ def process_video(video_id: str, api_key: str):
     source = "subtitle"
 
     if not transcript:
-        status.update(label="❌ 자막을 찾을 수 없습니다", state="error")
-        st.error("😔 **이 영상에는 자막(자동 생성 포함)이 없어 분석할 수 없습니다.** 자막이 있는 영상을 입력해 주세요.")
-        return None
+        source = "whisper"
+        status.write("⚠️ 자막을 찾을 수 없습니다 — 음성 인식으로 전환합니다")
+        status.write("⬇️ 오디오 다운로드 중...")
+
+        try:
+            with tempfile.TemporaryDirectory() as tmp_dir:
+                audio_path = download_audio(video_id, tmp_dir)
+                file_size = os.path.getsize(audio_path) / (1024 * 1024)
+                status.write(f"📁 오디오 파일: {file_size:.1f}MB")
+
+                if file_size > 25:
+                    status.update(label="❌ 실패", state="error")
+                    st.error("오디오 파일이 25MB를 초과합니다. 더 짧은 영상을 시도해 주세요.")
+                    return None
+
+                status.write("🎙️ Whisper 음성 인식 중... (30초~2분)")
+                transcript = transcribe_with_whisper(audio_path, api_key)
+        except Exception as e:
+            status.update(label="❌ 실패", state="error")
+            st.error(f"😔 **음성 분석에 실패했습니다.** 자막이 있는 영상을 시도해 주세요.\n\n오류: {e}")
+            return None
 
     total_duration = transcript[-1]["start"] + transcript[-1]["duration"]
     status.write(f"✅ Text extraction complete: {len(transcript)} segments, {fmt(total_duration)} total")
