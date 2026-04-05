@@ -707,29 +707,6 @@ handle_oauth_callback()
 # Not logged in → Login Page
 # ══════════════════════════════════════
 if not st.session_state.get("logged_in", False):
-    # ── Secret diagnostics (shown on login page for debugging) ──
-    secrets_status = check_secrets_status()
-    has_missing = any("MISSING" in v for v in secrets_status.values())
-
-    if has_missing:
-        st.error("⚠️ **Some secrets are not configured!** Please add them in Streamlit Cloud → Settings → Secrets.")
-        with st.expander("🔍 Secret Diagnostics", expanded=True):
-            st.caption(f"App Version: {APP_VERSION}")
-            for k, v in secrets_status.items():
-                st.text(f"  {k}: {v}")
-            st.markdown("---")
-            st.markdown("""
-**Streamlit Cloud Secrets format** (copy-paste this into Settings → Secrets):
-```toml
-OPENAI_API_KEY = "your-openai-key"
-GOOGLE_CLIENT_ID = "your-google-client-id.apps.googleusercontent.com"
-GOOGLE_CLIENT_SECRET = "GOCSPX-your-secret"
-REDIRECT_URI = "https://trytimeback.com/"
-SUPABASE_URL = "https://your-project.supabase.co"
-SUPABASE_KEY = "your-supabase-key"
-```
-            """)
-
     login_url = get_google_login_url()
 
     st.markdown("""
@@ -740,9 +717,6 @@ SUPABASE_KEY = "your-supabase-key"
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    # Debug: version + secret status
-    st.caption(f"v{APP_VERSION} | client_id: {'✅' if 'MISSING' not in secrets_status.get('GOOGLE_CLIENT_ID','MISSING') else '❌'} | redirect: {get_secret('REDIRECT_URI', 'localhost')}")
 
     # Use Streamlit markdown link (most reliable method)
     col_l, col_c, col_r = st.columns([1, 2, 1])
