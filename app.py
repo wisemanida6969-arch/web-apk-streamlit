@@ -80,6 +80,7 @@ if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL != "YOUR_SUPABASE_URL":
 def save_to_library(user_email: str, result: dict):
     """Save analysis result to Supabase"""
     if not supabase:
+        st.toast("⚠️ Supabase 연결 안됨 — 라이브러리 저장 불가")
         return
     try:
         supabase.table("summaries").insert({
@@ -90,8 +91,9 @@ def save_to_library(user_email: str, result: dict):
             "points": json.dumps(result["points"]),
             "created_at": datetime.utcnow().isoformat(),
         }).execute()
-    except Exception:
-        pass  # Silently fail — don't block the user
+        st.toast("✅ 라이브러리에 저장됨")
+    except Exception as e:
+        st.toast(f"❌ 저장 실패: {e}")
 
 
 def load_library(user_email: str) -> list:
