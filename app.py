@@ -251,9 +251,10 @@ def fmt(seconds: float) -> str:
 # ─── Subtitle Extraction ───
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
-    # Try manual + auto-generated subtitles
+    # Try manual + auto-generated subtitles (youtube-transcript-api v1.x)
     try:
-        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        api = YouTubeTranscriptApi()
+        transcript_list = api.list(video_id)
         # Priority: manual Korean > manual English > auto Korean > auto English > any
         for find_func in [
             lambda: transcript_list.find_manually_created_transcript(["ko"]),
@@ -265,7 +266,7 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
                 transcript = find_func()
                 data = transcript.fetch()
                 return [
-                    {"text": item["text"], "start": item["start"], "duration": item["duration"]}
+                    {"text": item.text, "start": item.start, "duration": item.duration}
                     for item in data
                 ]
             except Exception:
@@ -275,7 +276,7 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
             try:
                 data = transcript.fetch()
                 return [
-                    {"text": item["text"], "start": item["start"], "duration": item["duration"]}
+                    {"text": item.text, "start": item.start, "duration": item.duration}
                     for item in data
                 ]
             except Exception:
