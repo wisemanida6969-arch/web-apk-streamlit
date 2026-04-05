@@ -120,14 +120,16 @@ def exchange_code_for_token(code: str) -> dict:
     cid = get_secret("GOOGLE_CLIENT_ID")
     csecret = get_secret("GOOGLE_CLIENT_SECRET")
     ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
-    resp = requests.post("https://oauth2.googleapis.com/token", data={
+    payload = {
         "client_id": cid,
         "client_secret": csecret,
         "code": code,
         "grant_type": "authorization_code",
         "redirect_uri": ruri,
-    })
-    resp.raise_for_status()
+    }
+    resp = requests.post("https://oauth2.googleapis.com/token", data=payload)
+    if resp.status_code != 200:
+        raise Exception(f"Token error {resp.status_code}: {resp.text}")
     return resp.json()
 
 
