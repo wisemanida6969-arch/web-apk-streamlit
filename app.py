@@ -20,19 +20,21 @@ st.set_page_config(
 )
 
 # OpenAI API Key
-if "OPENAI_API_KEY" in st.secrets:
-    OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
-elif os.environ.get("OPENAI_API_KEY"):
-    OPENAI_API_KEY = os.environ["OPENAI_API_KEY"]
-else:
-    OPENAI_API_KEY = ""
+try:
+    OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
+except Exception:
+    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
 
 # ─── Admin Config ───
 ADMIN_EMAIL = "wisemanida6969@gmail.com"
 
 # ─── Supabase Config ───
-SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
-SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+try:
+    SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
+    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
+except Exception:
+    SUPABASE_URL = ""
+    SUPABASE_KEY = ""
 supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL != "YOUR_SUPABASE_URL":
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -88,10 +90,14 @@ def is_admin() -> bool:
     return user.get("email", "").lower() == ADMIN_EMAIL.lower()
 
 # ─── Google OAuth Config ───
-GOOGLE_CLIENT_ID = st.secrets.get("GOOGLE_CLIENT_ID", "")
-GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
-# Deploy: use actual domain / Local: use localhost
-REDIRECT_URI = st.secrets.get("REDIRECT_URI", "http://localhost:8501/")
+try:
+    GOOGLE_CLIENT_ID = st.secrets.get("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
+    REDIRECT_URI = st.secrets.get("REDIRECT_URI", "http://localhost:8501/")
+except Exception:
+    GOOGLE_CLIENT_ID = ""
+    GOOGLE_CLIENT_SECRET = ""
+    REDIRECT_URI = "http://localhost:8501/"
 
 
 # ══════════════════════════════════════
