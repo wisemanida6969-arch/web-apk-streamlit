@@ -645,29 +645,20 @@ handle_oauth_callback()
 if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
 
-    # DEBUG: temporarily show if secrets are loaded (remove after confirming)
-    _cid = get_secret("GOOGLE_CLIENT_ID")
-    _csec = get_secret("GOOGLE_CLIENT_SECRET")
-    _ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
-    has_client = "✅" if _cid else "❌"
-    has_secret = "✅" if _csec else "❌"
-    has_redirect = "✅" if _ruri else "❌"
-    st.caption(f"🔧 Debug: CLIENT_ID {has_client} ({_cid[:20]}...) | CLIENT_SECRET {has_secret} | REDIRECT {has_redirect} → {_ruri}")
-    st.caption(f"🔗 Login URL: {login_url[:80]}...")
-
-    st.markdown(f"""
+    st.markdown("""
     <div class="login-container">
         <div class="login-box">
             <div class="login-title">🎬 Trytimeback</div>
             <p class="login-desc">Sign in with your Google account to get started</p>
-            <a href="{login_url}" target="_self" class="google-btn">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
-                     width="20" height="20" />
-                Sign in with Google
-            </a>
         </div>
     </div>
     """, unsafe_allow_html=True)
+
+    # Use native Streamlit link_button for reliable URL handling
+    col_left, col_center, col_right = st.columns([1, 2, 1])
+    with col_center:
+        st.link_button("🔐 Sign in with Google", login_url, use_container_width=True)
+
     st.stop()
 
 
