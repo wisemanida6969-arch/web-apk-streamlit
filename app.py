@@ -143,6 +143,11 @@ def get_user_info(access_token: str) -> dict:
 
 
 def handle_oauth_callback():
+    # Show saved login error from previous attempt
+    if st.session_state.get("login_error"):
+        st.error(st.session_state["login_error"])
+        st.session_state.pop("login_error", None)
+
     params = st.query_params
     code = params.get("code")
     if code and not st.session_state.get("logged_in"):
@@ -158,11 +163,10 @@ def handle_oauth_callback():
             st.query_params.clear()
             st.rerun()
         except Exception as e:
-            # Show detailed error for debugging
             ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
-            st.error(f"Login failed: {e}")
-            st.code(f"redirect_uri used: {ruri}\ncode: {code[:20]}...", language=None)
+            st.session_state["login_error"] = f"Login failed: {e}\n\nredirect_uri: {ruri}"
             st.query_params.clear()
+            st.rerun()
 
 
 def logout():
