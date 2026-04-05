@@ -158,7 +158,11 @@ def handle_oauth_callback():
             st.query_params.clear()
             st.rerun()
         except Exception as e:
+            # Show detailed error for debugging
+            ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
             st.error(f"Login failed: {e}")
+            st.code(f"redirect_uri used: {ruri}\ncode: {code[:20]}...", language=None)
+            st.query_params.clear()
 
 
 def logout():
