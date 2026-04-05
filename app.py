@@ -105,6 +105,9 @@ REDIRECT_URI = get_secret("REDIRECT_URI", "http://localhost:8501/")
 def get_google_login_url() -> str:
     cid = get_secret("GOOGLE_CLIENT_ID")
     ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
+    # Save redirect_uri in session so token exchange uses exact same value
+    st.session_state["_oauth_redirect_uri"] = ruri
+    st.session_state["_oauth_client_id"] = cid
     params = {
         "client_id": cid,
         "redirect_uri": ruri,
@@ -117,9 +120,10 @@ def get_google_login_url() -> str:
 
 
 def exchange_code_for_token(code: str) -> dict:
-    cid = get_secret("GOOGLE_CLIENT_ID")
+    # Use saved values from login URL generation to ensure exact match
+    cid = st.session_state.get("_oauth_client_id", get_secret("GOOGLE_CLIENT_ID"))
     csecret = get_secret("GOOGLE_CLIENT_SECRET")
-    ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
+    ruri = st.session_state.get("_oauth_redirect_uri", get_secret("REDIRECT_URI", "http://localhost:8501/"))
     payload = {
         "client_id": cid,
         "client_secret": csecret,
@@ -128,8 +132,15 @@ def exchange_code_for_token(code: str) -> dict:
         "redirect_uri": ruri,
     }
     resp = requests.post("https://oauth2.googleapis.com/token", data=payload)
+    # Return detailed error instead of raise_for_status
     if resp.status_code != 200:
-        raise Exception(f"Token error {resp.status_code}: {resp.text}")
+        error_detail = resp.text
+        raise Exception(
+            f"Token exchange failed ({resp.status_code})\n"
+            f"Error: {error_detail}\n"
+            f"redirect_uri: {ruri}\n"
+            f"client_id: {cid[:20] if cid else 'EMPTY'}..."
+        )
     return resp.json()
 
 
