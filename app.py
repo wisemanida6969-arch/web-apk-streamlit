@@ -100,9 +100,11 @@ REDIRECT_URI = get_secret("REDIRECT_URI", "http://localhost:8501/")
 # ══════════════════════════════════════
 
 def get_google_login_url() -> str:
+    cid = get_secret("GOOGLE_CLIENT_ID")
+    ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
     params = {
-        "client_id": GOOGLE_CLIENT_ID,
-        "redirect_uri": REDIRECT_URI,
+        "client_id": cid,
+        "redirect_uri": ruri,
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
@@ -112,12 +114,15 @@ def get_google_login_url() -> str:
 
 
 def exchange_code_for_token(code: str) -> dict:
+    cid = get_secret("GOOGLE_CLIENT_ID")
+    csecret = get_secret("GOOGLE_CLIENT_SECRET")
+    ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
     resp = requests.post("https://oauth2.googleapis.com/token", data={
-        "client_id": GOOGLE_CLIENT_ID,
-        "client_secret": GOOGLE_CLIENT_SECRET,
+        "client_id": cid,
+        "client_secret": csecret,
         "code": code,
         "grant_type": "authorization_code",
-        "redirect_uri": REDIRECT_URI,
+        "redirect_uri": ruri,
     })
     resp.raise_for_status()
     return resp.json()
@@ -641,10 +646,14 @@ if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
 
     # DEBUG: temporarily show if secrets are loaded (remove after confirming)
-    has_client = "✅" if GOOGLE_CLIENT_ID else "❌"
-    has_secret = "✅" if GOOGLE_CLIENT_SECRET else "❌"
-    has_redirect = "✅" if REDIRECT_URI else "❌"
-    st.caption(f"🔧 Debug: CLIENT_ID {has_client} | CLIENT_SECRET {has_secret} | REDIRECT {has_redirect} → {REDIRECT_URI}")
+    _cid = get_secret("GOOGLE_CLIENT_ID")
+    _csec = get_secret("GOOGLE_CLIENT_SECRET")
+    _ruri = get_secret("REDIRECT_URI", "http://localhost:8501/")
+    has_client = "✅" if _cid else "❌"
+    has_secret = "✅" if _csec else "❌"
+    has_redirect = "✅" if _ruri else "❌"
+    st.caption(f"🔧 Debug: CLIENT_ID {has_client} ({_cid[:20]}...) | CLIENT_SECRET {has_secret} | REDIRECT {has_redirect} → {_ruri}")
+    st.caption(f"🔗 Login URL: {login_url[:80]}...")
 
     st.markdown(f"""
     <div class="login-container">
