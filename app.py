@@ -251,18 +251,37 @@ def fmt(seconds: float) -> str:
 # ─── Subtitle Extraction ───
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
-    for lang in (["en"], ["ko"], None):
-        try:
-            if lang:
-                data = YouTubeTranscriptApi.get_transcript(video_id, languages=lang)
-            else:
-                data = YouTubeTranscriptApi.get_transcript(video_id)
-            return [
-                {"text": item["text"], "start": item["start"], "duration": item["duration"]}
-                for item in data
-            ]
-        except Exception:
-            continue
+    # Try manual + auto-generated subtitles
+    try:
+        transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+        # Priority: manual Korean > manual English > auto Korean > auto English > any
+        for find_func in [
+            lambda: transcript_list.find_manually_created_transcript(["ko"]),
+            lambda: transcript_list.find_manually_created_transcript(["en"]),
+            lambda: transcript_list.find_generated_transcript(["ko"]),
+            lambda: transcript_list.find_generated_transcript(["en"]),
+        ]:
+            try:
+                transcript = find_func()
+                data = transcript.fetch()
+                return [
+                    {"text": item["text"], "start": item["start"], "duration": item["duration"]}
+                    for item in data
+                ]
+            except Exception:
+                continue
+        # Try any available transcript
+        for transcript in transcript_list:
+            try:
+                data = transcript.fetch()
+                return [
+                    {"text": item["text"], "start": item["start"], "duration": item["duration"]}
+                    for item in data
+                ]
+            except Exception:
+                continue
+    except Exception:
+        pass
     return None
 
 
@@ -357,22 +376,9 @@ def process_video(video_id: str, api_key: str):
     source = "subtitle"
 
     if not transcript:
-        source = "whisper"
-        status.write("⚠️ No subtitles found — switching to speech recognition")
-        status.write("⬇️ Downloading audio...")
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            audio_path = download_audio(video_id, tmp_dir)
-            file_size = os.path.getsize(audio_path) / (1024 * 1024)
-            status.write(f"📁 Audio file: {file_size:.1f}MB")
-
-            if file_size > 25:
-                status.update(label="❌ Failed", state="error")
-                st.error("Audio file exceeds 25MB. Please try a shorter video.")
-                return None
-
-            status.write("🎙️ Running Whisper speech recognition... (30s–2min)")
-            transcript = transcribe_with_whisper(audio_path, api_key)
+        status.update(label="❌ 자막을 찾을 수 없습니다", state="error")
+        st.error("😔 **이 영상에는 자막(자동 생성 포함)이 없어 분석할 수 없습니다.** 자막이 있는 영상을 입력해 주세요.")
+        return None
 
     total_duration = transcript[-1]["start"] + transcript[-1]["duration"]
     status.write(f"✅ Text extraction complete: {len(transcript)} segments, {fmt(total_duration)} total")
@@ -812,9 +818,8 @@ with st.sidebar:
     """)
     st.divider()
     st.markdown("**Features**")
-    st.markdown("- 📝 Subtitle extraction for captioned videos")
-    st.markdown("- 🎙️ Whisper speech recognition for non-captioned videos")
-    st.markdown("- 🤖 GPT-4o-mini key point analysis")
+    st.markdown("- 📝 자막 추출 (자동 생성 자막 포함)")
+    st.markdown("- 🤖 GPT-4o-mini 핵심 포인트 분석")
 
 # URL Input
 col1, col2 = st.columns([5, 1])
@@ -834,7 +839,6 @@ st.info("""
 * Due to the nature of AI analysis, summaries may not be 100% accurate. Please use them for reference only.
 """)
 
-st.warning("🎙️ **Audio Analysis Limit:** Videos without subtitles are analyzed via audio (Whisper). Please keep the video length under **15 minutes** for audio-based analysis.")
 
 st.caption("---")
 st.info("""
