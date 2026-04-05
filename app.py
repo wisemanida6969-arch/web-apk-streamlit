@@ -251,7 +251,7 @@ def fmt(seconds: float) -> str:
 # ─── Subtitle Extraction ───
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
-    # Try manual + auto-generated subtitles (youtube-transcript-api v1.x)
+    # Try v1.x API first, fallback to v0.x
     try:
         api = YouTubeTranscriptApi()
         transcript_list = api.list(video_id)
@@ -266,7 +266,9 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
                 transcript = find_func()
                 data = transcript.fetch()
                 return [
-                    {"text": item.text, "start": item.start, "duration": item.duration}
+                    {"text": getattr(item, 'text', item.get('text', '')),
+                     "start": getattr(item, 'start', item.get('start', 0)),
+                     "duration": getattr(item, 'duration', item.get('duration', 0))}
                     for item in data
                 ]
             except Exception:
@@ -276,11 +278,43 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
             try:
                 data = transcript.fetch()
                 return [
-                    {"text": item.text, "start": item.start, "duration": item.duration}
+                    {"text": getattr(item, 'text', item.get('text', '')),
+                     "start": getattr(item, 'start', item.get('start', 0)),
+                     "duration": getattr(item, 'duration', item.get('duration', 0))}
                     for item in data
                 ]
             except Exception:
                 continue
+    except TypeError:
+        # v0.x API fallback — YouTubeTranscriptApi is not instantiable
+        try:
+            transcript_list = YouTubeTranscriptApi.list_transcripts(video_id)
+            for find_func in [
+                lambda: transcript_list.find_manually_created_transcript(["ko"]),
+                lambda: transcript_list.find_manually_created_transcript(["en"]),
+                lambda: transcript_list.find_generated_transcript(["ko"]),
+                lambda: transcript_list.find_generated_transcript(["en"]),
+            ]:
+                try:
+                    transcript = find_func()
+                    data = transcript.fetch()
+                    return [
+                        {"text": item["text"], "start": item["start"], "duration": item["duration"]}
+                        for item in data
+                    ]
+                except Exception:
+                    continue
+            for transcript in transcript_list:
+                try:
+                    data = transcript.fetch()
+                    return [
+                        {"text": item["text"], "start": item["start"], "duration": item["duration"]}
+                        for item in data
+                    ]
+                except Exception:
+                    continue
+        except Exception:
+            pass
     except Exception:
         pass
     return None
