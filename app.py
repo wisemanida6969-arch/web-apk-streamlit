@@ -654,22 +654,28 @@ handle_oauth_callback()
 if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
 
-    # DEBUG: show full URL on page
-    st.code(login_url, language=None)
+    # Encode & as &amp; for safe HTML embedding
+    safe_url = login_url.replace("&", "&amp;")
 
-    st.markdown("""
+    st.markdown(f"""
     <div class="login-container">
         <div class="login-box">
             <div class="login-title">🎬 Trytimeback</div>
             <p class="login-desc">Sign in with your Google account to get started</p>
+            <a href="{safe_url}" class="google-btn" style="
+                display:inline-flex; align-items:center; gap:12px;
+                background:white; color:#1a1a2e; padding:14px 36px;
+                border-radius:12px; text-decoration:none; font-weight:700;
+                font-size:0.95rem; box-shadow:0 4px 20px rgba(0,0,0,0.15);
+                cursor:pointer;
+            ">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+                     width="20" height="20" />
+                Sign in with Google
+            </a>
         </div>
     </div>
     """, unsafe_allow_html=True)
-
-    # Use native Streamlit link_button for reliable URL handling
-    col_left, col_center, col_right = st.columns([1, 2, 1])
-    with col_center:
-        st.link_button("🔐 Sign in with Google", login_url, use_container_width=True)
 
     st.stop()
 
