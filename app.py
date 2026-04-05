@@ -22,8 +22,11 @@ st.set_page_config(
 # ─── Safe secrets helper ───
 def get_secret(key: str, default: str = "") -> str:
     try:
-        return st.secrets[key]
-    except Exception:
+        val = st.secrets[key]
+        print(f"[SECRET] {key} = loaded ({len(str(val))} chars)")
+        return val
+    except Exception as e:
+        print(f"[SECRET] {key} = FAILED ({e}), using default")
         return os.environ.get(key, default)
 
 # OpenAI API Key
@@ -644,6 +647,9 @@ handle_oauth_callback()
 # ══════════════════════════════════════
 if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
+
+    # DEBUG: show full URL on page
+    st.code(login_url, language=None)
 
     st.markdown("""
     <div class="login-container">
