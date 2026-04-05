@@ -1257,16 +1257,12 @@ st.markdown(f"""
 # --- Payment Buttons ---
 col_b1, col_b2, col_b3, col_b4 = st.columns([1.1, 2, 2, 1.1])
 with col_b2:
-    st.markdown("<div style='padding: 0 20px;'>", unsafe_allow_html=True)
-    if st.button("Select Basic", key="btn_basic"):
+    if st.button("Select Basic", key="btn_basic", use_container_width=True):
         st.info("Redirecting to Stripe Basic Checkout...")
-    st.markdown("</div>", unsafe_allow_html=True)
 
 with col_b3:
-    st.markdown("<div class='pro-btn' style='padding: 0 20px;'>", unsafe_allow_html=True)
-    if st.button("Go Pro \U0001f451", key="btn_pro"):
+    if st.button("Go Pro \U0001f451", key="btn_pro", use_container_width=True):
         st.info("Redirecting to Stripe Pro Checkout...")
-    st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("<p style='text-align:center; font-size:0.8rem; color:#606080; margin-top:2rem;'>* Pro plan follows Fair Usage Policy (1,200 mins/mo).<br>Credits are deducted based on the total duration of the source video processed.</p>", unsafe_allow_html=True)
 
