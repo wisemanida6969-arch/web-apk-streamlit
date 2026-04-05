@@ -19,22 +19,22 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ─── Safe secrets helper ───
+def get_secret(key: str, default: str = "") -> str:
+    try:
+        return st.secrets[key]
+    except Exception:
+        return os.environ.get(key, default)
+
 # OpenAI API Key
-try:
-    OPENAI_API_KEY = st.secrets.get("OPENAI_API_KEY", os.environ.get("OPENAI_API_KEY", ""))
-except Exception:
-    OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY", "")
+OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 
 # ─── Admin Config ───
 ADMIN_EMAIL = "wisemanida6969@gmail.com"
 
 # ─── Supabase Config ───
-try:
-    SUPABASE_URL = st.secrets.get("SUPABASE_URL", "")
-    SUPABASE_KEY = st.secrets.get("SUPABASE_KEY", "")
-except Exception:
-    SUPABASE_URL = ""
-    SUPABASE_KEY = ""
+SUPABASE_URL = get_secret("SUPABASE_URL")
+SUPABASE_KEY = get_secret("SUPABASE_KEY")
 supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL != "YOUR_SUPABASE_URL":
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
@@ -90,14 +90,9 @@ def is_admin() -> bool:
     return user.get("email", "").lower() == ADMIN_EMAIL.lower()
 
 # ─── Google OAuth Config ───
-try:
-    GOOGLE_CLIENT_ID = st.secrets.get("GOOGLE_CLIENT_ID", "")
-    GOOGLE_CLIENT_SECRET = st.secrets.get("GOOGLE_CLIENT_SECRET", "")
-    REDIRECT_URI = st.secrets.get("REDIRECT_URI", "http://localhost:8501/")
-except Exception:
-    GOOGLE_CLIENT_ID = ""
-    GOOGLE_CLIENT_SECRET = ""
-    REDIRECT_URI = "http://localhost:8501/"
+GOOGLE_CLIENT_ID = get_secret("GOOGLE_CLIENT_ID")
+GOOGLE_CLIENT_SECRET = get_secret("GOOGLE_CLIENT_SECRET")
+REDIRECT_URI = get_secret("REDIRECT_URI", "http://localhost:8501/")
 
 
 # ══════════════════════════════════════
@@ -644,6 +639,12 @@ handle_oauth_callback()
 # ══════════════════════════════════════
 if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
+
+    # DEBUG: temporarily show if secrets are loaded (remove after confirming)
+    has_client = "✅" if GOOGLE_CLIENT_ID else "❌"
+    has_secret = "✅" if GOOGLE_CLIENT_SECRET else "❌"
+    has_redirect = "✅" if REDIRECT_URI else "❌"
+    st.caption(f"🔧 Debug: CLIENT_ID {has_client} | CLIENT_SECRET {has_secret} | REDIRECT {has_redirect} → {REDIRECT_URI}")
 
     st.markdown(f"""
     <div class="login-container">
