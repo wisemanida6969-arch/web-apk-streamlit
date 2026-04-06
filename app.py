@@ -930,8 +930,6 @@ if analyze:
                 spinner_placeholder.empty()
                 if result:
                     st.session_state["result"] = result
-                    # Auto-save to library
-                    save_to_library(user_email, result)
             except Exception as e:
                 spinner_placeholder.empty()
                 st.error(f"Error: {e}")
@@ -944,7 +942,7 @@ if analyze:
 # ══════════════════════════════════════
 with st.sidebar:
     st.subheader("📚 My Library")
-    st.caption(f"분석 결과가 자동 저장됩니다 (최대 {MAX_LIBRARY_SIZE}개)")
+    st.caption(f"저장 버튼을 눌러 보관하세요 (최대 {MAX_LIBRARY_SIZE}개)")
     if not supabase:
         st.warning(f"DB 미연결 (URL: {'✅' if SUPABASE_URL else '❌'}, KEY: {'✅' if SUPABASE_KEY else '❌'})")
     library = load_library(user_email)
@@ -993,6 +991,11 @@ if "result" in st.session_state:
         f"<p style='text-align:center;'>{badge}  |  {fmt(data['totalDuration'])} total</p>",
         unsafe_allow_html=True,
     )
+
+    # Save to library button
+    if st.button("📚 라이브러리에 저장", key="save_to_lib", use_container_width=True):
+        save_to_library(user_email, data)
+        st.rerun()
 
     st.markdown("""
     <div style="
