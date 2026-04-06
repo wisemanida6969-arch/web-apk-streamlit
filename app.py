@@ -156,7 +156,7 @@ def generate_summary_pdf(result: dict) -> bytes:
             pdf.ln(2)
             pdf.set_font("NotoSans", "B", 12)
             pdf.set_text_color(30, 30, 30)
-            pdf.cell(0, 8, "핵심 요점 (Key Takeaways)", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 8, "Key Takeaways", new_x="LMARGIN", new_y="NEXT")
             pdf.ln(2)
             pdf.set_font("NotoSans", "", 10)
             pdf.set_text_color(50, 50, 50)
@@ -170,7 +170,7 @@ def generate_summary_pdf(result: dict) -> bytes:
             pdf.ln(4)
             pdf.set_font("NotoSans", "B", 12)
             pdf.set_text_color(30, 30, 30)
-            pdf.cell(0, 8, "결론 (Conclusion)", new_x="LMARGIN", new_y="NEXT")
+            pdf.cell(0, 8, "Conclusion", new_x="LMARGIN", new_y="NEXT")
             pdf.ln(2)
             pdf.set_font("NotoSans", "", 10)
             pdf.set_text_color(50, 50, 50)
@@ -180,7 +180,7 @@ def generate_summary_pdf(result: dict) -> bytes:
     pdf.add_page()
     pdf.set_font("NotoSans", "B", 14)
     pdf.set_text_color(30, 30, 30)
-    pdf.cell(0, 10, "핵심 포인트 (Key Points for Shorts)", new_x="LMARGIN", new_y="NEXT")
+    pdf.cell(0, 10, "Key Points for Shorts", new_x="LMARGIN", new_y="NEXT")
     pdf.ln(4)
 
     for i, p in enumerate(result["points"]):
@@ -507,24 +507,24 @@ Respond ONLY in the following JSON format (no other text):
 {{
   "points": [
     {{
-      "title": "Key point title (in Korean)",
-      "summary": "2-3 sentence summary (in Korean)",
+      "title": "Key point title",
+      "summary": "2-3 sentence summary",
       "startTime": start_time_in_seconds,
       "endTime": end_time_in_seconds,
       "keywords": ["keyword1", "keyword2", "keyword3"]
     }}
   ],
   "full_summary": {{
-    "title": "영상 전체 제목/주제 (Korean)",
-    "overview": "전체 영상의 핵심 내용을 3-4문장으로 요약 (Korean)",
+    "title": "Full video title/topic",
+    "overview": "3-4 sentence overview of the entire video",
     "sections": [
       {{
-        "heading": "섹션 제목 (Korean)",
-        "content": "해당 섹션의 상세 내용 요약, 3-5문장 (Korean)"
+        "heading": "Section heading",
+        "content": "Detailed summary of this section, 3-5 sentences"
       }}
     ],
-    "key_takeaways": ["핵심 포인트 1", "핵심 포인트 2", "..."],
-    "conclusion": "영상의 결론 및 시사점 2-3문장 (Korean)"
+    "key_takeaways": ["Takeaway 1", "Takeaway 2", "..."],
+    "conclusion": "2-3 sentence conclusion and implications"
   }}
 }}
 
@@ -536,11 +536,17 @@ Rules for points:
 - Sort in chronological order
 
 Rules for full_summary:
-- Write everything in Korean
+- Write everything in the SAME language as the transcript (if transcript is in Korean, write in Korean; if in English, write in English; etc.)
 - Divide the video into 3-6 logical sections
 - Be detailed and comprehensive — cover ALL major topics discussed
 - Include specific facts, numbers, or examples mentioned in the video
 - key_takeaways should have 5-8 items
+
+Rules for language:
+- ALL text (points AND full_summary) must be in the same language as the transcript
+- If the transcript is in Korean, respond in Korean
+- If the transcript is in English, respond in English
+- If the transcript is in any other language, respond in that language
 
 Transcript:
 {transcript_text}"""
@@ -570,26 +576,26 @@ Transcript:
 def process_video(video_id: str, api_key: str):
     """Fetch subtitles and analyze with GPT."""
     status = st.status("🔍 Analyzing video...", expanded=True)
-    status.write("📝 자막 가져오는 중...")
+    status.write("📝 Fetching subtitles...")
     transcript = fetch_subtitles(video_id)
 
     if not transcript:
-        status.update(label="❌ 자막을 찾을 수 없습니다", state="error")
-        st.error("😔 **이 영상에서 자막을 찾을 수 없습니다.**\n\n"
-                 "자막(자동 생성 포함)이 있는 영상을 시도해 주세요.\n\n"
-                 "💡 **팁:** 대부분의 유튜브 영상에는 자동 생성 자막이 있습니다.")
+        status.update(label="❌ No subtitles found", state="error")
+        st.error("😔 **No subtitles found for this video.**\n\n"
+                 "Please try a video with subtitles (including auto-generated ones).\n\n"
+                 "💡 **Tip:** Most YouTube videos have auto-generated subtitles.")
         return None
 
     total_duration = transcript[-1]["start"] + transcript[-1]["duration"]
-    status.write(f"✅ 자막 로드 완료: {len(transcript)}개 구간, 총 {fmt(total_duration)}")
+    status.write(f"✅ Subtitles loaded: {len(transcript)} segments, {fmt(total_duration)} total")
 
-    status.write("🤖 GPT-4o-mini 핵심 포인트 + 전체 요약 분석 중...")
+    status.write("🤖 GPT-4o-mini analyzing key points + full summary...")
     transcript_text = "\n".join(
         f"[{fmt(s['start'])}] {s['text']}" for s in transcript
     )
     analysis = analyze_with_gpt(transcript_text, total_duration, api_key)
 
-    status.update(label="✅ 분석 완료!", state="complete")
+    status.update(label="✅ Analysis complete!", state="complete")
 
     return {
         "videoId": video_id,
@@ -1013,9 +1019,10 @@ with st.sidebar:
     """)
     st.divider()
     st.markdown("**Features**")
-    st.markdown("- 📝 자막 추출 (자동 생성 자막 포함)")
-    st.markdown("- 🤖 GPT-4o-mini 핵심 포인트 분석")
-    st.markdown("- 🎬 YouTube 임베드 영상 재생")
+    st.markdown("- 📝 Subtitle extraction (incl. auto-generated)")
+    st.markdown("- 🤖 GPT-4o-mini key point analysis")
+    st.markdown("- 🎬 YouTube embedded video playback")
+    st.markdown("- 📄 PDF full summary download")
 
 # URL Input
 col1, col2 = st.columns([5, 1])
@@ -1028,7 +1035,7 @@ with col1:
 with col2:
     analyze = st.button("🚀 Analyze", use_container_width=True, type="primary")
 
-st.info("📝 **자막 기반 분석:** 유튜브 자막(자동 생성 포함)을 AI가 분석하여 핵심 포인트를 추출합니다.")
+st.info("📝 **Subtitle-based analysis:** AI analyzes YouTube subtitles (including auto-generated) to extract key points.")
 
 st.info("""
 ⚠️ **Copyright & Usage Notice**
