@@ -939,6 +939,8 @@ if analyze:
 with st.sidebar:
     st.subheader("📚 My Library")
     st.caption(f"분석 결과가 자동 저장됩니다 (최대 {MAX_LIBRARY_SIZE}개)")
+    if not supabase:
+        st.warning(f"DB 미연결 (URL: {'✅' if SUPABASE_URL else '❌'}, KEY: {'✅' if SUPABASE_KEY else '❌'})")
     library = load_library(user_email)
 
     if not library:
