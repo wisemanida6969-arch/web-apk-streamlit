@@ -1110,42 +1110,7 @@ if "result" in st.session_state:
         unsafe_allow_html=True,
     )
 
-    # PDF Download button
-    summary_pdf = generate_summary_pdf(data)
-    st.download_button(
-        label="📄 Download Full Summary (.pdf)",
-        data=summary_pdf,
-        file_name=f"summary_{vid}.pdf",
-        mime="application/pdf",
-        use_container_width=True,
-        type="primary",
-    )
-    st.caption("📁 The PDF file will be saved to your Downloads folder.")
-
-    st.markdown("""
-    <div style="
-        background: rgba(15, 15, 35, 0.7);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(99, 71, 237, 0.15);
-        border-radius: 16px;
-        padding: 22px 28px;
-        margin: 16px 0 24px;
-    ">
-        <div style="
-            font-size: 0.95rem; font-weight: 700;
-            color: rgba(220, 220, 240, 0.9);
-            margin-bottom: 14px;
-            display: flex; align-items: center; gap: 8px;
-        ">⚖️ Copyright & Fair Use Disclaimer</div>
-        <div style="font-size: 0.82rem; color: rgba(160,160,195,0.8); line-height: 2;">
-            <b style="color:rgba(200,200,230,0.9);">Fair Use:</b> This service provides AI-driven analysis under Fair Use guidelines for commentary and criticism.<br>
-            <b style="color:rgba(200,200,230,0.9);">Ownership:</b> We do not host or store original video files. All rights remain with the original copyright owners.<br>
-            <b style="color:rgba(200,200,230,0.9);">Accuracy:</b> AI summaries may not be 100% accurate. Please refer to the original video for full context.<br>
-            <b style="color:rgba(200,200,230,0.9);">Commercial Use:</b> Users are responsible for any secondary use of this summary.
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
+    # ── Key Point Shorts (videos first) ──
     for row_start in range(0, len(points), 2):
         cols = st.columns(2)
         for idx, col in enumerate(cols):
@@ -1178,6 +1143,50 @@ if "result" in st.session_state:
                 """, unsafe_allow_html=True)
 
                 render_youtube_clip(vid, start, end)
+
+    # ── PDF Full Summary Download ──
+    st.markdown("---")
+    st.markdown("<h3 style='text-align:center;'>📄 Full Video Summary</h3>", unsafe_allow_html=True)
+    try:
+        summary_pdf = generate_summary_pdf(data)
+        st.download_button(
+            label="📄 Download Full Summary (.pdf)",
+            data=summary_pdf,
+            file_name=f"summary_{vid}.pdf",
+            mime="application/pdf",
+            use_container_width=True,
+            type="primary",
+        )
+        st.caption("📁 The PDF file will be saved to your Downloads folder.")
+    except Exception as e:
+        import sys
+        print(f"[PDF] Generation failed: {e}", file=sys.stderr, flush=True)
+        st.warning(f"⚠️ PDF generation failed: {e}")
+
+    # ── Copyright Disclaimer ──
+    st.markdown("""
+    <div style="
+        background: rgba(15, 15, 35, 0.7);
+        backdrop-filter: blur(12px);
+        border: 1px solid rgba(99, 71, 237, 0.15);
+        border-radius: 16px;
+        padding: 22px 28px;
+        margin: 16px 0 24px;
+    ">
+        <div style="
+            font-size: 0.95rem; font-weight: 700;
+            color: rgba(220, 220, 240, 0.9);
+            margin-bottom: 14px;
+            display: flex; align-items: center; gap: 8px;
+        ">⚖️ Copyright & Fair Use Disclaimer</div>
+        <div style="font-size: 0.82rem; color: rgba(160,160,195,0.8); line-height: 2;">
+            <b style="color:rgba(200,200,230,0.9);">Fair Use:</b> This service provides AI-driven analysis under Fair Use guidelines for commentary and criticism.<br>
+            <b style="color:rgba(200,200,230,0.9);">Ownership:</b> We do not host or store original video files. All rights remain with the original copyright owners.<br>
+            <b style="color:rgba(200,200,230,0.9);">Accuracy:</b> AI summaries may not be 100% accurate. Please refer to the original video for full context.<br>
+            <b style="color:rgba(200,200,230,0.9);">Commercial Use:</b> Users are responsible for any secondary use of this summary.
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════
 # Pricing Section
