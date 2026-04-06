@@ -473,8 +473,8 @@ def render_youtube_clip(video_id: str, start: int = 0, end: int = 0):
     Video plays in user's browser — no server-side download needed."""
     end_param = f"&end={end}" if end else ""
     html_code = f"""
-    <div style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin: 8px 0;">
-        <iframe width="100%" height="300"
+    <div style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin: 8px 0; position: relative; padding-bottom: 56.25%; height: 0;">
+        <iframe style="position: absolute; top: 0; left: 0; width: 100%; height: 100%;"
             src="https://www.youtube.com/embed/{video_id}?start={start}{end_param}&rel=0&modestbranding=1"
             frameborder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -895,6 +895,30 @@ st.markdown("""
         border-radius: 3px;
     }
     ::-webkit-scrollbar-thumb:hover { background: rgba(99, 71, 237, 0.5); }
+
+    /* ─── Mobile Responsive ─── */
+    @media (max-width: 768px) {
+        .block-container { max-width: 100%; padding-left: 1rem; padding-right: 1rem; }
+        .login-box { padding: 32px 20px; max-width: 95%; border-radius: 20px; }
+        .login-title { font-size: 1.8rem; }
+        .login-desc { font-size: 0.9rem; margin-bottom: 20px; }
+        .short-card { border-radius: 14px; }
+        .card-header { padding: 10px 14px; font-size: 0.85rem; }
+        .card-body { padding: 12px 14px; }
+        .card-summary { font-size: 0.82rem; }
+        .keyword-tag { font-size: 0.7rem; padding: 3px 8px; }
+        .time-badge { font-size: 0.75rem; }
+        .pricing-container { gap: 1.2rem; }
+        .pricing-card { width: 100%; max-width: 340px; padding: 1.8rem; border-radius: 18px; }
+        .pricing-card:hover { transform: none; }
+        .feature-list li { font-size: 0.85rem; }
+    }
+    @media (max-width: 480px) {
+        .login-box { padding: 24px 16px; }
+        .login-title { font-size: 1.5rem; }
+        .card-header { font-size: 0.8rem; padding: 8px 12px; }
+        .card-body { padding: 10px 12px; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -958,7 +982,7 @@ st.markdown("""
     </style>
     <div class="main-title">🎬 Trytimeback</div>
     <div class="sub-title">Reclaim your lost study time with AI</div>
-    <div style="text-align:center; color:rgba(140,140,170,0.6); font-size:0.78rem; margin-top:-1rem; margin-bottom:1.5rem;">🖥️ Optimized for desktop environment</div>
+    <div style="text-align:center; color:rgba(140,140,170,0.6); font-size:0.78rem; margin-top:-1rem; margin-bottom:1.5rem;">🖥️ Best on desktop · 📱 Mobile supported</div>
 """, unsafe_allow_html=True)
 
 # Sidebar
