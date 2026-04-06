@@ -271,7 +271,7 @@ def fmt(seconds: float) -> str:
 def fetch_subtitles(video_id: str) -> list[dict] | None:
     import sys
     # Use proxy to bypass YouTube cloud IP blocking
-    proxy_url = get_secret("PROXY_URL", "")
+    proxy_url = os.environ.get("PROXY_URL", "")
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
