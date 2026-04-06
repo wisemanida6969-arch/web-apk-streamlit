@@ -282,49 +282,71 @@ def get_video_info(video_id: str) -> dict | None:
 import streamlit.components.v1 as components
 
 
-def fetch_subtitles(video_id: str) -> list[dict] | None:
-    """Fetch YouTube subtitles using residential proxy (IP auth, port 9999)."""
+def _try_fetch(api, video_id: str, label: str) -> list[dict] | None:
+    """Try fetching subtitles with given api instance."""
     import sys
-
-    # Residential proxy — IP authentication on port 9999
-    proxy_url = "http://p.webshare.io:9999"
-    print(f"[SUBTITLE] Using residential proxy: {proxy_url}", file=sys.stderr, flush=True)
-
-    session = requests.Session()
-    session.proxies = {"http": proxy_url, "https": proxy_url}
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
-    })
-
-    api = YouTubeTranscriptApi(http_client=session)
-
-    # Try Korean first, then English, then any available
     for langs in [["ko"], ["en"], ["ko", "en"]]:
         try:
-            print(f"[SUBTITLE] Trying languages={langs} for {video_id}", file=sys.stderr, flush=True)
+            print(f"[SUBTITLE][{label}] Trying languages={langs} for {video_id}", file=sys.stderr, flush=True)
             data = api.fetch(video_id, languages=langs)
-            print(f"[SUBTITLE] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
+            print(f"[SUBTITLE][{label}] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
             return [
                 {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
                 for snippet in data
             ]
         except Exception as e:
-            print(f"[SUBTITLE] Failed with {langs}: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+            print(f"[SUBTITLE][{label}] Failed with {langs}: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
             continue
-
-    # Last resort: fetch without language preference
+    # Last resort: no language preference
     try:
-        print(f"[SUBTITLE] Trying without language preference", file=sys.stderr, flush=True)
+        print(f"[SUBTITLE][{label}] Trying without language preference", file=sys.stderr, flush=True)
         data = api.fetch(video_id)
-        print(f"[SUBTITLE] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
+        print(f"[SUBTITLE][{label}] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
         return [
             {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
             for snippet in data
         ]
     except Exception as e:
-        print(f"[SUBTITLE] All methods failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        print(f"[SUBTITLE][{label}] Failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
         return None
+
+
+def fetch_subtitles(video_id: str) -> list[dict] | None:
+    """Fetch YouTube subtitles — try proxy first, then direct."""
+    import sys
+
+    # 1) Try with residential proxy (IP auth, port 9999)
+    try:
+        proxy_url = "http://p.webshare.io:9999"
+        print(f"[SUBTITLE] Attempting residential proxy: {proxy_url}", file=sys.stderr, flush=True)
+
+        session = requests.Session()
+        session.proxies = {"http": proxy_url, "https": proxy_url}
+        session.headers.update({
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+        })
+
+        api_proxy = YouTubeTranscriptApi(http_client=session)
+        result = _try_fetch(api_proxy, video_id, "PROXY")
+        if result:
+            return result
+        print(f"[SUBTITLE] Proxy method returned no results", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[SUBTITLE] Proxy setup failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+
+    # 2) Fallback: try direct (no proxy)
+    try:
+        print(f"[SUBTITLE] Falling back to direct (no proxy)", file=sys.stderr, flush=True)
+        api_direct = YouTubeTranscriptApi()
+        result = _try_fetch(api_direct, video_id, "DIRECT")
+        if result:
+            return result
+    except Exception as e:
+        print(f"[SUBTITLE] Direct method failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+
+    print(f"[SUBTITLE] All methods exhausted for {video_id}", file=sys.stderr, flush=True)
+    return None
 
 
 def render_youtube_clip(video_id: str, start: int = 0, end: int = 0):
