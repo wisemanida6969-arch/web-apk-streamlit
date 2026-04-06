@@ -257,6 +257,16 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
     try:
         api = YouTubeTranscriptApi()
         transcript_list = api.list(video_id)
+
+        # Log available transcripts
+        available = []
+        for t in transcript_list:
+            available.append(f"{t.language}({t.language_code}, auto={t.is_generated})")
+        st.toast(f"자막 발견: {', '.join(available) if available else '없음'}")
+
+        # Need to re-list since iterator is consumed
+        transcript_list = api.list(video_id)
+
         # Priority: manual Korean > manual English > auto Korean > auto English > any
         for find_func in [
             lambda: transcript_list.find_manually_created_transcript(["ko"]),
@@ -273,7 +283,8 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
                 ]
             except Exception:
                 continue
-        # Try any available transcript
+        # Try any available transcript — re-list again
+        transcript_list = api.list(video_id)
         for transcript in transcript_list:
             try:
                 data = transcript.fetch()
@@ -284,7 +295,6 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
             except Exception:
                 continue
     except Exception as e:
-        import traceback
         st.toast(f"자막 조회 오류: {e}")
     return None
 
