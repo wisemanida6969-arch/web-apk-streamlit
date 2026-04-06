@@ -511,15 +511,15 @@ Respond ONLY in the following JSON format (no other text):
   ],
   "full_summary": {{
     "title": "Full video title/topic",
-    "overview": "3-4 sentence overview of the entire video",
+    "overview": "5-6 sentence comprehensive overview of the entire video",
     "sections": [
       {{
         "heading": "Section heading",
-        "content": "Detailed summary of this section, 3-5 sentences"
+        "content": "DETAILED summary of this section — 8-12 sentences minimum. Include ALL specific facts, data points, names, examples, arguments, and explanations mentioned by the speaker. Write as if the reader will NOT watch the video — they should get the full picture from this text alone."
       }}
     ],
     "key_takeaways": ["Takeaway 1", "Takeaway 2", "..."],
-    "conclusion": "2-3 sentence conclusion and implications"
+    "conclusion": "4-5 sentence conclusion covering implications and final thoughts"
   }}
 }}
 
@@ -532,10 +532,13 @@ Rules for points:
 
 Rules for full_summary:
 - Write everything in the SAME language as the transcript (if transcript is in Korean, write in Korean; if in English, write in English; etc.)
-- Divide the video into 3-6 logical sections
-- Be detailed and comprehensive — cover ALL major topics discussed
-- Include specific facts, numbers, or examples mentioned in the video
-- key_takeaways should have 5-8 items
+- Divide the video into 4-8 logical sections
+- Each section's content MUST be 8-12 sentences minimum — this is a DETAILED document, not a brief summary
+- Include ALL specific facts, numbers, names, quotes, examples, and arguments mentioned in the video
+- The reader should understand the FULL content without watching the video
+- key_takeaways should have 5-8 items, each being a complete actionable sentence
+- overview should be 5-6 sentences covering the big picture
+- conclusion should be 4-5 sentences
 
 Rules for language:
 - ALL text (points AND full_summary) must be in the same language as the transcript
