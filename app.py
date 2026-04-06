@@ -253,25 +253,32 @@ def fmt(seconds: float) -> str:
 # ─── Subtitle Extraction ───
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
+    import sys
     api = YouTubeTranscriptApi()
     # Try Korean first, then English, then any available
     for langs in [["ko"], ["en"], ["ko", "en"]]:
         try:
+            print(f"[SUBTITLE] Trying languages={langs} for {video_id}", file=sys.stderr, flush=True)
             data = api.fetch(video_id, languages=langs)
+            print(f"[SUBTITLE] Success! Got {len(data)} snippets", file=sys.stderr, flush=True)
             return [
                 {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
                 for snippet in data
             ]
-        except Exception:
+        except Exception as e:
+            print(f"[SUBTITLE] Failed with {langs}: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
             continue
     # Last resort: fetch without language preference
     try:
+        print(f"[SUBTITLE] Trying without language preference", file=sys.stderr, flush=True)
         data = api.fetch(video_id)
+        print(f"[SUBTITLE] Success! Got {len(data)} snippets", file=sys.stderr, flush=True)
         return [
             {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
             for snippet in data
         ]
-    except Exception:
+    except Exception as e:
+        print(f"[SUBTITLE] Final fallback failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
         return None
 
 
