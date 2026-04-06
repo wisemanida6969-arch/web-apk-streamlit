@@ -253,41 +253,26 @@ def fmt(seconds: float) -> str:
 # ─── Subtitle Extraction ───
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
-    # youtube-transcript-api v1.x
+    api = YouTubeTranscriptApi()
+    # Try Korean first, then English, then any available
+    for langs in [["ko"], ["en"], ["ko", "en"]]:
+        try:
+            data = api.fetch(video_id, languages=langs)
+            return [
+                {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
+                for snippet in data
+            ]
+        except Exception:
+            continue
+    # Last resort: fetch without language preference
     try:
-        api = YouTubeTranscriptApi()
-        transcript_list = api.list(video_id)
-
-        # Priority: manual Korean > manual English > auto Korean > auto English > any
-        for find_func in [
-            lambda: transcript_list.find_manually_created_transcript(["ko"]),
-            lambda: transcript_list.find_manually_created_transcript(["en"]),
-            lambda: transcript_list.find_generated_transcript(["ko"]),
-            lambda: transcript_list.find_generated_transcript(["en"]),
-        ]:
-            try:
-                transcript = find_func()
-                data = transcript.fetch()
-                return [
-                    {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
-                    for snippet in data
-                ]
-            except Exception:
-                continue
-        # Try any available transcript
-        transcript_list = api.list(video_id)
-        for transcript in transcript_list:
-            try:
-                data = transcript.fetch()
-                return [
-                    {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
-                    for snippet in data
-                ]
-            except Exception:
-                continue
-    except Exception as e:
-        st.toast(f"자막 조회 오류: {e}")
-    return None
+        data = api.fetch(video_id)
+        return [
+            {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
+            for snippet in data
+        ]
+    except Exception:
+        return None
 
 
 # ─── Audio Download + Whisper STT ───
