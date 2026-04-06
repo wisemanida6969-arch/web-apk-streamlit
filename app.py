@@ -82,8 +82,12 @@ MAX_LIBRARY_SIZE = 20
 
 def save_to_library(user_email: str, result: dict):
     """Save analysis result to Supabase (max 20 per user)"""
+    import sys
+    print(f"[LIBRARY] save_to_library called. supabase={supabase is not None}, user={user_email}", file=sys.stderr, flush=True)
+    print(f"[LIBRARY] SUPABASE_URL present: {bool(SUPABASE_URL)}, SUPABASE_KEY present: {bool(SUPABASE_KEY)}", file=sys.stderr, flush=True)
     if not supabase:
         st.toast("⚠️ Supabase 연결 안됨 — 라이브러리 저장 불가")
+        st.error(f"DB 연결 실패 — URL: {'✅' if SUPABASE_URL else '❌'}, KEY: {'✅' if SUPABASE_KEY else '❌'}")
         return
     try:
         # Check current count and delete oldest if at limit
