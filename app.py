@@ -324,94 +324,52 @@ def get_video_info(video_id: str) -> dict | None:
 import streamlit.components.v1 as components
 
 
+def get_server_ip() -> str:
+    """Get the outbound IP of this server (for debugging)."""
+    try:
+        r = requests.get("https://api.ipify.org?format=json", timeout=5)
+        return r.json().get("ip", "unknown")
+    except:
+        return "unknown"
+
+
 def fetch_subtitles(video_id: str) -> list[dict] | None:
-    """Fetch subtitles using YouTube's timedtext API directly.
-    Falls back to youtube-transcript-api if timedtext fails."""
+    """Fetch YouTube subtitles using residential proxy (IP auth, port 9999)."""
     import sys
 
-    # Method 1: Direct timedtext API (less likely to be IP-blocked)
-    for lang in ["ko", "en", "a.ko", "a.en"]:
-        try:
-            # Try json3 format from timedtext API
-            sub_url = f"https://www.youtube.com/api/timedtext?v={video_id}&lang={lang}&fmt=json3"
-            print(f"[SUBTITLE] Trying timedtext API: lang={lang}", file=sys.stderr, flush=True)
-            resp = requests.get(sub_url, timeout=10, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            })
-            if resp.status_code == 200 and resp.text.strip():
-                data = resp.json()
-                segments = []
-                if data.get("events"):
-                    for ev in data["events"]:
-                        if ev.get("segs"):
-                            text = "".join(s.get("utf8", "") for s in ev["segs"]).strip()
-                            if text and text != "\n":
-                                segments.append({
-                                    "text": text,
-                                    "start": (ev.get("tStartMs", 0)) / 1000,
-                                    "duration": (ev.get("dDurationMs", 0)) / 1000,
-                                })
-                if segments:
-                    print(f"[SUBTITLE] timedtext success! {len(segments)} segments (lang={lang})", file=sys.stderr, flush=True)
-                    return segments
-        except Exception as e:
-            print(f"[SUBTITLE] timedtext failed for {lang}: {e}", file=sys.stderr, flush=True)
-            continue
+    # Residential proxy — IP authentication on port 9999
+    proxy_url = "http://p.webshare.io:9999"
+    print(f"[SUBTITLE] Using residential proxy: {proxy_url}", file=sys.stderr, flush=True)
+    print(f"[SUBTITLE] Server outbound IP: {get_server_ip()}", file=sys.stderr, flush=True)
 
-    # Method 2: Try auto-generated subtitles via timedtext with asr params
-    for lang in ["ko", "en"]:
-        try:
-            sub_url = f"https://www.youtube.com/api/timedtext?v={video_id}&lang={lang}&kind=asr&fmt=json3"
-            print(f"[SUBTITLE] Trying timedtext ASR: lang={lang}", file=sys.stderr, flush=True)
-            resp = requests.get(sub_url, timeout=10, headers={
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-            })
-            if resp.status_code == 200 and resp.text.strip():
-                data = resp.json()
-                segments = []
-                if data.get("events"):
-                    for ev in data["events"]:
-                        if ev.get("segs"):
-                            text = "".join(s.get("utf8", "") for s in ev["segs"]).strip()
-                            if text and text != "\n":
-                                segments.append({
-                                    "text": text,
-                                    "start": (ev.get("tStartMs", 0)) / 1000,
-                                    "duration": (ev.get("dDurationMs", 0)) / 1000,
-                                })
-                if segments:
-                    print(f"[SUBTITLE] timedtext ASR success! {len(segments)} segments (lang={lang})", file=sys.stderr, flush=True)
-                    return segments
-        except Exception as e:
-            print(f"[SUBTITLE] timedtext ASR failed for {lang}: {e}", file=sys.stderr, flush=True)
-            continue
-
-    # Method 3: Fallback to youtube-transcript-api (with proxy if available)
-    print(f"[SUBTITLE] Falling back to youtube-transcript-api...", file=sys.stderr, flush=True)
-    proxy_url = os.environ.get("PROXY_URL", "")
     session = requests.Session()
+    session.proxies = {"http": proxy_url, "https": proxy_url}
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
     })
-    if proxy_url:
-        session.proxies = {"http": proxy_url, "https": proxy_url}
+
     api = YouTubeTranscriptApi(http_client=session)
 
+    # Try Korean first, then English, then any available
     for langs in [["ko"], ["en"], ["ko", "en"]]:
         try:
+            print(f"[SUBTITLE] Trying languages={langs} for {video_id}", file=sys.stderr, flush=True)
             data = api.fetch(video_id, languages=langs)
-            print(f"[SUBTITLE] transcript-api success: {len(data)} snippets", file=sys.stderr, flush=True)
+            print(f"[SUBTITLE] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
             return [
                 {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
                 for snippet in data
             ]
         except Exception as e:
-            print(f"[SUBTITLE] transcript-api failed {langs}: {type(e).__name__}", file=sys.stderr, flush=True)
+            print(f"[SUBTITLE] Failed with {langs}: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
             continue
 
+    # Last resort: fetch without language preference
     try:
+        print(f"[SUBTITLE] Trying without language preference", file=sys.stderr, flush=True)
         data = api.fetch(video_id)
+        print(f"[SUBTITLE] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
         return [
             {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
             for snippet in data
