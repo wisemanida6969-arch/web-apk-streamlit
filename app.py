@@ -491,14 +491,16 @@ def analyze_with_gpt(transcript_text: str, total_duration: float, api_key: str) 
     """Analyze transcript: returns {"points": [...], "full_summary": "..."}"""
     client = OpenAI(api_key=api_key)
 
-    prompt = f"""Below is the transcript of a YouTube lecture video. Please do TWO things:
+    prompt = f"""You are a professional lecture note-taker. Below is the full transcript of a YouTube video ({int(total_duration)} seconds long).
 
-1. Identify the 5 most important key points (for short clips)
-2. Write a comprehensive full summary of the ENTIRE video content
+You MUST produce TWO outputs in JSON:
 
-The total video length is approximately {int(total_duration)} seconds.
+1. "points": 5 key clips for short-form videos
+2. "full_summary": a THOROUGH written document that fully replaces watching the video
 
-Respond ONLY in the following JSON format (no other text):
+CRITICAL: The full_summary must be EXTREMELY detailed. A student who reads this document should NEVER need to watch the original video. Every important idea, fact, example, name, number, story, and argument from the transcript must appear in the summary.
+
+JSON format:
 {{
   "points": [
     {{
@@ -510,41 +512,30 @@ Respond ONLY in the following JSON format (no other text):
     }}
   ],
   "full_summary": {{
-    "title": "Full video title/topic",
-    "overview": "5-6 sentence comprehensive overview of the entire video",
+    "title": "Video title/topic",
+    "overview": "A comprehensive 6-8 sentence paragraph introducing what the video covers, who the speaker is, and the main thesis.",
     "sections": [
       {{
-        "heading": "Section heading",
-        "content": "DETAILED summary of this section — 8-12 sentences minimum. Include ALL specific facts, data points, names, examples, arguments, and explanations mentioned by the speaker. Write as if the reader will NOT watch the video — they should get the full picture from this text alone."
+        "heading": "Section title",
+        "content": "A LONG, DETAILED paragraph of 10-15 sentences. Mention every specific example, story, statistic, person, company, date, or argument the speaker discusses in this part. Paraphrase the speaker's actual words — do not just say 'the speaker discusses X', instead write WHAT they said about X in detail."
       }}
     ],
-    "key_takeaways": ["Takeaway 1", "Takeaway 2", "..."],
-    "conclusion": "4-5 sentence conclusion covering implications and final thoughts"
+    "key_takeaways": ["Complete actionable sentence 1", "Complete actionable sentence 2"],
+    "conclusion": "5-6 sentence conclusion summarizing the overall message, implications, and call to action if any."
   }}
 }}
 
 Rules for points:
-- Extract exactly 5 key points
-- Each clip should be between 45-75 seconds
-- Set start/end times accurately based on the transcript timestamps
-- Select the most important and essential content from the lecture
-- Sort in chronological order
+- Exactly 5 key points, 45-75 seconds each, sorted chronologically
+- Timestamps must match the transcript
 
 Rules for full_summary:
-- Write everything in the SAME language as the transcript (if transcript is in Korean, write in Korean; if in English, write in English; etc.)
-- Divide the video into 4-8 logical sections
-- Each section's content MUST be 8-12 sentences minimum — this is a DETAILED document, not a brief summary
-- Include ALL specific facts, numbers, names, quotes, examples, and arguments mentioned in the video
-- The reader should understand the FULL content without watching the video
-- key_takeaways should have 5-8 items, each being a complete actionable sentence
-- overview should be 5-6 sentences covering the big picture
-- conclusion should be 4-5 sentences
-
-Rules for language:
-- ALL text (points AND full_summary) must be in the same language as the transcript
-- If the transcript is in Korean, respond in Korean
-- If the transcript is in English, respond in English
-- If the transcript is in any other language, respond in that language
+- Language: match the transcript language (Korean transcript → Korean output, English → English, etc.)
+- 5-8 sections, each with 10-15 sentences of REAL CONTENT (not filler)
+- DO NOT write generic statements like "the speaker discusses various topics" — write the ACTUAL content
+- Include direct paraphrases, specific numbers, names, dates, examples, anecdotes
+- key_takeaways: 6-10 items, each a full sentence with specific information
+- Total full_summary should be 1500-3000 words equivalent
 
 Transcript:
 {transcript_text}"""
@@ -553,7 +544,7 @@ Transcript:
         model="gpt-4o-mini",
         messages=[{"role": "user", "content": prompt}],
         temperature=0.3,
-        max_tokens=8192,
+        max_tokens=16384,
     )
     text = resp.choices[0].message.content
     # Try parsing as full object first
