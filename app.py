@@ -77,12 +77,28 @@ if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL != "YOUR_SUPABASE_URL":
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 
+MAX_LIBRARY_SIZE = 20
+
 def save_to_library(user_email: str, result: dict):
-    """Save analysis result to Supabase"""
+    """Save analysis result to Supabase (max 20 per user)"""
     if not supabase:
         st.toast("⚠️ Supabase 연결 안됨 — 라이브러리 저장 불가")
         return
     try:
+        # Check current count and delete oldest if at limit
+        existing = (
+            supabase.table("summaries")
+            .select("id, created_at")
+            .eq("user_email", user_email)
+            .order("created_at", desc=True)
+            .execute()
+        )
+        if existing.data and len(existing.data) >= MAX_LIBRARY_SIZE:
+            # Delete oldest entries to make room
+            to_delete = existing.data[MAX_LIBRARY_SIZE - 1:]
+            for old in to_delete:
+                supabase.table("summaries").delete().eq("id", old["id"]).execute()
+
         supabase.table("summaries").insert({
             "user_email": user_email,
             "video_id": result["videoId"],
@@ -922,10 +938,11 @@ if analyze:
 # ══════════════════════════════════════
 with st.sidebar:
     st.subheader("📚 My Library")
+    st.caption(f"분석 결과가 자동 저장됩니다 (최대 {MAX_LIBRARY_SIZE}개)")
     library = load_library(user_email)
 
     if not library:
-        st.caption("아직 저장된 요약이 없습니다.")
+        st.info("📭 아직 저장된 요약이 없습니다.")
     else:
         for i, record in enumerate(library):
             vid = record["video_id"]
