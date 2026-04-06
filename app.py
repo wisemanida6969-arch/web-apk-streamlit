@@ -818,10 +818,6 @@ with st.sidebar:
 
     st.divider()
 
-    # ─── My Library Button ───
-    if st.button("📚 My Library", use_container_width=True, type="primary"):
-        st.session_state["show_library"] = not st.session_state.get("show_library", False)
-
     st.divider()
     st.markdown("**How to Use**")
     st.markdown("""
@@ -921,47 +917,38 @@ if analyze:
 # ══════════════════════════════════════
 # My Library View
 # ══════════════════════════════════════
-if st.session_state.get("show_library", False):
-    st.markdown("---")
+# ══════════════════════════════════════
+# My Library (Sidebar)
+# ══════════════════════════════════════
+with st.sidebar:
     st.subheader("📚 My Library")
-    st.caption("이전 분석 결과 — 클릭하면 다시 볼 수 있습니다")
-
     library = load_library(user_email)
 
     if not library:
-        st.info("📭 아직 저장된 요약이 없습니다. 영상을 분석하면 자동으로 저장됩니다.")
+        st.caption("아직 저장된 요약이 없습니다.")
     else:
         for i, record in enumerate(library):
             vid = record["video_id"]
             created = record.get("created_at", "")[:10]
-            duration = record.get("total_duration", 0)
             src = record.get("source", "subtitle")
             points_data = json.loads(record["points"]) if isinstance(record["points"], str) else record["points"]
-            titles_preview = " · ".join([p.get("title", "")[:30] for p in points_data[:3]])
-            src_icon = "🎙️" if src == "whisper" else "📝"
+            title = points_data[0].get("title", "Untitled")[:40] if points_data else "Untitled"
 
-            with st.container():
-                col_thumb, col_info, col_load, col_del = st.columns([1, 3, 1, 1])
-                with col_thumb:
-                    st.image(f"https://img.youtube.com/vi/{vid}/mqdefault.jpg", use_container_width=True)
-                with col_info:
-                    st.markdown(f"**{titles_preview}**")
-                    st.caption(f"{created} · {src_icon} {src.capitalize()} · {fmt(duration)} · {len(points_data)} key points")
-                with col_load:
-                    if st.button("▶️ Load", key=f"load_{i}", use_container_width=True):
-                        st.session_state["result"] = {
-                            "videoId": vid,
-                            "totalDuration": duration,
-                            "source": src,
-                            "points": points_data,
-                        }
-                        st.session_state["show_library"] = False
-                        st.rerun()
-                with col_del:
-                    if st.button("🗑️", key=f"del_{i}", use_container_width=True):
-                        delete_from_library(record["id"])
-                        st.rerun()
-                st.divider()
+            st.caption(f"{created} · {'🎙️' if src == 'whisper' else '📝'}")
+            col_load, col_del = st.columns([3, 1])
+            with col_load:
+                if st.button(f"▶️ {title}", key=f"load_{i}", use_container_width=True):
+                    st.session_state["result"] = {
+                        "videoId": vid,
+                        "totalDuration": record.get("total_duration", 0),
+                        "source": src,
+                        "points": points_data,
+                    }
+            with col_del:
+                if st.button("🗑️", key=f"del_{i}"):
+                    delete_from_library(record["id"])
+                    st.rerun()
+    st.divider()
 
 # Results
 if "result" in st.session_state:
