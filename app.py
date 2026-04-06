@@ -218,7 +218,7 @@ def generate_summary_pdf(result: dict) -> bytes:
     pdf.multi_cell(0, 4, "This summary is for personal educational use only. AI-generated content may not be 100% accurate.",
                    new_x="LMARGIN", new_y="NEXT")
 
-    return pdf.output()
+    return bytes(pdf.output())
 
 def is_admin() -> bool:
     """Check if current user is admin"""
