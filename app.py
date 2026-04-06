@@ -969,6 +969,7 @@ st.markdown("""
     </style>
     <div class="main-title">🎬 Trytimeback</div>
     <div class="sub-title">Reclaim your lost study time with AI</div>
+    <div style="text-align:center; color:rgba(140,140,170,0.6); font-size:0.78rem; margin-top:-1rem; margin-bottom:1.5rem;">🖥️ Optimized for desktop environment</div>
 """, unsafe_allow_html=True)
 
 # Sidebar
