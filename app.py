@@ -2,8 +2,6 @@ import streamlit as st
 import re
 import os
 import json
-import tempfile
-import subprocess
 import requests
 from datetime import datetime
 from urllib.parse import urlencode
@@ -65,6 +63,9 @@ def check_secrets_status() -> dict:
 
 # OpenAI API Key
 OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
+
+# YouTube Data API Key
+YOUTUBE_API_KEY = get_secret("YOUTUBE_API_KEY")
 
 # ─── Admin Config ───
 ADMIN_EMAIL = "wisemanida6969@gmail.com"
@@ -266,6 +267,55 @@ def fmt(seconds: float) -> str:
     return f"{m}:{s:02d}"
 
 
+def parse_iso8601_duration(duration_str: str) -> int:
+    """Parse ISO 8601 duration (PT1H2M3S) to total seconds."""
+    m = re.match(r"PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?", duration_str)
+    if not m:
+        return 0
+    hours = int(m.group(1) or 0)
+    minutes = int(m.group(2) or 0)
+    seconds = int(m.group(3) or 0)
+    return hours * 3600 + minutes * 60 + seconds
+
+
+# ─── YouTube Data API v3 ───
+
+def get_video_info(video_id: str) -> dict | None:
+    """Fetch video metadata using YouTube Data API v3."""
+    if not YOUTUBE_API_KEY:
+        return None
+    try:
+        resp = requests.get(
+            "https://www.googleapis.com/youtube/v3/videos",
+            params={
+                "part": "snippet,contentDetails,statistics",
+                "id": video_id,
+                "key": YOUTUBE_API_KEY,
+            },
+            timeout=10,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        if not data.get("items"):
+            return None
+        item = data["items"][0]
+        snippet = item["snippet"]
+        details = item["contentDetails"]
+        stats = item.get("statistics", {})
+        return {
+            "title": snippet.get("title", ""),
+            "channel": snippet.get("channelTitle", ""),
+            "thumbnail": snippet.get("thumbnails", {}).get("high", {}).get("url", ""),
+            "duration": parse_iso8601_duration(details.get("duration", "")),
+            "view_count": int(stats.get("viewCount", 0)),
+            "published_at": snippet.get("publishedAt", "")[:10],
+        }
+    except Exception as e:
+        import sys
+        print(f"[YT-API] Failed to get video info: {e}", file=sys.stderr, flush=True)
+        return None
+
+
 # ─── Subtitle Extraction ───
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
@@ -284,7 +334,22 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
     else:
         print(f"[SUBTITLE] No proxy - using direct connection", file=sys.stderr, flush=True)
     api = YouTubeTranscriptApi(http_client=session)
-    # Try Korean first, then English, then any available
+
+    # Step 1: List available transcripts to find auto-generated ones
+    try:
+        transcript_list = api.list(video_id)
+        available = []
+        for t in transcript_list:
+            available.append({
+                "lang": t.language_code,
+                "auto": t.is_generated,
+                "name": t.language,
+            })
+        print(f"[SUBTITLE] Available transcripts: {available}", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"[SUBTITLE] list() failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+
+    # Step 2: Try fetching in order — Korean, English, then any language
     for langs in [["ko"], ["en"], ["ko", "en"]]:
         try:
             print(f"[SUBTITLE] Trying languages={langs} for {video_id}", file=sys.stderr, flush=True)
@@ -297,9 +362,10 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
         except Exception as e:
             print(f"[SUBTITLE] Failed with {langs}: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
             continue
-    # Last resort: fetch without language preference
+
+    # Step 3: Last resort — fetch without language preference (auto-generated included)
     try:
-        print(f"[SUBTITLE] Trying without language preference", file=sys.stderr, flush=True)
+        print(f"[SUBTITLE] Trying without language preference (auto-generated included)", file=sys.stderr, flush=True)
         data = api.fetch(video_id)
         print(f"[SUBTITLE] Success! Got {len(data)} snippets", file=sys.stderr, flush=True)
         return [
@@ -309,44 +375,6 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
     except Exception as e:
         print(f"[SUBTITLE] Final fallback failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
         return None
-
-
-# ─── Audio Download + Whisper STT ───
-
-def download_audio(video_id: str, tmp_dir: str) -> str:
-    output = os.path.join(tmp_dir, f"{video_id}.mp3")
-    url = f"https://www.youtube.com/watch?v={video_id}"
-    cmd = [
-        "yt-dlp",
-        "-x",
-        "--audio-format", "mp3",
-        "--audio-quality", "5",
-        "-o", output,
-        "--no-playlist",
-        "--no-check-certificates",
-        url,
-    ]
-    subprocess.run(cmd, check=True, capture_output=True, timeout=120)
-    return output
-
-
-def transcribe_with_whisper(audio_path: str, api_key: str) -> list[dict]:
-    client = OpenAI(api_key=api_key)
-    with open(audio_path, "rb") as f:
-        result = client.audio.transcriptions.create(
-            file=f,
-            model="whisper-1",
-            response_format="verbose_json",
-            timestamp_granularities=["segment"],
-        )
-    segments = []
-    for seg in result.segments:
-        segments.append({
-            "text": seg["text"].strip(),
-            "start": seg["start"],
-            "duration": seg["end"] - seg["start"],
-        })
-    return segments
 
 
 # ─── GPT Analysis ───
@@ -402,27 +430,12 @@ def process_video(video_id: str, api_key: str):
     source = "subtitle"
 
     if not transcript:
-        source = "whisper"
-        status.write("⚠️ 자막을 찾을 수 없습니다 — 음성 인식으로 전환합니다")
-        status.write("⬇️ 오디오 다운로드 중...")
-
-        try:
-            with tempfile.TemporaryDirectory() as tmp_dir:
-                audio_path = download_audio(video_id, tmp_dir)
-                file_size = os.path.getsize(audio_path) / (1024 * 1024)
-                status.write(f"📁 오디오 파일: {file_size:.1f}MB")
-
-                if file_size > 25:
-                    status.update(label="❌ 실패", state="error")
-                    st.error("오디오 파일이 25MB를 초과합니다. 더 짧은 영상을 시도해 주세요.")
-                    return None
-
-                status.write("🎙️ Whisper 음성 인식 중... (30초~2분)")
-                transcript = transcribe_with_whisper(audio_path, api_key)
-        except Exception as e:
-            status.update(label="❌ 실패", state="error")
-            st.error(f"😔 **음성 분석에 실패했습니다.** 자막이 있는 영상을 시도해 주세요.\n\n오류: {e}")
-            return None
+        status.update(label="❌ 자막을 찾을 수 없습니다", state="error")
+        st.error("😔 **이 영상에서 자막을 찾을 수 없습니다.**\n\n"
+                 "자막(자동 생성 포함)이 있는 영상을 시도해 주세요.\n\n"
+                 "💡 **팁:** 대부분의 유튜브 영상에는 자동 생성 자막이 있습니다. "
+                 "자막이 꺼져 있는 영상이나 음악 영상은 분석이 어렵습니다.")
+        return None
 
     total_duration = transcript[-1]["start"] + transcript[-1]["duration"]
     status.write(f"✅ Text extraction complete: {len(transcript)} segments, {fmt(total_duration)} total")
@@ -857,8 +870,8 @@ with st.sidebar:
     st.divider()
     st.markdown("**Features**")
     st.markdown("- 📝 자막 추출 (자동 생성 자막 포함)")
-    st.markdown("- 🎙️ 자막 없는 영상은 Whisper 음성 인식으로 분석")
     st.markdown("- 🤖 GPT-4o-mini 핵심 포인트 분석")
+    st.markdown("- 🎬 YouTube 임베드 영상 재생")
 
 # URL Input
 col1, col2 = st.columns([5, 1])
@@ -871,7 +884,7 @@ with col1:
 with col2:
     analyze = st.button("🚀 Analyze", use_container_width=True, type="primary")
 
-st.warning("🎙️ **음성 분석 제한:** 자막이 없는 영상은 음성(Whisper)을 통해 분석됩니다. 음성 기반 분석을 위해서는 영상 길이를 **15분 이내**로 유지해 주세요.")
+st.info("📝 **자막 기반 분석:** 유튜브 자막(자동 생성 포함)을 AI가 분석하여 핵심 포인트를 추출합니다.")
 
 st.info("""
 ⚠️ **Copyright & Usage Notice**
@@ -887,6 +900,32 @@ st.info("""
     By using this service, you acknowledge that this AI summary is a derivative work for **personal educational use**.
     Please respect the original creators' rights and refer to the source video for complete information.
 """)
+
+# ─── Video Preview ───
+if url and not analyze:
+    preview_vid = extract_video_id(url)
+    if preview_vid:
+        video_info = get_video_info(preview_vid)
+        if video_info:
+            st.markdown(f"""
+            <div style="
+                background: rgba(15, 15, 35, 0.6);
+                backdrop-filter: blur(16px);
+                border: 1px solid rgba(255, 255, 255, 0.06);
+                border-radius: 16px;
+                padding: 20px;
+                margin: 16px 0;
+            ">
+                <div style="font-size: 1.1rem; font-weight: 700; color: #e8e8f0; margin-bottom: 8px;">
+                    🎬 {video_info['title']}
+                </div>
+                <div style="font-size: 0.85rem; color: rgba(160,160,195,0.8); margin-bottom: 4px;">
+                    📺 {video_info['channel']}  ·  ⏱ {fmt(video_info['duration'])}  ·  👁 {video_info['view_count']:,}회
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+        # Embed video player
+        st.video(f"https://www.youtube.com/watch?v={preview_vid}")
 
 # Run Analysis
 if analyze:
