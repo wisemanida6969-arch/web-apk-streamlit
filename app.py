@@ -283,23 +283,48 @@ import streamlit.components.v1 as components
 
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
-    """Fetch YouTube subtitles using youtube_transcript_api v1.2.x."""
-    api = YouTubeTranscriptApi()
+    """Fetch YouTube subtitles using residential proxy (IP auth, port 9999)."""
+    import sys
 
-    for langs in [["ko"], ["en"], None]:
+    # Residential proxy — IP authentication on port 9999
+    proxy_url = "http://p.webshare.io:9999"
+    print(f"[SUBTITLE] Using residential proxy: {proxy_url}", file=sys.stderr, flush=True)
+
+    session = requests.Session()
+    session.proxies = {"http": proxy_url, "https": proxy_url}
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
+    })
+
+    api = YouTubeTranscriptApi(http_client=session)
+
+    # Try Korean first, then English, then any available
+    for langs in [["ko"], ["en"], ["ko", "en"]]:
         try:
-            if langs:
-                data = api.fetch(video_id, languages=langs)
-            else:
-                data = api.fetch(video_id)
+            print(f"[SUBTITLE] Trying languages={langs} for {video_id}", file=sys.stderr, flush=True)
+            data = api.fetch(video_id, languages=langs)
+            print(f"[SUBTITLE] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
             return [
                 {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
                 for snippet in data
             ]
-        except Exception:
+        except Exception as e:
+            print(f"[SUBTITLE] Failed with {langs}: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
             continue
 
-    return None
+    # Last resort: fetch without language preference
+    try:
+        print(f"[SUBTITLE] Trying without language preference", file=sys.stderr, flush=True)
+        data = api.fetch(video_id)
+        print(f"[SUBTITLE] SUCCESS! Got {len(data)} snippets", file=sys.stderr, flush=True)
+        return [
+            {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
+            for snippet in data
+        ]
+    except Exception as e:
+        print(f"[SUBTITLE] All methods failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        return None
 
 
 def render_youtube_clip(video_id: str, start: int = 0, end: int = 0):
