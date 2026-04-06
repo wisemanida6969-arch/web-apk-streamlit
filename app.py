@@ -431,33 +431,28 @@ def _try_fetch(api, video_id: str, label: str) -> list[dict] | None:
 
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
-    """Fetch YouTube subtitles — try proxy first, then direct."""
+    """Fetch YouTube subtitles using Webshare residential proxy."""
     import sys
+    from youtube_transcript_api.proxies import WebshareProxyConfig
 
-    # 1) Try with residential proxy (username/password auth)
     proxy_user = os.environ.get("WEBSHARE_PROXY_USER", "")
     proxy_pass = os.environ.get("WEBSHARE_PROXY_PASS", "")
-    try:
-        if proxy_user and proxy_pass:
-            proxy_url = f"http://{proxy_user}:{proxy_pass}@p.webshare.io:80"
-        else:
-            proxy_url = "http://p.webshare.io:9999"
-        print(f"[SUBTITLE] Attempting residential proxy (auth={'credentials' if proxy_user else 'IP'})", file=sys.stderr, flush=True)
 
-        session = requests.Session()
-        session.proxies = {"http": proxy_url, "https": proxy_url}
-        session.headers.update({
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-            'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
-        })
-
-        api_proxy = YouTubeTranscriptApi(http_client=session)
-        result = _try_fetch(api_proxy, video_id, "PROXY")
-        if result:
-            return result
-        print(f"[SUBTITLE] Proxy method returned no results", file=sys.stderr, flush=True)
-    except Exception as e:
-        print(f"[SUBTITLE] Proxy setup failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+    # 1) Try with WebshareProxyConfig (built-in rotating residential proxy)
+    if proxy_user and proxy_pass:
+        try:
+            print(f"[SUBTITLE] Using WebshareProxyConfig (user={proxy_user[:4]}...)", file=sys.stderr, flush=True)
+            proxy_config = WebshareProxyConfig(
+                proxy_username=proxy_user,
+                proxy_password=proxy_pass,
+            )
+            api = YouTubeTranscriptApi(proxy_config=proxy_config)
+            result = _try_fetch(api, video_id, "WEBSHARE")
+            if result:
+                return result
+            print(f"[SUBTITLE] WebshareProxyConfig returned no results", file=sys.stderr, flush=True)
+        except Exception as e:
+            print(f"[SUBTITLE] WebshareProxyConfig failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
 
     # 2) Fallback: try direct (no proxy)
     try:
