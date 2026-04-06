@@ -316,13 +316,79 @@ def get_video_info(video_id: str) -> dict | None:
         return None
 
 
-# ─── Subtitle Extraction ───
+# ─── Subtitle Extraction (server-side with direct timedtext API) ───
+# YouTube blocks the video page from cloud IPs, but the timedtext API
+# endpoint is less restricted. We use YouTube Data API v3 to find
+# caption tracks, then fetch subtitle data from timedtext directly.
+
+import streamlit.components.v1 as components
+
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
+    """Fetch subtitles using YouTube's timedtext API directly.
+    Falls back to youtube-transcript-api if timedtext fails."""
     import sys
-    # Use proxy to bypass YouTube cloud IP blocking
+
+    # Method 1: Direct timedtext API (less likely to be IP-blocked)
+    for lang in ["ko", "en", "a.ko", "a.en"]:
+        try:
+            # Try json3 format from timedtext API
+            sub_url = f"https://www.youtube.com/api/timedtext?v={video_id}&lang={lang}&fmt=json3"
+            print(f"[SUBTITLE] Trying timedtext API: lang={lang}", file=sys.stderr, flush=True)
+            resp = requests.get(sub_url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            })
+            if resp.status_code == 200 and resp.text.strip():
+                data = resp.json()
+                segments = []
+                if data.get("events"):
+                    for ev in data["events"]:
+                        if ev.get("segs"):
+                            text = "".join(s.get("utf8", "") for s in ev["segs"]).strip()
+                            if text and text != "\n":
+                                segments.append({
+                                    "text": text,
+                                    "start": (ev.get("tStartMs", 0)) / 1000,
+                                    "duration": (ev.get("dDurationMs", 0)) / 1000,
+                                })
+                if segments:
+                    print(f"[SUBTITLE] timedtext success! {len(segments)} segments (lang={lang})", file=sys.stderr, flush=True)
+                    return segments
+        except Exception as e:
+            print(f"[SUBTITLE] timedtext failed for {lang}: {e}", file=sys.stderr, flush=True)
+            continue
+
+    # Method 2: Try auto-generated subtitles via timedtext with asr params
+    for lang in ["ko", "en"]:
+        try:
+            sub_url = f"https://www.youtube.com/api/timedtext?v={video_id}&lang={lang}&kind=asr&fmt=json3"
+            print(f"[SUBTITLE] Trying timedtext ASR: lang={lang}", file=sys.stderr, flush=True)
+            resp = requests.get(sub_url, timeout=10, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            })
+            if resp.status_code == 200 and resp.text.strip():
+                data = resp.json()
+                segments = []
+                if data.get("events"):
+                    for ev in data["events"]:
+                        if ev.get("segs"):
+                            text = "".join(s.get("utf8", "") for s in ev["segs"]).strip()
+                            if text and text != "\n":
+                                segments.append({
+                                    "text": text,
+                                    "start": (ev.get("tStartMs", 0)) / 1000,
+                                    "duration": (ev.get("dDurationMs", 0)) / 1000,
+                                })
+                if segments:
+                    print(f"[SUBTITLE] timedtext ASR success! {len(segments)} segments (lang={lang})", file=sys.stderr, flush=True)
+                    return segments
+        except Exception as e:
+            print(f"[SUBTITLE] timedtext ASR failed for {lang}: {e}", file=sys.stderr, flush=True)
+            continue
+
+    # Method 3: Fallback to youtube-transcript-api (with proxy if available)
+    print(f"[SUBTITLE] Falling back to youtube-transcript-api...", file=sys.stderr, flush=True)
     proxy_url = os.environ.get("PROXY_URL", "")
-    print(f"[SUBTITLE] PROXY_URL present: {bool(proxy_url)}, length: {len(proxy_url)}", file=sys.stderr, flush=True)
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -330,51 +396,46 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
     })
     if proxy_url:
         session.proxies = {"http": proxy_url, "https": proxy_url}
-        print(f"[SUBTITLE] Proxy configured", file=sys.stderr, flush=True)
-    else:
-        print(f"[SUBTITLE] No proxy - using direct connection", file=sys.stderr, flush=True)
     api = YouTubeTranscriptApi(http_client=session)
 
-    # Step 1: List available transcripts to find auto-generated ones
-    try:
-        transcript_list = api.list(video_id)
-        available = []
-        for t in transcript_list:
-            available.append({
-                "lang": t.language_code,
-                "auto": t.is_generated,
-                "name": t.language,
-            })
-        print(f"[SUBTITLE] Available transcripts: {available}", file=sys.stderr, flush=True)
-    except Exception as e:
-        print(f"[SUBTITLE] list() failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
-
-    # Step 2: Try fetching in order — Korean, English, then any language
     for langs in [["ko"], ["en"], ["ko", "en"]]:
         try:
-            print(f"[SUBTITLE] Trying languages={langs} for {video_id}", file=sys.stderr, flush=True)
             data = api.fetch(video_id, languages=langs)
-            print(f"[SUBTITLE] Success! Got {len(data)} snippets", file=sys.stderr, flush=True)
+            print(f"[SUBTITLE] transcript-api success: {len(data)} snippets", file=sys.stderr, flush=True)
             return [
                 {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
                 for snippet in data
             ]
         except Exception as e:
-            print(f"[SUBTITLE] Failed with {langs}: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+            print(f"[SUBTITLE] transcript-api failed {langs}: {type(e).__name__}", file=sys.stderr, flush=True)
             continue
 
-    # Step 3: Last resort — fetch without language preference (auto-generated included)
     try:
-        print(f"[SUBTITLE] Trying without language preference (auto-generated included)", file=sys.stderr, flush=True)
         data = api.fetch(video_id)
-        print(f"[SUBTITLE] Success! Got {len(data)} snippets", file=sys.stderr, flush=True)
         return [
             {"text": snippet.text, "start": snippet.start, "duration": snippet.duration}
             for snippet in data
         ]
     except Exception as e:
-        print(f"[SUBTITLE] Final fallback failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
+        print(f"[SUBTITLE] All methods failed: {type(e).__name__}: {e}", file=sys.stderr, flush=True)
         return None
+
+
+def render_youtube_clip(video_id: str, start: int = 0, end: int = 0):
+    """Render a YouTube clip player using official iframe embed.
+    Video plays in user's browser — no server-side download needed."""
+    end_param = f"&end={end}" if end else ""
+    html_code = f"""
+    <div style="border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,0.3); margin: 8px 0;">
+        <iframe width="100%" height="300"
+            src="https://www.youtube.com/embed/{video_id}?start={start}{end_param}&rel=0&modestbranding=1"
+            frameborder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowfullscreen>
+        </iframe>
+    </div>
+    """
+    components.html(html_code, height=320)
 
 
 # ─── GPT Analysis ───
@@ -424,34 +485,33 @@ Transcript:
 # ─── Main Processing Pipeline ───
 
 def process_video(video_id: str, api_key: str):
+    """Fetch subtitles and analyze with GPT."""
     status = st.status("🔍 Analyzing video...", expanded=True)
-    status.write("📝 Fetching subtitles...")
+    status.write("📝 자막 가져오는 중...")
     transcript = fetch_subtitles(video_id)
-    source = "subtitle"
 
     if not transcript:
         status.update(label="❌ 자막을 찾을 수 없습니다", state="error")
         st.error("😔 **이 영상에서 자막을 찾을 수 없습니다.**\n\n"
                  "자막(자동 생성 포함)이 있는 영상을 시도해 주세요.\n\n"
-                 "💡 **팁:** 대부분의 유튜브 영상에는 자동 생성 자막이 있습니다. "
-                 "자막이 꺼져 있는 영상이나 음악 영상은 분석이 어렵습니다.")
+                 "💡 **팁:** 대부분의 유튜브 영상에는 자동 생성 자막이 있습니다.")
         return None
 
     total_duration = transcript[-1]["start"] + transcript[-1]["duration"]
-    status.write(f"✅ Text extraction complete: {len(transcript)} segments, {fmt(total_duration)} total")
+    status.write(f"✅ 자막 로드 완료: {len(transcript)}개 구간, 총 {fmt(total_duration)}")
 
-    status.write("🤖 GPT-4o-mini analyzing key points...")
+    status.write("🤖 GPT-4o-mini 핵심 포인트 분석 중...")
     transcript_text = "\n".join(
         f"[{fmt(s['start'])}] {s['text']}" for s in transcript
     )
     points = analyze_with_gpt(transcript_text, total_duration, api_key)
 
-    status.update(label="✅ Analysis complete!", state="complete")
+    status.update(label="✅ 분석 완료!", state="complete")
 
     return {
         "videoId": video_id,
         "totalDuration": int(total_duration),
-        "source": source,
+        "source": "subtitle",
         "points": points,
     }
 
@@ -901,11 +961,13 @@ st.info("""
     Please respect the original creators' rights and refer to the source video for complete information.
 """)
 
-# ─── Video Preview ───
-if url and not analyze:
-    preview_vid = extract_video_id(url)
-    if preview_vid:
-        video_info = get_video_info(preview_vid)
+# ─── Analysis Flow (2-step: browser fetches subtitles → server analyzes) ───
+
+if url:
+    video_id = extract_video_id(url)
+    if video_id:
+        # Show video info from YouTube Data API
+        video_info = get_video_info(video_id)
         if video_info:
             st.markdown(f"""
             <div style="
@@ -924,10 +986,7 @@ if url and not analyze:
                 </div>
             </div>
             """, unsafe_allow_html=True)
-        # Embed video player
-        st.video(f"https://www.youtube.com/watch?v={preview_vid}")
 
-# Run Analysis
 if analyze:
     if not api_key:
         if is_admin():
@@ -942,42 +1001,10 @@ if analyze:
             st.error("Invalid YouTube URL.")
         else:
             try:
-                spinner_html = """
-                <div style="text-align:center; padding:40px 20px;">
-                    <style>
-                        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-                        @keyframes pulse { 0%, 100% { opacity: 0.6; } 50% { opacity: 1; } }
-                        @keyframes dots { 0% { content: ''; } 25% { content: '.'; } 50% { content: '..'; } 75% { content: '...'; } }
-                    </style>
-                    <div style="
-                        width: 64px; height: 64px; margin: 0 auto 24px;
-                        border: 4px solid rgba(99, 71, 237, 0.15);
-                        border-top: 4px solid #a855f7;
-                        border-right: 4px solid #6347ed;
-                        border-radius: 50%;
-                        animation: spin 1s linear infinite;
-                    "></div>
-                    <div style="
-                        font-size: 1.3rem; font-weight: 700;
-                        background: linear-gradient(135deg, #a78bfa, #c084fc);
-                        -webkit-background-clip: text;
-                        -webkit-text-fill-color: transparent;
-                        margin-bottom: 10px;
-                    ">AI is listening to your video carefully... 🎙️</div>
-                    <div style="
-                        color: rgba(160,160,195,0.7); font-size: 0.9rem;
-                        animation: pulse 2s ease-in-out infinite;
-                    ">Extracting key insights — this may take a moment</div>
-                </div>
-                """
-                spinner_placeholder = st.empty()
-                spinner_placeholder.markdown(spinner_html, unsafe_allow_html=True)
                 result = process_video(video_id, api_key)
-                spinner_placeholder.empty()
                 if result:
                     st.session_state["result"] = result
             except Exception as e:
-                spinner_placeholder.empty()
                 st.error(f"Error: {e}")
 
 # ══════════════════════════════════════
@@ -1028,10 +1055,7 @@ if "result" in st.session_state:
 
     st.markdown("---")
 
-    if source == "whisper":
-        badge = '<span class="source-badge source-whisper">🎙️ Extracted via Speech Recognition</span>'
-    else:
-        badge = '<span class="source-badge source-subtitle">📝 Extracted from Subtitles</span>'
+    badge = '<span class="source-badge source-subtitle">📝 Extracted from Subtitles</span>'
     st.markdown(
         f"<h2 style='text-align:center;'>Key Point Shorts</h2>"
         f"<p style='text-align:center;'>{badge}  |  {fmt(data['totalDuration'])} total</p>",
@@ -1098,9 +1122,7 @@ if "result" in st.session_state:
                 </div>
                 """, unsafe_allow_html=True)
 
-                yt_url = f"https://www.youtube.com/embed/{vid}?start={start}&end={end}"
-                st.video(yt_url)
-                st.markdown("")
+                render_youtube_clip(vid, start, end)
 
 # ══════════════════════════════════════
 # Pricing Section
