@@ -315,10 +315,15 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
     """Fetch YouTube subtitles — try proxy first, then direct."""
     import sys
 
-    # 1) Try with residential proxy (IP auth, port 9999)
+    # 1) Try with residential proxy (username/password auth)
+    proxy_user = os.environ.get("WEBSHARE_PROXY_USER", "")
+    proxy_pass = os.environ.get("WEBSHARE_PROXY_PASS", "")
     try:
-        proxy_url = "http://p.webshare.io:9999"
-        print(f"[SUBTITLE] Attempting residential proxy: {proxy_url}", file=sys.stderr, flush=True)
+        if proxy_user and proxy_pass:
+            proxy_url = f"http://{proxy_user}:{proxy_pass}@p.webshare.io:80"
+        else:
+            proxy_url = "http://p.webshare.io:9999"
+        print(f"[SUBTITLE] Attempting residential proxy (auth={'credentials' if proxy_user else 'IP'})", file=sys.stderr, flush=True)
 
         session = requests.Session()
         session.proxies = {"http": proxy_url, "https": proxy_url}
