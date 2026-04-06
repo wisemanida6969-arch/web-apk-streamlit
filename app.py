@@ -1124,6 +1124,7 @@ if "result" in st.session_state:
         use_container_width=True,
         type="primary",
     )
+    st.caption("📁 The PDF file will be saved to your Downloads folder.")
 
     st.markdown("""
     <div style="
