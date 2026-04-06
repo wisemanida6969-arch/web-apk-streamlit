@@ -272,6 +272,7 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
     import sys
     # Use proxy to bypass YouTube cloud IP blocking
     proxy_url = os.environ.get("PROXY_URL", "")
+    print(f"[SUBTITLE] PROXY_URL present: {bool(proxy_url)}, length: {len(proxy_url)}", file=sys.stderr, flush=True)
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -279,7 +280,9 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
     })
     if proxy_url:
         session.proxies = {"http": proxy_url, "https": proxy_url}
-        print(f"[SUBTITLE] Using proxy", file=sys.stderr, flush=True)
+        print(f"[SUBTITLE] Proxy configured", file=sys.stderr, flush=True)
+    else:
+        print(f"[SUBTITLE] No proxy - using direct connection", file=sys.stderr, flush=True)
     api = YouTubeTranscriptApi(http_client=session)
     # Try Korean first, then English, then any available
     for langs in [["ko"], ["en"], ["ko", "en"]]:
