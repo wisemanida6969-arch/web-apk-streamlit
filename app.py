@@ -270,12 +270,16 @@ def fmt(seconds: float) -> str:
 
 def fetch_subtitles(video_id: str) -> list[dict] | None:
     import sys
-    # Use custom session with browser-like headers to avoid cloud IP blocking
+    # Use proxy to bypass YouTube cloud IP blocking
+    proxy_url = get_secret("PROXY_URL", "")
     session = requests.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept-Language': 'en-US,en;q=0.9,ko;q=0.8',
     })
+    if proxy_url:
+        session.proxies = {"http": proxy_url, "https": proxy_url}
+        print(f"[SUBTITLE] Using proxy", file=sys.stderr, flush=True)
     api = YouTubeTranscriptApi(http_client=session)
     # Try Korean first, then English, then any available
     for langs in [["ko"], ["en"], ["ko", "en"]]:
