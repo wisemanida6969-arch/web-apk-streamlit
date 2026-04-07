@@ -982,15 +982,19 @@ handle_oauth_callback()
 if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
 
-    # ── Hero Section ──
-    st.markdown("""
+    # ── Hero Section with Logo ──
+    import base64
+    logo_path = os.path.join(os.path.dirname(__file__), "logo.jpg")
+    if os.path.exists(logo_path):
+        with open(logo_path, "rb") as f:
+            logo_b64 = base64.b64encode(f.read()).decode()
+        logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" style="width: 220px; margin-bottom: 12px; border-radius: 16px;" alt="Trytimeback Logo">'
+    else:
+        logo_html = '<div style="font-size: 3.5rem; margin-bottom: 8px;">🎬</div>'
+
+    st.markdown(f"""
     <div style="text-align: center; padding: 40px 20px 20px;">
-        <div style="
-            font-size: 3.5rem; font-weight: 900;
-            background: linear-gradient(135deg, #a78bfa, #818cf8, #c084fc, #e879f9);
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-            margin-bottom: 8px; letter-spacing: -0.03em;
-        ">🎬 Trytimeback</div>
+        {logo_html}
         <div style="
             font-size: 1.3rem; font-weight: 300; color: rgba(200, 200, 230, 0.9);
             margin-bottom: 6px;
