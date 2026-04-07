@@ -994,6 +994,87 @@ if not st.session_state.get("logged_in", False):
     with col_c:
         st.markdown(f"### [🔐 Sign in with Google]({login_url})")
 
+    # Login page footer links
+    st.markdown("---")
+    fc = st.columns([1, 1, 1, 1])
+    with fc[0]:
+        if st.button("📋 Terms", use_container_width=True, key="login_terms"):
+            st.session_state["login_show"] = "terms"
+    with fc[1]:
+        if st.button("🔒 Privacy", use_container_width=True, key="login_privacy"):
+            st.session_state["login_show"] = "privacy"
+    with fc[2]:
+        if st.button("💰 Refund", use_container_width=True, key="login_refund"):
+            st.session_state["login_show"] = "refund"
+    with fc[3]:
+        st.link_button("📧 Contact", "mailto:admin@trytimeback.com", use_container_width=True)
+
+    # Show selected policy
+    login_show = st.session_state.get("login_show", "")
+    if login_show == "terms":
+        with st.expander("📋 Terms of Service", expanded=True):
+            st.markdown("""
+**Article 1 (Purpose)**
+These terms govern the conditions and procedures for using the AI-based YouTube summary service provided by 'Trytimeback'.
+
+**Article 2 (Service Description)**
+The Service analyzes YouTube lecture videos using AI to extract key points and generate summaries for educational purposes.
+
+**Article 3 (User Obligations)**
+Users must not use the Service for illegal purposes or infringe on third-party copyrights.
+
+*Effective Date: April 5, 2026*
+            """)
+            if st.button("Close", key="login_close_terms"):
+                st.session_state["login_show"] = ""
+                st.rerun()
+    elif login_show == "privacy":
+        with st.expander("🔒 Privacy Policy", expanded=True):
+            st.markdown("""
+**1. Personal Information Collected**
+The Service collects your email address, name (nickname), and profile picture through Google Sign-In.
+
+**2. Purpose of Collection**
+Used for managing analysis records and user identification.
+
+**3. Retention & Disposal**
+Personal information is retained until the user requests withdrawal or the service is terminated.
+
+**4. Third-Party Sharing & Processing**
+The Service may transmit audio/text data to the OpenAI API for analysis; no personally identifiable information is included.
+
+**5. User Rights**
+Users may request to view, modify, or delete their personal information at any time.
+
+*Effective Date: April 5, 2026*
+            """)
+            if st.button("Close", key="login_close_privacy"):
+                st.session_state["login_show"] = ""
+                st.rerun()
+    elif login_show == "refund":
+        with st.expander("💰 Refund Policy", expanded=True):
+            st.markdown("""
+At Trytimeback, we want you to be satisfied with our AI video summary services.
+
+**1. Subscription Refunds:**
+You are eligible for a full refund within 7 days of your initial purchase, provided that you have not used the premium features.
+
+**2. How to Request a Refund:**
+To request a refund, please contact us at admin@trytimeback.com. We will process your request within 3-5 business days.
+
+**3. Automatic Cancellations:**
+You can cancel your subscription at any time through your account settings. Once canceled, you will not be charged for the next billing cycle.
+            """)
+            if st.button("Close", key="login_close_refund"):
+                st.session_state["login_show"] = ""
+                st.rerun()
+
+    st.markdown("""
+    <div style="text-align: center; margin-top: 20px; font-size: 0.72rem; color: rgba(100, 100, 130, 0.5);">
+        &copy; 2026 Trytimeback. All rights reserved.
+    </div>
+    """, unsafe_allow_html=True)
+
     st.stop()
 
 
