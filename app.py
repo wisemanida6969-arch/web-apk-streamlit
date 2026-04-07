@@ -585,13 +585,47 @@ def process_video(video_id: str, api_key: str):
     progress.progress(40, text="✅ Step 1/3 — Subtitles loaded!")
     status.write(f"✅ Subtitles loaded: {len(transcript)} segments, {fmt(total_duration)} total")
 
-    # Step 2: GPT analysis (40% → 90%)
-    progress.progress(50, text="🤖 Step 2/3 — AI analyzing content... (this may take 15-30s)")
+    # Step 2: GPT analysis (40% → 90%) with animated progress
+    import threading, time
+    progress.progress(45, text="🤖 Step 2/3 — AI analyzing content...")
     status.write("🤖 GPT-4o-mini analyzing key points + full summary...")
     transcript_text = "\n".join(
         f"[{fmt(s['start'])}] {s['text']}" for s in transcript
     )
-    analysis = analyze_with_gpt(transcript_text, total_duration, api_key)
+
+    tips = [
+        "🤖 AI is reading the transcript...",
+        "🔍 Identifying key points...",
+        "📝 Writing detailed summary...",
+        "📊 Extracting facts and examples...",
+        "✍️ Finalizing analysis...",
+    ]
+    gpt_result = {"done": False, "data": None, "error": None}
+
+    def run_gpt():
+        try:
+            gpt_result["data"] = analyze_with_gpt(transcript_text, total_duration, api_key)
+        except Exception as e:
+            gpt_result["error"] = e
+        gpt_result["done"] = True
+
+    thread = threading.Thread(target=run_gpt)
+    thread.start()
+
+    pct = 45
+    tip_idx = 0
+    while not gpt_result["done"]:
+        time.sleep(1.5)
+        if pct < 88:
+            pct += 2
+        tip_text = tips[tip_idx % len(tips)]
+        progress.progress(pct, text=f"🤖 Step 2/3 — {tip_text} ({pct}%)")
+        tip_idx += 1
+
+    thread.join()
+    if gpt_result["error"]:
+        raise gpt_result["error"]
+    analysis = gpt_result["data"]
 
     # Step 3: Done (90% → 100%)
     progress.progress(100, text="✅ Step 3/3 — Analysis complete!")
