@@ -445,6 +445,7 @@ def fetch_subtitles(video_id: str) -> list[dict] | None:
             proxy_config = WebshareProxyConfig(
                 proxy_username=proxy_user,
                 proxy_password=proxy_pass,
+                retries_when_blocked=3,
             )
             api = YouTubeTranscriptApi(proxy_config=proxy_config)
             result = _try_fetch(api, video_id, "WEBSHARE")
