@@ -980,21 +980,136 @@ handle_oauth_callback()
 if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
 
+    # ── Hero Section ──
     st.markdown("""
-    <div class="login-container">
-        <div class="login-box">
-            <div class="login-title">🎬 Trytimeback</div>
-            <p class="login-desc">Sign in with your Google account to get started</p>
-        </div>
+    <div style="text-align: center; padding: 40px 20px 20px;">
+        <div style="
+            font-size: 3.5rem; font-weight: 900;
+            background: linear-gradient(135deg, #a78bfa, #818cf8, #c084fc, #e879f9);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            margin-bottom: 8px; letter-spacing: -0.03em;
+        ">🎬 Trytimeback</div>
+        <div style="
+            font-size: 1.3rem; font-weight: 300; color: rgba(200, 200, 230, 0.9);
+            margin-bottom: 6px;
+        ">Stop watching. Start learning.</div>
+        <div style="
+            font-size: 0.95rem; color: rgba(140, 140, 170, 0.7);
+            max-width: 500px; margin: 0 auto;
+        ">AI-powered YouTube lecture analyzer that extracts key insights<br>so you can learn in minutes, not hours.</div>
     </div>
     """, unsafe_allow_html=True)
 
-    # Use Streamlit markdown link (most reliable method)
+    # ── Sign In Button ──
     col_l, col_c, col_r = st.columns([1, 2, 1])
     with col_c:
         st.markdown(f"### [🔐 Sign in with Google]({login_url})")
 
-    # Login page footer links
+    # ── How It Works ──
+    st.markdown("""
+    <div style="text-align: center; margin: 30px auto 10px;">
+        <div style="font-size: 1.1rem; font-weight: 700; color: rgba(220, 220, 240, 0.85); margin-bottom: 20px;">
+            How It Works
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    hw1, hw2, hw3 = st.columns(3)
+    with hw1:
+        st.markdown("""
+        <div style="text-align:center; padding: 20px 12px; background: rgba(15,15,35,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">📋</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: #e8e8f0; margin-bottom: 4px;">1. Paste URL</div>
+            <div style="font-size: 0.78rem; color: rgba(160,160,195,0.7);">Drop any YouTube lecture link</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with hw2:
+        st.markdown("""
+        <div style="text-align:center; padding: 20px 12px; background: rgba(15,15,35,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">🤖</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: #e8e8f0; margin-bottom: 4px;">2. AI Analyzes</div>
+            <div style="font-size: 0.78rem; color: rgba(160,160,195,0.7);">GPT extracts key points & summary</div>
+        </div>
+        """, unsafe_allow_html=True)
+    with hw3:
+        st.markdown("""
+        <div style="text-align:center; padding: 20px 12px; background: rgba(15,15,35,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;">
+            <div style="font-size: 2rem; margin-bottom: 8px;">🎯</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: #e8e8f0; margin-bottom: 4px;">3. Learn Fast</div>
+            <div style="font-size: 0.78rem; color: rgba(160,160,195,0.7);">Watch shorts & download PDF</div>
+        </div>
+        """, unsafe_allow_html=True)
+
+    # ── Feature Highlights ──
+    st.markdown("""
+    <div style="
+        max-width: 650px; margin: 30px auto 10px; padding: 28px 32px;
+        background: rgba(15, 15, 35, 0.4);
+        border: 1px solid rgba(99, 71, 237, 0.12);
+        border-radius: 20px;
+    ">
+        <div style="text-align: center; font-size: 1.1rem; font-weight: 700; color: rgba(220, 220, 240, 0.85); margin-bottom: 20px;">
+            Why Trytimeback?
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 1.3rem;">⚡</span>
+                <div>
+                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">60-Second Shorts</div>
+                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">5 key moments auto-clipped from any lecture</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 1.3rem;">📄</span>
+                <div>
+                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">Full PDF Summary</div>
+                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">Detailed notes you can study offline</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 1.3rem;">🌍</span>
+                <div>
+                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">Any Language</div>
+                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">Works with Korean, English & more</div>
+                </div>
+            </div>
+            <div style="display: flex; align-items: flex-start; gap: 10px;">
+                <span style="font-size: 1.3rem;">🎓</span>
+                <div>
+                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">Built for Students</div>
+                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">Save hours of study time every week</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Stats Bar ──
+    st.markdown("""
+    <div style="
+        display: flex; justify-content: center; gap: 40px; flex-wrap: wrap;
+        margin: 24px auto 10px; padding: 16px 20px;
+    ">
+        <div style="text-align: center;">
+            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #a78bfa, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">15 min</div>
+            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Free every month</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #34d399, #6ee7b7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">5 Shorts</div>
+            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Per video analysis</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #f472b6, #e879f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PDF</div>
+            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Full summary download</div>
+        </div>
+        <div style="text-align: center;">
+            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">GPT-4o</div>
+            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Powered by OpenAI</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # ── Footer Links ──
     st.markdown("---")
     fc = st.columns([1, 1, 1, 1])
     with fc[0]:
@@ -1009,7 +1124,6 @@ if not st.session_state.get("logged_in", False):
     with fc[3]:
         st.link_button("📧 Contact", "mailto:admin@trytimeback.com", use_container_width=True)
 
-    # Show selected policy
     login_show = st.session_state.get("login_show", "")
     if login_show == "terms":
         with st.expander("📋 Terms of Service", expanded=True):
