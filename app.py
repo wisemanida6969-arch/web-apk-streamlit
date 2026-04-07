@@ -19,6 +19,19 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+# ─── Meta Tags for SEO & Link Previews ───
+st.markdown("""
+<meta name="description" content="Trytimeback — AI-powered YouTube lecture analyzer. Paste any lecture URL and get 5 key point short clips + a full PDF summary in seconds. Save hours of study time.">
+<meta name="keywords" content="YouTube summary, AI lecture notes, video analysis, study tool, key points, PDF summary">
+<meta property="og:title" content="Trytimeback | AI YouTube Lecture Summary">
+<meta property="og:description" content="Stop watching hour-long lectures. Get AI-extracted key points in 60-second shorts and a detailed PDF summary. Free to start.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://trytimeback.com">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Trytimeback | AI YouTube Lecture Summary">
+<meta name="twitter:description" content="AI-powered YouTube lecture analyzer. Get key point shorts + full PDF summary in seconds.">
+""", unsafe_allow_html=True)
+
 # ─── Safe secrets helper ───
 def get_secret(key: str, default: str = "") -> str:
     """Read a secret from st.secrets with multiple fallback strategies."""
