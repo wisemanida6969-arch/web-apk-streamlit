@@ -565,11 +565,16 @@ Transcript:
 
 def process_video(video_id: str, api_key: str):
     """Fetch subtitles and analyze with GPT."""
+    progress = st.progress(0, text="🔍 Starting analysis...")
     status = st.status("🔍 Analyzing video...", expanded=True)
+
+    # Step 1: Fetch subtitles (0% → 40%)
+    progress.progress(10, text="📝 Step 1/3 — Fetching subtitles via proxy...")
     status.write("📝 Fetching subtitles...")
     transcript = fetch_subtitles(video_id)
 
     if not transcript:
+        progress.empty()
         status.update(label="❌ No subtitles found", state="error")
         st.error("😔 **No subtitles found for this video.**\n\n"
                  "Please try a video with subtitles (including auto-generated ones).\n\n"
@@ -577,14 +582,19 @@ def process_video(video_id: str, api_key: str):
         return None
 
     total_duration = transcript[-1]["start"] + transcript[-1]["duration"]
+    progress.progress(40, text="✅ Step 1/3 — Subtitles loaded!")
     status.write(f"✅ Subtitles loaded: {len(transcript)} segments, {fmt(total_duration)} total")
 
+    # Step 2: GPT analysis (40% → 90%)
+    progress.progress(50, text="🤖 Step 2/3 — AI analyzing content... (this may take 15-30s)")
     status.write("🤖 GPT-4o-mini analyzing key points + full summary...")
     transcript_text = "\n".join(
         f"[{fmt(s['start'])}] {s['text']}" for s in transcript
     )
     analysis = analyze_with_gpt(transcript_text, total_duration, api_key)
 
+    # Step 3: Done (90% → 100%)
+    progress.progress(100, text="✅ Step 3/3 — Analysis complete!")
     status.update(label="✅ Analysis complete!", state="complete")
 
     return {
