@@ -1601,33 +1601,15 @@ paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "live_1a8fd1443de5064e970587e81
 
 pricing_full_html = f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.paddle.com/paddle/v2/paddle.js" onload="initPaddle()"></script>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script>
-    var paddleReady = false;
-    function initPaddle() {{
-        if (typeof Paddle !== 'undefined' && !paddleReady) {{
-            Paddle.Initialize({{
-                token: '{paddle_token}',
-                environment: 'production'
-            }});
-            paddleReady = true;
-            console.log('[Paddle] Initialized OK — production mode');
-        }}
-    }}
+    Paddle.Environment.set('production');
+    Paddle.Initialize({{ token: '{paddle_token}' }});
+    console.log('[Paddle] Initialized — production mode');
+
     function openCheckout(priceId) {{
-        if (!paddleReady) {{
-            alert('Payment system is loading, please try again in a moment.');
-            return;
-        }}
         Paddle.Checkout.open({{
-            items: [{{ priceId: priceId, quantity: 1 }}],
-            settings: {{
-                displayMode: 'overlay',
-                theme: 'dark',
-                frameTarget: '_top',
-                frameInitialHeight: 450,
-                successUrl: 'https://trytimeback.com'
-            }}
+            items: [{{ priceId: priceId, quantity: 1 }}]
         }});
     }}
     function toggleBilling() {{
