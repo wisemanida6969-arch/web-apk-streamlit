@@ -1600,10 +1600,46 @@ import streamlit.components.v1 as paddle_components
 pricing_full_html = """
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script>
-    // Paddle SDK lives on the MAIN page (injected by patch_meta.py).
-    // This iframe just sends a postMessage to the parent to open checkout.
+    // ── Inject Paddle.js into the TOP window (escapes the iframe) ──
+    (function() {
+        var top = window.top;
+        if (top._paddleReady) return;          // already loaded
+
+        // If Paddle SDK not yet in top window, inject it now
+        if (!top.document.getElementById('paddle-sdk-script')) {
+            var s = top.document.createElement('script');
+            s.id = 'paddle-sdk-script';
+            s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+            s.onload = function() {
+                top.Paddle.Initialize({
+                    token: 'live_1a8fd1443de5064e970587e81c9',
+                    environment: 'production'
+                });
+                top._paddleReady = true;
+                console.log('[Paddle] Injected & initialized on TOP window');
+            };
+            top.document.head.appendChild(s);
+        }
+    })();
+
     function openCheckout(priceId) {
-        window.parent.postMessage({ type: 'paddle-checkout', priceId: priceId }, '*');
+        var top = window.top;
+        if (top.Paddle && top._paddleReady) {
+            top.Paddle.Checkout.open({
+                items: [{ priceId: priceId, quantity: 1 }]
+            });
+        } else {
+            // SDK still loading — retry after 1s
+            setTimeout(function() {
+                if (top.Paddle) {
+                    top.Paddle.Checkout.open({
+                        items: [{ priceId: priceId, quantity: 1 }]
+                    });
+                } else {
+                    alert('Payment system could not load. Please refresh the page.');
+                }
+            }, 1500);
+        }
     }
     function toggleBilling() {
         var isYearly = document.getElementById('billingToggle').checked;
