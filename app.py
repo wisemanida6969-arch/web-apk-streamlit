@@ -1601,12 +1601,33 @@ paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "live_1a8fd1443de5064e970587e81
 
 pricing_full_html = f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js" onload="initPaddle()"></script>
 <script>
-    Paddle.Initialize({{ token: '{paddle_token}' }});
+    var paddleReady = false;
+    function initPaddle() {{
+        if (typeof Paddle !== 'undefined' && !paddleReady) {{
+            Paddle.Initialize({{
+                token: '{paddle_token}',
+                environment: 'production'
+            }});
+            paddleReady = true;
+            console.log('[Paddle] Initialized OK — production mode');
+        }}
+    }}
     function openCheckout(priceId) {{
+        if (!paddleReady) {{
+            alert('Payment system is loading, please try again in a moment.');
+            return;
+        }}
         Paddle.Checkout.open({{
             items: [{{ priceId: priceId, quantity: 1 }}],
+            settings: {{
+                displayMode: 'overlay',
+                theme: 'dark',
+                frameTarget: '_top',
+                frameInitialHeight: 450,
+                successUrl: 'https://trytimeback.com'
+            }}
         }});
     }}
     function toggleBilling() {{
@@ -1803,7 +1824,7 @@ pricing_full_html = f"""
     <div class="secure">🔒 Secure payment powered by Paddle · Cancel anytime · 7-day money back guarantee</div>
 </div>
 """
-paddle_components.html(pricing_full_html, height=780)
+paddle_components.html(pricing_full_html, height=900, scrolling=True)
 
 st.markdown("<p style='text-align:center; font-size:0.8rem; color:#606080; margin-top:2rem;'>* Pro plan follows Fair Usage Policy (1,200 mins/mo).<br>Credits are deducted based on the total duration of the source video processed.</p>", unsafe_allow_html=True)
 
