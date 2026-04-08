@@ -1162,6 +1162,38 @@ if not st.session_state.get("logged_in", False):
         .stButton>button:hover {
             background-color: #1d4ed8 !important;
         }
+        /* Login page text colors for light background */
+        .stMarkdown, .stMarkdown p, .stMarkdown li, .stMarkdown span {
+            color: #374151 !important;
+        }
+        .stMarkdown h1, .stMarkdown h2, .stMarkdown h3,
+        .stMarkdown h4, .stMarkdown h5, .stMarkdown strong {
+            color: #1e293b !important;
+        }
+        .stExpander {
+            background: #ffffff !important;
+            border: 1px solid #e5e7eb !important;
+            border-radius: 12px !important;
+        }
+        .stExpander summary, .stExpander summary span {
+            color: #1e293b !important;
+            font-weight: 600 !important;
+        }
+        .stExpander div[data-testid="stExpanderDetails"] p,
+        .stExpander div[data-testid="stExpanderDetails"] li,
+        .stExpander div[data-testid="stExpanderDetails"] span {
+            color: #374151 !important;
+        }
+        .stExpander div[data-testid="stExpanderDetails"] strong {
+            color: #1e293b !important;
+        }
+        hr {
+            border-color: #e5e7eb !important;
+        }
+        /* Copyright footer */
+        div[style*="color: rgba(100, 100, 130"] {
+            color: #9ca3af !important;
+        }
     </style>
     """, unsafe_allow_html=True)
 
@@ -1382,7 +1414,7 @@ You can cancel your subscription at any time through your account settings. Once
                 st.rerun()
 
     st.markdown("""
-    <div style="text-align: center; margin-top: 20px; font-size: 0.72rem; color: rgba(100, 100, 130, 0.5);">
+    <div style="text-align: center; margin-top: 20px; font-size: 0.72rem; color: #9ca3af;">
         &copy; 2026 Trytimeback. All rights reserved.
     </div>
     """, unsafe_allow_html=True)
