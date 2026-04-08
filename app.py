@@ -1812,7 +1812,7 @@ pricing_full_html = """
                 <li>✅ PDF Summary Export</li>
                 <li>✅ 7-Day Money Back</li>
             </ul>
-            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7hhdez2seb412f4t34g2c')">Select Basic — Yearly</button>
+            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7w9ppn9csr86fz0sq47zh')">Select Basic — Yearly</button>
         </div>
         <div class="card pro">
             <div class="badge-pop">👑 MOST POPULAR</div>
@@ -1828,7 +1828,7 @@ pricing_full_html = """
                 <li>✅ Unlimited Video Length</li>
                 <li>✅ Advanced Insights (Mind-map)</li>
             </ul>
-            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7w9ppn9csr86fz0sq47zh')">👑 Go Pro — Yearly</button>
+            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7hhdez2seb412f4t34g2c')">👑 Go Pro — Yearly</button>
         </div>
     </div>
 
