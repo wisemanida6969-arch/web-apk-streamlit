@@ -13,7 +13,7 @@ APP_VERSION = "2026-04-07-v1"
 
 # ─── Config ───
 st.set_page_config(
-    page_title="Trytimeback | AI YouTube Lecture Summary",
+    page_title="세월은간다 - AI 유튜브 요약 및 PDF 추출",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="expanded",
@@ -1649,41 +1649,7 @@ else:
     """, unsafe_allow_html=True)
 
 # --- Pricing Cards ---
-b_price = "$9.99" if is_yearly else "$12.99"
-p_price = "$23.99" if is_yearly else "$29.99"
-
-st.markdown(f"""
-<div class="pricing-container">
-    <div class="pricing-card">
-        <div class="plan-name">Basic</div>
-        <div class="plan-price">{b_price}</div>
-        <div class="plan-duration">per month</div>
-        {"<div class='save-badge'>Save $36 per year</div>" if is_yearly else "<div style='height:37px;'></div>"}
-        <ul class="feature-list">
-            <li>\u2705 <b>300 Minutes</b> / month</li>
-            <li>\u2705 Audio Analysis (Whisper)</li>
-            <li>\u2705 PDF Summary Export</li>
-            <li>\u2705 7-Day Money Back</li>
-        </ul>
-    </div>
-    <div class="pricing-card pro">
-        <div class="crown-badge">\U0001f451 MOST POPULAR</div>
-        <div class="plan-name" style="color:#f1c40f;">Pro</div>
-        <div class="plan-price" style="color:#f1c40f;">{p_price}</div>
-        <div class="plan-duration">per month</div>
-        {"<div class='save-badge' style='background:rgba(241,196,15,0.1); color:#f1c40f;'>Save $72 per year</div>" if is_yearly else "<div style='height:37px;'></div>"}
-        <ul class="feature-list">
-            <li>\u2705 <b>1,200 Minutes</b> / month</li>
-            <li>\u2705 <b>Priority</b> AI Processing</li>
-            <li>\u2705 Unlimited Video Length</li>
-            <li>\u2705 Advanced Insights (Mind-map)</li>
-        </ul>
-    </div>
-</div>
-""", unsafe_allow_html=True)
-
-# --- Paddle Payment Buttons ---
-# Price IDs
+# --- Paddle Price IDs ---
 PADDLE_PRICES = {
     "basic_monthly": "pri_01knn7v2ez76tc4b6gbr856jw9",
     "basic_yearly": "pri_01knn7w9ppn9csr86fz0sq47zh",
@@ -1694,46 +1660,79 @@ PADDLE_PRICES = {
 basic_price_id = PADDLE_PRICES["basic_yearly"] if is_yearly else PADDLE_PRICES["basic_monthly"]
 pro_price_id = PADDLE_PRICES["pro_yearly"] if is_yearly else PADDLE_PRICES["pro_monthly"]
 
+b_price = "$9.99" if is_yearly else "$12.99"
+p_price = "$23.99" if is_yearly else "$29.99"
+b_total = "$119.88/yr" if is_yearly else ""
+p_total = "$287.88/yr" if is_yearly else ""
+
 import streamlit.components.v1 as paddle_components
 
-paddle_checkout_html = f"""
+paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "test_placeholder")
+
+pricing_html = f"""
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script>
-    Paddle.Initialize({{ token: '{get_secret("PADDLE_CLIENT_TOKEN", "test_placeholder")}' }});
-
+    Paddle.Initialize({{ token: '{paddle_token}' }});
     function openCheckout(priceId) {{
         Paddle.Checkout.open({{
             items: [{{ priceId: priceId, quantity: 1 }}],
         }});
     }}
 </script>
-<div style="display: flex; justify-content: center; gap: 24px; margin: 20px auto; max-width: 700px; flex-wrap: wrap;">
-    <button onclick="openCheckout('{basic_price_id}')" style="
-        flex: 1; min-width: 260px; padding: 16px 32px;
-        background: linear-gradient(135deg, #6347ed, #a855f7);
-        color: white; border: none; border-radius: 14px;
-        font-size: 1.05rem; font-weight: 700; cursor: pointer;
-        box-shadow: 0 4px 16px rgba(99, 71, 237, 0.3);
-        transition: all 0.3s ease;
-    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 24px rgba(99,71,237,0.4)'"
-      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(99,71,237,0.3)'"
-    >Select Basic</button>
-    <button onclick="openCheckout('{pro_price_id}')" style="
-        flex: 1; min-width: 260px; padding: 16px 32px;
-        background: linear-gradient(135deg, #f1c40f, #f39c12);
-        color: #1a1a2e; border: none; border-radius: 14px;
-        font-size: 1.05rem; font-weight: 700; cursor: pointer;
-        box-shadow: 0 4px 16px rgba(241, 196, 15, 0.3);
-        transition: all 0.3s ease;
-    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 24px rgba(241,196,15,0.4)'"
-      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(241,196,15,0.3)'"
-    >👑 Go Pro</button>
+
+<div class="pricing-container">
+    <!-- Basic Card -->
+    <div class="pricing-card">
+        <div class="plan-name">Basic</div>
+        <div class="plan-price">{b_price}</div>
+        <div class="plan-duration">per month{f' · <span style="color:#00cec9; font-weight:600;">{b_total}</span>' if is_yearly else ''}</div>
+        {'<div class="save-badge">Save 23% Yearly!</div>' if is_yearly else '<div style="height:37px;"></div>'}
+        <ul class="feature-list">
+            <li>✅ <b>300 Minutes</b> / month</li>
+            <li>✅ Audio Analysis (Whisper)</li>
+            <li>✅ PDF Summary Export</li>
+            <li>✅ 7-Day Money Back</li>
+        </ul>
+        <button onclick="openCheckout('{basic_price_id}')" style="
+            width: 100%; padding: 14px 0;
+            background: linear-gradient(135deg, #6347ed, #a855f7);
+            color: white; border: none; border-radius: 12px;
+            font-size: 1.05rem; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(99, 71, 237, 0.3);
+            transition: all 0.3s ease;
+        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"
+        >Select Basic</button>
+    </div>
+    <!-- Pro Card -->
+    <div class="pricing-card pro">
+        <div class="crown-badge">👑 MOST POPULAR</div>
+        <div class="plan-name" style="color:#f1c40f;">Pro</div>
+        <div class="plan-price" style="color:#f1c40f;">{p_price}</div>
+        <div class="plan-duration">per month{f' · <span style="color:#f1c40f; font-weight:600;">{p_total}</span>' if is_yearly else ''}</div>
+        {'<div class="save-badge" style="background:rgba(241,196,15,0.1); color:#f1c40f;">Save 20% Yearly!</div>' if is_yearly else '<div style="height:37px;"></div>'}
+        <ul class="feature-list">
+            <li>✅ <b>1,200 Minutes</b> / month</li>
+            <li>✅ <b>Priority</b> AI Processing</li>
+            <li>✅ Unlimited Video Length</li>
+            <li>✅ Advanced Insights (Mind-map)</li>
+        </ul>
+        <button onclick="openCheckout('{pro_price_id}')" style="
+            width: 100%; padding: 14px 0;
+            background: linear-gradient(135deg, #f1c40f, #f39c12);
+            color: #1a1a2e; border: none; border-radius: 12px;
+            font-size: 1.05rem; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 16px rgba(241, 196, 15, 0.3);
+            transition: all 0.3s ease;
+        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"
+        >👑 Go Pro</button>
+    </div>
 </div>
-<div style="text-align: center; margin-top: 12px;">
-    <span style="font-size: 0.78rem; color: rgba(140,140,170,0.6);">🔒 Secure payment powered by Paddle</span>
+
+<div style="text-align: center; margin-top: 20px;">
+    <span style="font-size: 0.78rem; color: rgba(140,140,170,0.6);">🔒 Secure payment powered by Paddle · Cancel anytime</span>
 </div>
 """
-paddle_components.html(paddle_checkout_html, height=140)
+paddle_components.html(pricing_html, height=620)
 
 st.markdown("<p style='text-align:center; font-size:0.8rem; color:#606080; margin-top:2rem;'>* Pro plan follows Fair Usage Policy (1,200 mins/mo).<br>Credits are deducted based on the total duration of the source video processed.</p>", unsafe_allow_html=True)
 
