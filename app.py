@@ -1682,15 +1682,58 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# --- Payment Buttons ---
-col_b1, col_b2, col_b3, col_b4 = st.columns([1.1, 2, 2, 1.1])
-with col_b2:
-    if st.button("Select Basic", key="btn_basic", use_container_width=True):
-        st.info("Redirecting to Stripe Basic Checkout...")
+# --- Paddle Payment Buttons ---
+# Price IDs
+PADDLE_PRICES = {
+    "basic_monthly": "pri_01knn7v2ez76tc4b6gbr856jw9",
+    "basic_yearly": "pri_01knn7w9ppn9csr86fz0sq47zh",
+    "pro_monthly": "pri_01knn7r684skwj2z54htyseaj2",
+    "pro_yearly": "pri_01knn7hhdez2seb412f4t34g2c",
+}
 
-with col_b3:
-    if st.button("Go Pro \U0001f451", key="btn_pro", use_container_width=True):
-        st.info("Redirecting to Stripe Pro Checkout...")
+basic_price_id = PADDLE_PRICES["basic_yearly"] if is_yearly else PADDLE_PRICES["basic_monthly"]
+pro_price_id = PADDLE_PRICES["pro_yearly"] if is_yearly else PADDLE_PRICES["pro_monthly"]
+
+import streamlit.components.v1 as paddle_components
+
+paddle_checkout_html = f"""
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script>
+    Paddle.Initialize({{ token: '{get_secret("PADDLE_CLIENT_TOKEN", "test_placeholder")}' }});
+
+    function openCheckout(priceId) {{
+        Paddle.Checkout.open({{
+            items: [{{ priceId: priceId, quantity: 1 }}],
+        }});
+    }}
+</script>
+<div style="display: flex; justify-content: center; gap: 24px; margin: 20px auto; max-width: 700px; flex-wrap: wrap;">
+    <button onclick="openCheckout('{basic_price_id}')" style="
+        flex: 1; min-width: 260px; padding: 16px 32px;
+        background: linear-gradient(135deg, #6347ed, #a855f7);
+        color: white; border: none; border-radius: 14px;
+        font-size: 1.05rem; font-weight: 700; cursor: pointer;
+        box-shadow: 0 4px 16px rgba(99, 71, 237, 0.3);
+        transition: all 0.3s ease;
+    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 24px rgba(99,71,237,0.4)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(99,71,237,0.3)'"
+    >Select Basic</button>
+    <button onclick="openCheckout('{pro_price_id}')" style="
+        flex: 1; min-width: 260px; padding: 16px 32px;
+        background: linear-gradient(135deg, #f1c40f, #f39c12);
+        color: #1a1a2e; border: none; border-radius: 14px;
+        font-size: 1.05rem; font-weight: 700; cursor: pointer;
+        box-shadow: 0 4px 16px rgba(241, 196, 15, 0.3);
+        transition: all 0.3s ease;
+    " onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 24px rgba(241,196,15,0.4)'"
+      onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 16px rgba(241,196,15,0.3)'"
+    >👑 Go Pro</button>
+</div>
+<div style="text-align: center; margin-top: 12px;">
+    <span style="font-size: 0.78rem; color: rgba(140,140,170,0.6);">🔒 Secure payment powered by Paddle</span>
+</div>
+"""
+paddle_components.html(paddle_checkout_html, height=140)
 
 st.markdown("<p style='text-align:center; font-size:0.8rem; color:#606080; margin-top:2rem;'>* Pro plan follows Fair Usage Policy (1,200 mins/mo).<br>Credits are deducted based on the total duration of the source video processed.</p>", unsafe_allow_html=True)
 
