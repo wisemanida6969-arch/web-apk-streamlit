@@ -1601,11 +1601,26 @@ paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "live_1a8fd1443de5064e970587e81
 
 pricing_full_html = f"""
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script>
-    Paddle.Environment.set('production');
-    Paddle.Initialize({{ token: '{paddle_token}' }});
-    console.log('[Paddle] Initialized — production mode');
+    // Step 1: Load Paddle.js dynamically to guarantee order
+    var s = document.createElement('script');
+    s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+    s.onload = function() {{
+        // Step 2: Initialize immediately after SDK loads (v2 API only)
+        Paddle.Initialize({{
+            token: '{paddle_token}',
+            environment: 'production'
+        }});
+        console.log('[Paddle] SDK loaded & initialized — production');
+        // Step 3: Enable all checkout buttons
+        var btns = document.querySelectorAll('.btn-checkout');
+        btns.forEach(function(b) {{
+            b.disabled = false;
+            b.style.opacity = '1';
+            b.style.cursor = 'pointer';
+        }});
+    }};
+    document.head.appendChild(s);
 
     function openCheckout(priceId) {{
         Paddle.Checkout.open({{
@@ -1750,7 +1765,7 @@ pricing_full_html = f"""
                 <li>✅ PDF Summary Export</li>
                 <li>✅ 7-Day Money Back</li>
             </ul>
-            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7v2ez76tc4b6gbr856jw9')">Select Basic</button>
+            <button class="btn btn-basic btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7v2ez76tc4b6gbr856jw9')">Select Basic</button>
         </div>
         <div class="card pro">
             <div class="badge-pop">👑 MOST POPULAR</div>
@@ -1764,7 +1779,7 @@ pricing_full_html = f"""
                 <li>✅ Unlimited Video Length</li>
                 <li>✅ Advanced Insights (Mind-map)</li>
             </ul>
-            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7r684skwj2z54htyseaj2')">👑 Go Pro</button>
+            <button class="btn btn-pro btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7r684skwj2z54htyseaj2')">👑 Go Pro</button>
         </div>
     </div>
 
@@ -1783,7 +1798,7 @@ pricing_full_html = f"""
                 <li>✅ PDF Summary Export</li>
                 <li>✅ 7-Day Money Back</li>
             </ul>
-            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7w9ppn9csr86fz0sq47zh')">Select Basic — Yearly</button>
+            <button class="btn btn-basic btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7w9ppn9csr86fz0sq47zh')">Select Basic — Yearly</button>
         </div>
         <div class="card pro">
             <div class="badge-pop">👑 MOST POPULAR</div>
@@ -1799,7 +1814,7 @@ pricing_full_html = f"""
                 <li>✅ Unlimited Video Length</li>
                 <li>✅ Advanced Insights (Mind-map)</li>
             </ul>
-            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7hhdez2seb412f4t34g2c')">👑 Go Pro — Yearly</button>
+            <button class="btn btn-pro btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7hhdez2seb412f4t34g2c')">👑 Go Pro — Yearly</button>
         </div>
     </div>
 
