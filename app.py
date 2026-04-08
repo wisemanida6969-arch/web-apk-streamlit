@@ -859,40 +859,37 @@ st.markdown("""
 
     /* ─── Login Page ─── */
     .login-container {
+        max-width: 450px;
+        margin: 80px auto;
+        padding: 40px;
+        background-color: #ffffff;
+        border-radius: 16px;
+        box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+        border: 1px solid #e5e7eb;
+    }
+    .login-header {
         text-align: center;
-        padding: 100px 20px 60px;
-        position: relative;
+        margin-bottom: 35px;
     }
-    .login-box {
-        background: rgba(15, 15, 35, 0.7);
-        backdrop-filter: blur(24px);
-        -webkit-backdrop-filter: blur(24px);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 28px;
-        padding: 56px 48px;
-        max-width: 460px;
-        margin: 0 auto;
-        box-shadow: 0 16px 64px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255,255,255,0.03) inset;
-        position: relative;
+    .login-header h1 {
+        font-size: 28px;
+        font-weight: 700;
+        color: #1e3a8a;
+        margin-bottom: 10px;
     }
-    .login-box::before {
-        content: '';
-        position: absolute;
-        top: 0; left: 20%; right: 20%;
-        height: 1px;
-        background: linear-gradient(90deg, transparent, rgba(99, 71, 237, 0.5), transparent);
+    .login-header p {
+        color: #6b7280;
+        font-size: 16px;
     }
     .login-title {
         font-size: 2.4rem;
         font-weight: 900;
-        background: linear-gradient(135deg, #a78bfa, #818cf8, #c084fc);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
+        color: #1e3a8a;
         margin-bottom: 12px;
         letter-spacing: -0.03em;
     }
     .login-desc {
-        color: rgba(160, 160, 195, 0.8);
+        color: #6b7280;
         margin-bottom: 36px;
         font-size: 1rem;
         font-weight: 400;
@@ -902,23 +899,86 @@ st.markdown("""
         display: inline-flex;
         align-items: center;
         gap: 12px;
-        background: white;
-        color: #1a1a2e;
+        background: #ffffff;
+        color: #3c4043;
         padding: 14px 36px;
-        border-radius: 12px;
+        border-radius: 40px;
         text-decoration: none;
-        font-weight: 700;
+        font-weight: 600;
         font-size: 0.95rem;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0,0,0,0.06);
         transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
         letter-spacing: 0.01em;
     }
     .google-btn:hover {
-        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
-        transform: translateY(-2px) scale(1.02);
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+        transform: translateY(-2px);
     }
     .google-btn:active {
         transform: translateY(0) scale(0.98);
+    }
+    .login-footer {
+        text-align: center;
+        margin-top: 25px;
+        font-size: 14px;
+        color: #6b7280;
+    }
+    .login-footer a {
+        color: #3b82f6;
+        text-decoration: none;
+        font-weight: 500;
+    }
+    .login-section-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 20px;
+        text-align: center;
+    }
+    .login-step-card {
+        text-align: center;
+        padding: 20px 12px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 16px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .login-step-card .step-title {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 4px;
+    }
+    .login-step-card .step-desc {
+        font-size: 0.78rem;
+        color: #9ca3af;
+    }
+    .login-feature-box {
+        max-width: 650px;
+        margin: 30px auto 10px;
+        padding: 28px 32px;
+        background: #ffffff;
+        border: 1px solid #e5e7eb;
+        border-radius: 20px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+    }
+    .login-feature-item .feat-title {
+        font-size: 0.88rem;
+        font-weight: 600;
+        color: #1e293b;
+    }
+    .login-feature-item .feat-desc {
+        font-size: 0.75rem;
+        color: #9ca3af;
+    }
+    .login-stat-value {
+        font-size: 1.6rem;
+        font-weight: 800;
+        color: #1e3a8a;
+    }
+    .login-stat-label {
+        font-size: 0.75rem;
+        color: #9ca3af;
     }
 
     /* ─── User Profile ─── */
@@ -1036,7 +1096,8 @@ st.markdown("""
     /* ─── Mobile Responsive ─── */
     @media (max-width: 768px) {
         .block-container { max-width: 100%; padding-left: 1rem; padding-right: 1rem; }
-        .login-box { padding: 32px 20px; max-width: 95%; border-radius: 20px; }
+        .login-container { margin: 40px auto; padding: 28px 20px; max-width: 95%; border-radius: 12px; }
+        .login-header h1 { font-size: 24px; }
         .login-title { font-size: 1.8rem; }
         .login-desc { font-size: 0.9rem; margin-bottom: 20px; }
         .short-card { border-radius: 14px; }
@@ -1051,7 +1112,8 @@ st.markdown("""
         .feature-list li { font-size: 0.85rem; }
     }
     @media (max-width: 480px) {
-        .login-box { padding: 24px 16px; }
+        .login-container { margin: 24px auto; padding: 24px 16px; }
+        .login-header h1 { font-size: 22px; }
         .login-title { font-size: 1.5rem; }
         .card-header { font-size: 0.8rem; padding: 8px 12px; }
         .card-body { padding: 10px 12px; }
@@ -1072,131 +1134,148 @@ handle_oauth_callback()
 if not st.session_state.get("logged_in", False):
     login_url = get_google_login_url()
 
+    # ── Light theme for login page ──
+    st.markdown("""
+    <style>
+        .stApp { background-color: #f9fafb !important; }
+        .stTextInput>div>div>input {
+            border-radius: 8px !important;
+            border: 1px solid #d1d5db !important;
+            padding: 12px 15px !important;
+            font-size: 16px !important;
+        }
+        .stTextInput>div>div>input:focus {
+            border-color: #3b82f6 !important;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
+        }
+        .stButton>button {
+            width: 100% !important;
+            background-color: #1e3a8a !important;
+            color: white !important;
+            border-radius: 8px !important;
+            padding: 12px !important;
+            font-size: 18px !important;
+            font-weight: 600 !important;
+            border: none !important;
+            transition: background-color 0.2s !important;
+        }
+        .stButton>button:hover {
+            background-color: #1d4ed8 !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     # ── Hero Section with Logo ──
     import base64
     logo_path = os.path.join(os.path.dirname(__file__), "logo.jpg")
     if os.path.exists(logo_path):
         with open(logo_path, "rb") as f:
             logo_b64 = base64.b64encode(f.read()).decode()
-        logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" style="width: 220px; margin-bottom: 12px; border-radius: 16px;" alt="Trytimeback Logo">'
+        logo_html = f'<img src="data:image/jpeg;base64,{logo_b64}" style="width: 180px; margin-bottom: 12px; border-radius: 16px;" alt="Trytimeback Logo">'
     else:
         logo_html = '<div style="font-size: 3.5rem; margin-bottom: 8px;">🎬</div>'
 
     st.markdown(f"""
-    <div style="text-align: center; padding: 40px 20px 20px;">
-        {logo_html}
-        <div style="
-            font-size: 1.3rem; font-weight: 300; color: rgba(200, 200, 230, 0.9);
-            margin-bottom: 6px;
-        ">Stop watching. Start learning.</div>
-        <div style="
-            font-size: 0.95rem; color: rgba(140, 140, 170, 0.7);
-            max-width: 500px; margin: 0 auto;
-        ">AI-powered YouTube lecture analyzer that extracts key insights<br>so you can learn in minutes, not hours.</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-    # ── Sign In Button ──
-    st.markdown(f"""
-    <div style="text-align: center; margin: 28px auto 16px;">
-        <a href="{login_url}" style="text-decoration: none; display: inline-block;">
-            <div style="
-                background: #ffffff;
-                border-radius: 40px;
-                padding: 14px 40px;
-                display: inline-flex;
-                align-items: center;
-                gap: 12px;
-                box-shadow: 0 4px 20px rgba(0,0,0,0.25), 0 0 0 1px rgba(255,255,255,0.08);
-                transition: all 0.3s ease;
-                cursor: pointer;
-            ">
-                <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.9 7.35 2.56 10.54l7.97-5.95z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.95C6.51 42.62 14.62 48 24 48z"/></svg>
-                <span style="
-                    color: #3c4043;
-                    font-size: 1rem;
-                    font-weight: 600;
-                    font-family: 'Inter', -apple-system, sans-serif;
-                    letter-spacing: 0.01em;
-                ">Sign in with Google</span>
-            </div>
-        </a>
+    <div class="login-container">
+        <div class="login-header">
+            {logo_html}
+            <h1>Trytimeback</h1>
+            <p>Sign in to your global account</p>
+        </div>
+        <div style="text-align: center; margin: 28px auto 16px;">
+            <a href="{login_url}" style="text-decoration: none; display: inline-block;">
+                <div style="
+                    background: #ffffff;
+                    border-radius: 40px;
+                    padding: 14px 40px;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 12px;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.1), 0 0 0 1px rgba(0,0,0,0.06);
+                    transition: all 0.3s ease;
+                    cursor: pointer;
+                ">
+                    <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.9 7.35 2.56 10.54l7.97-5.95z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.95C6.51 42.62 14.62 48 24 48z"/></svg>
+                    <span style="
+                        color: #3c4043;
+                        font-size: 1rem;
+                        font-weight: 600;
+                        font-family: 'Inter', -apple-system, sans-serif;
+                        letter-spacing: 0.01em;
+                    ">Sign in with Google</span>
+                </div>
+            </a>
+        </div>
+        <div class="login-footer">
+            Don't have an account? <a href="{login_url}">Sign up</a>
+        </div>
     </div>
     """, unsafe_allow_html=True)
 
     # ── How It Works ──
     st.markdown("""
     <div style="text-align: center; margin: 30px auto 10px;">
-        <div style="font-size: 1.1rem; font-weight: 700; color: rgba(220, 220, 240, 0.85); margin-bottom: 20px;">
-            How It Works
-        </div>
+        <div class="login-section-title">How It Works</div>
     </div>
     """, unsafe_allow_html=True)
 
     hw1, hw2, hw3 = st.columns(3)
     with hw1:
         st.markdown("""
-        <div style="text-align:center; padding: 20px 12px; background: rgba(15,15,35,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;">
+        <div class="login-step-card">
             <div style="font-size: 2rem; margin-bottom: 8px;">📋</div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: #e8e8f0; margin-bottom: 4px;">1. Paste URL</div>
-            <div style="font-size: 0.78rem; color: rgba(160,160,195,0.7);">Drop any YouTube lecture link</div>
+            <div class="step-title">1. Paste URL</div>
+            <div class="step-desc">Drop any YouTube lecture link</div>
         </div>
         """, unsafe_allow_html=True)
     with hw2:
         st.markdown("""
-        <div style="text-align:center; padding: 20px 12px; background: rgba(15,15,35,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;">
+        <div class="login-step-card">
             <div style="font-size: 2rem; margin-bottom: 8px;">🤖</div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: #e8e8f0; margin-bottom: 4px;">2. AI Analyzes</div>
-            <div style="font-size: 0.78rem; color: rgba(160,160,195,0.7);">GPT extracts key points & summary</div>
+            <div class="step-title">2. AI Analyzes</div>
+            <div class="step-desc">GPT extracts key points & summary</div>
         </div>
         """, unsafe_allow_html=True)
     with hw3:
         st.markdown("""
-        <div style="text-align:center; padding: 20px 12px; background: rgba(15,15,35,0.5); border: 1px solid rgba(255,255,255,0.06); border-radius: 16px;">
+        <div class="login-step-card">
             <div style="font-size: 2rem; margin-bottom: 8px;">🎯</div>
-            <div style="font-size: 0.9rem; font-weight: 700; color: #e8e8f0; margin-bottom: 4px;">3. Learn Fast</div>
-            <div style="font-size: 0.78rem; color: rgba(160,160,195,0.7);">Watch shorts & download PDF</div>
+            <div class="step-title">3. Learn Fast</div>
+            <div class="step-desc">Watch shorts & download PDF</div>
         </div>
         """, unsafe_allow_html=True)
 
     # ── Feature Highlights ──
     st.markdown("""
-    <div style="
-        max-width: 650px; margin: 30px auto 10px; padding: 28px 32px;
-        background: rgba(15, 15, 35, 0.4);
-        border: 1px solid rgba(99, 71, 237, 0.12);
-        border-radius: 20px;
-    ">
-        <div style="text-align: center; font-size: 1.1rem; font-weight: 700; color: rgba(220, 220, 240, 0.85); margin-bottom: 20px;">
-            Why Trytimeback?
-        </div>
+    <div class="login-feature-box">
+        <div class="login-section-title">Why Trytimeback?</div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
-            <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div class="login-feature-item" style="display: flex; align-items: flex-start; gap: 10px;">
                 <span style="font-size: 1.3rem;">⚡</span>
                 <div>
-                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">60-Second Shorts</div>
-                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">5 key moments auto-clipped from any lecture</div>
+                    <div class="feat-title">60-Second Shorts</div>
+                    <div class="feat-desc">5 key moments auto-clipped from any lecture</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div class="login-feature-item" style="display: flex; align-items: flex-start; gap: 10px;">
                 <span style="font-size: 1.3rem;">📄</span>
                 <div>
-                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">Full PDF Summary</div>
-                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">Detailed notes you can study offline</div>
+                    <div class="feat-title">Full PDF Summary</div>
+                    <div class="feat-desc">Detailed notes you can study offline</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div class="login-feature-item" style="display: flex; align-items: flex-start; gap: 10px;">
                 <span style="font-size: 1.3rem;">🌍</span>
                 <div>
-                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">Any Language</div>
-                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">Works with Korean, English & more</div>
+                    <div class="feat-title">Any Language</div>
+                    <div class="feat-desc">Works with Korean, English & more</div>
                 </div>
             </div>
-            <div style="display: flex; align-items: flex-start; gap: 10px;">
+            <div class="login-feature-item" style="display: flex; align-items: flex-start; gap: 10px;">
                 <span style="font-size: 1.3rem;">🎓</span>
                 <div>
-                    <div style="font-size: 0.88rem; font-weight: 600; color: #e8e8f0;">Built for Students</div>
-                    <div style="font-size: 0.75rem; color: rgba(160,160,195,0.7);">Save hours of study time every week</div>
+                    <div class="feat-title">Built for Students</div>
+                    <div class="feat-desc">Save hours of study time every week</div>
                 </div>
             </div>
         </div>
@@ -1210,20 +1289,20 @@ if not st.session_state.get("logged_in", False):
         margin: 24px auto 10px; padding: 16px 20px;
     ">
         <div style="text-align: center;">
-            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #a78bfa, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">15 min</div>
-            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Free every month</div>
+            <div class="login-stat-value">15 min</div>
+            <div class="login-stat-label">Free every month</div>
         </div>
         <div style="text-align: center;">
-            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #34d399, #6ee7b7); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">5 Shorts</div>
-            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Per video analysis</div>
+            <div class="login-stat-value">5 Shorts</div>
+            <div class="login-stat-label">Per video analysis</div>
         </div>
         <div style="text-align: center;">
-            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #f472b6, #e879f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">PDF</div>
-            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Full summary download</div>
+            <div class="login-stat-value">PDF</div>
+            <div class="login-stat-label">Full summary download</div>
         </div>
         <div style="text-align: center;">
-            <div style="font-size: 1.6rem; font-weight: 800; background: linear-gradient(135deg, #fbbf24, #f59e0b); -webkit-background-clip: text; -webkit-text-fill-color: transparent;">GPT-4o</div>
-            <div style="font-size: 0.75rem; color: rgba(140,140,170,0.6);">Powered by OpenAI</div>
+            <div class="login-stat-value">GPT-4o</div>
+            <div class="login-stat-label">Powered by OpenAI</div>
         </div>
     </div>
     """, unsafe_allow_html=True)
