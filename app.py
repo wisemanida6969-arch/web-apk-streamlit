@@ -1338,38 +1338,22 @@ if not st.session_state.get("logged_in", False):
     st.markdown("""
     <style>
         .stApp { background: #0f172a !important; }
-        /* Remove Streamlit container constraints for full-width landing */
-        .stApp > div > div > div > .block-container {
-            max-width: 100% !important;
-            padding: 0 !important;
-            margin: 0 !important;
-        }
         .stMainBlockContainer { padding: 0 !important; max-width: 100% !important; }
+        .stApp > div > div > div > .block-container {
+            max-width: 100% !important; padding: 0 !important; margin: 0 !important;
+        }
         header[data-testid="stHeader"] { display: none !important; }
         section[data-testid="stSidebar"] { display: none !important; }
-        #MainMenu { display: none !important; }
-        footer { display: none !important; }
-        .stDeployButton { display: none !important; }
+        #MainMenu, footer, .stDeployButton { display: none !important; }
         .stButton>button {
-            background: rgba(30,41,59,0.8) !important;
-            color: #94a3b8 !important;
-            border: 1px solid rgba(255,255,255,0.08) !important;
-            border-radius: 10px !important;
-            font-size: 0.85rem !important;
-            font-weight: 500 !important;
-            transition: all 0.2s !important;
-            width: auto !important;
+            background: rgba(30,41,59,0.8) !important; color: #94a3b8 !important;
+            border: 1px solid rgba(255,255,255,0.08) !important; border-radius: 10px !important;
+            font-size: 0.85rem !important; font-weight: 500 !important; width: auto !important;
         }
         .stButton>button:hover {
-            background: rgba(51,65,85,0.8) !important;
-            color: #e2e8f0 !important;
-            border-color: rgba(255,255,255,0.12) !important;
+            background: rgba(51,65,85,0.8) !important; color: #e2e8f0 !important;
         }
-        .stExpander {
-            background: rgba(30,41,59,0.6) !important;
-            border: 1px solid rgba(255,255,255,0.08) !important;
-            border-radius: 12px !important;
-        }
+        .stExpander { background: rgba(30,41,59,0.6) !important; border: 1px solid rgba(255,255,255,0.08) !important; border-radius: 12px !important; }
         .stExpander summary, .stExpander summary span { color: #e2e8f0 !important; }
         .stExpander div[data-testid="stExpanderDetails"] p,
         .stExpander div[data-testid="stExpanderDetails"] li,
@@ -1389,32 +1373,177 @@ if not st.session_state.get("logged_in", False):
     else:
         logo_img = '<span style="font-size:1.4rem;">🎬</span>'
 
-    # ── Full Landing Page HTML ──
-    st.markdown(f"""
+    # ── Full Landing Page via components.html (supports all HTML tags) ──
+    import streamlit.components.v1 as landing_components
+
+    landing_html = f"""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <style>
+        * {{ margin:0; padding:0; box-sizing:border-box; font-family:'Inter',-apple-system,sans-serif; }}
+        body {{ background: #0f172a; }}
+        .lp-hero {{
+            position:relative; background:linear-gradient(135deg,#0f172a 0%,#1e293b 40%,#0f172a 100%); overflow-x:hidden;
+        }}
+        .lp-hero::before {{
+            content:''; position:absolute; top:-50%; left:-50%; width:200%; height:200%;
+            background: radial-gradient(circle at 30% 20%,rgba(59,130,246,0.08) 0%,transparent 50%),
+                        radial-gradient(circle at 70% 80%,rgba(168,85,247,0.06) 0%,transparent 50%),
+                        radial-gradient(circle at 50% 50%,rgba(14,165,233,0.04) 0%,transparent 60%);
+            animation: lp-float 20s ease-in-out infinite;
+        }}
+        @keyframes lp-float {{
+            0%,100% {{ transform:translate(0,0) rotate(0deg); }}
+            33% {{ transform:translate(2%,-1%) rotate(1deg); }}
+            66% {{ transform:translate(-1%,1%) rotate(-0.5deg); }}
+        }}
+        .lp-grid-bg {{
+            position:absolute; top:0; left:0; right:0; bottom:0;
+            background-image: linear-gradient(rgba(255,255,255,0.02) 1px,transparent 1px),
+                              linear-gradient(90deg,rgba(255,255,255,0.02) 1px,transparent 1px);
+            background-size:60px 60px; pointer-events:none;
+        }}
+        .lp-content {{ position:relative; z-index:2; }}
+        .lp-nav {{
+            display:flex; justify-content:space-between; align-items:center;
+            padding:20px 40px; max-width:1200px; margin:0 auto;
+        }}
+        .lp-nav-brand {{ display:flex; align-items:center; gap:10px; }}
+        .lp-nav-brand img {{ width:36px; height:36px; border-radius:8px; }}
+        .lp-nav-brand span {{ font-size:1.2rem; font-weight:700; color:#f1f5f9; letter-spacing:-0.02em; }}
+        .lp-signin {{
+            color:#e2e8f0; font-size:0.85rem; font-weight:600; text-decoration:none;
+            padding:8px 20px; border:1px solid rgba(255,255,255,0.15); border-radius:8px; transition:all 0.2s;
+        }}
+        .lp-signin:hover {{ background:rgba(255,255,255,0.05); }}
+        .lp-main {{
+            max-width:1100px; margin:0 auto; padding:60px 40px 40px;
+            display:flex; align-items:center; gap:60px;
+        }}
+        .lp-left {{ flex:1; }}
+        .lp-badge {{
+            display:inline-flex; align-items:center; gap:6px;
+            background:rgba(59,130,246,0.1); border:1px solid rgba(59,130,246,0.2);
+            border-radius:20px; padding:6px 14px; font-size:0.78rem; font-weight:600; color:#60a5fa; margin-bottom:20px;
+        }}
+        .lp-title {{
+            font-size:3.2rem; font-weight:900; color:#f1f5f9;
+            line-height:1.15; letter-spacing:-0.03em; margin-bottom:16px;
+        }}
+        .lp-title .highlight {{
+            background:linear-gradient(135deg,#3b82f6,#8b5cf6);
+            -webkit-background-clip:text; -webkit-text-fill-color:transparent;
+        }}
+        .lp-subtitle {{ font-size:1.1rem; color:#94a3b8; line-height:1.7; margin-bottom:32px; max-width:480px; }}
+        .lp-cta-area {{ display:flex; align-items:center; gap:16px; flex-wrap:wrap; }}
+        .lp-google-btn {{
+            display:inline-flex; align-items:center; gap:12px; background:#fff; color:#1e293b;
+            padding:14px 32px; border-radius:12px; text-decoration:none; font-weight:700; font-size:0.95rem;
+            box-shadow:0 4px 20px rgba(0,0,0,0.2); transition:all 0.3s ease;
+        }}
+        .lp-google-btn:hover {{ box-shadow:0 8px 32px rgba(59,130,246,0.3); transform:translateY(-2px); }}
+        .lp-trust {{ display:flex; align-items:center; gap:8px; font-size:0.8rem; color:#64748b; }}
+        .lp-trust-dot {{ width:6px; height:6px; background:#22c55e; border-radius:50%; display:inline-block; }}
+        .lp-right {{ flex:1; }}
+        .lp-mockup {{
+            background:linear-gradient(145deg,#1e293b,#0f172a);
+            border:1px solid rgba(255,255,255,0.08); border-radius:16px;
+            box-shadow:0 25px 50px rgba(0,0,0,0.4),0 0 0 1px rgba(255,255,255,0.05) inset; overflow:hidden;
+        }}
+        .lp-mockup-bar {{
+            display:flex; align-items:center; gap:6px; padding:12px 16px;
+            background:rgba(0,0,0,0.3); border-bottom:1px solid rgba(255,255,255,0.05);
+        }}
+        .lp-mockup-dot {{ width:10px; height:10px; border-radius:50%; }}
+        .lp-mockup-body {{ padding:20px; }}
+        .lp-mockup-url {{
+            background:rgba(255,255,255,0.06); border-radius:8px; padding:10px 14px;
+            color:#64748b; font-size:0.8rem; margin-bottom:16px; display:flex; align-items:center; gap:8px;
+        }}
+        .lp-mockup-card {{
+            background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.06);
+            border-radius:12px; padding:16px; margin-bottom:12px;
+        }}
+        .lp-mockup-card h4 {{ color:#e2e8f0; font-size:0.85rem; font-weight:600; margin-bottom:8px; }}
+        .lp-mockup-line {{ height:8px; border-radius:4px; margin-bottom:6px; }}
+        .lp-mockup-tag {{
+            display:inline-block; padding:4px 10px; border-radius:6px; font-size:0.7rem; font-weight:600; margin-right:6px;
+        }}
+        .lp-section {{ max-width:1000px; margin:0 auto; padding:60px 40px; }}
+        .lp-section-title {{
+            text-align:center; font-size:1.8rem; font-weight:800; color:#f1f5f9;
+            margin-bottom:8px; letter-spacing:-0.02em;
+        }}
+        .lp-section-sub {{ text-align:center; color:#64748b; font-size:1rem; margin-bottom:40px; }}
+        .lp-steps {{ display:grid; grid-template-columns:repeat(3,1fr); gap:24px; }}
+        .lp-step-card {{
+            background:rgba(30,41,59,0.6); border:1px solid rgba(255,255,255,0.06);
+            border-radius:16px; padding:28px 20px; text-align:center;
+            backdrop-filter:blur(8px); transition:transform 0.3s,border-color 0.3s;
+        }}
+        .lp-step-card:hover {{ transform:translateY(-4px); border-color:rgba(59,130,246,0.2); }}
+        .lp-step-icon {{
+            width:48px; height:48px; border-radius:12px; display:flex; align-items:center;
+            justify-content:center; margin:0 auto 14px; font-size:1.4rem;
+        }}
+        .lp-step-name {{ font-size:0.95rem; font-weight:700; color:#e2e8f0; margin-bottom:6px; }}
+        .lp-step-desc {{ font-size:0.8rem; color:#64748b; line-height:1.5; }}
+        .lp-features {{ display:grid; grid-template-columns:repeat(2,1fr); gap:20px; }}
+        .lp-feat-card {{
+            display:flex; align-items:flex-start; gap:14px;
+            background:rgba(30,41,59,0.5); border:1px solid rgba(255,255,255,0.06);
+            border-radius:14px; padding:20px; transition:border-color 0.3s;
+        }}
+        .lp-feat-card:hover {{ border-color:rgba(59,130,246,0.2); }}
+        .lp-feat-icon {{
+            width:40px; height:40px; border-radius:10px; display:flex; align-items:center;
+            justify-content:center; font-size:1.2rem; flex-shrink:0;
+        }}
+        .lp-feat-title {{ font-size:0.9rem; font-weight:700; color:#e2e8f0; margin-bottom:4px; }}
+        .lp-feat-desc {{ font-size:0.78rem; color:#64748b; line-height:1.5; }}
+        .lp-stats {{
+            display:flex; justify-content:center; gap:48px; flex-wrap:wrap; padding:40px 0;
+            border-top:1px solid rgba(255,255,255,0.05); border-bottom:1px solid rgba(255,255,255,0.05);
+        }}
+        .lp-stat-val {{ font-size:2rem; font-weight:900; letter-spacing:-0.02em; margin-bottom:2px; }}
+        .lp-stat-label {{ font-size:0.78rem; color:#64748b; }}
+        .lp-footer {{
+            text-align:center; padding:30px 20px; color:#475569; font-size:0.72rem;
+        }}
+        @media (max-width:768px) {{
+            .lp-nav {{ padding:16px 20px; }}
+            .lp-main {{ flex-direction:column; padding:30px 20px; gap:40px; }}
+            .lp-title {{ font-size:2rem; }}
+            .lp-subtitle {{ font-size:0.95rem; }}
+            .lp-right {{ width:100%; }}
+            .lp-steps {{ grid-template-columns:1fr; }}
+            .lp-features {{ grid-template-columns:1fr; }}
+            .lp-section {{ padding:40px 20px; }}
+            .lp-stats {{ gap:24px; }}
+        }}
+        @media (max-width:480px) {{
+            .lp-title {{ font-size:1.7rem; }}
+            .lp-cta-area {{ flex-direction:column; align-items:stretch; }}
+            .lp-google-btn {{ justify-content:center; }}
+            .lp-stats {{ gap:16px; }}
+            .lp-stat-val {{ font-size:1.5rem; }}
+        }}
+    </style>
+
     <div class="lp-hero">
         <div class="lp-grid-bg"></div>
         <div class="lp-content">
 
-            <!-- Navigation -->
             <nav class="lp-nav">
                 <div class="lp-nav-brand">
                     {logo_img}
                     <span>Trytimeback</span>
                 </div>
-                <a href="{login_url}" style="
-                    color: #e2e8f0; font-size: 0.85rem; font-weight: 600;
-                    text-decoration: none; padding: 8px 20px;
-                    border: 1px solid rgba(255,255,255,0.15); border-radius: 8px;
-                    transition: all 0.2s;
-                ">Sign In</a>
+                <a href="{login_url}" class="lp-signin">Sign In</a>
             </nav>
 
-            <!-- Hero Main: Left text + Right mockup -->
             <div class="lp-main">
                 <div class="lp-left">
-                    <div class="lp-badge">
-                        <span style="font-size:0.7rem;">✨</span> AI-Powered Learning Tool
-                    </div>
+                    <div class="lp-badge">✨ AI-Powered Learning Tool</div>
                     <h1 class="lp-title">
                         Stop Watching.<br>
                         <span class="highlight">Start Learning.</span>
@@ -1429,12 +1558,11 @@ if not st.session_state.get("logged_in", False):
                             Get Started with Google
                         </a>
                         <div class="lp-trust">
-                            <span class="lp-trust-dot"></span> Free 15 min/month &middot; No credit card
+                            <span class="lp-trust-dot"></span> Free 15 min/month · No credit card
                         </div>
                     </div>
                 </div>
 
-                <!-- App Preview Mockup -->
                 <div class="lp-right">
                     <div class="lp-mockup">
                         <div class="lp-mockup-bar">
@@ -1481,7 +1609,6 @@ if not st.session_state.get("logged_in", False):
                 </div>
             </div>
 
-            <!-- How It Works -->
             <div class="lp-section">
                 <div class="lp-section-title">How It Works</div>
                 <div class="lp-section-sub">Three simple steps to save hours of study time</div>
@@ -1504,7 +1631,6 @@ if not st.session_state.get("logged_in", False):
                 </div>
             </div>
 
-            <!-- Features -->
             <div class="lp-section">
                 <div class="lp-section-title">Why Trytimeback?</div>
                 <div class="lp-section-sub">Everything you need to learn faster from video content</div>
@@ -1540,7 +1666,6 @@ if not st.session_state.get("logged_in", False):
                 </div>
             </div>
 
-            <!-- Stats -->
             <div class="lp-section">
                 <div class="lp-stats">
                     <div style="text-align:center;">
@@ -1562,9 +1687,12 @@ if not st.session_state.get("logged_in", False):
                 </div>
             </div>
 
+            <div class="lp-footer">© 2026 Trytimeback. All rights reserved.</div>
+
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """
+    landing_components.html(landing_html, height=1800, scrolling=True)
 
     # ── Footer Links ──
     fc = st.columns([1, 1, 1, 1])
@@ -1638,12 +1766,6 @@ You can cancel your subscription at any time through your account settings. Once
             if st.button("Close", key="login_close_refund"):
                 st.session_state["login_show"] = ""
                 st.rerun()
-
-    st.markdown("""
-    <div style="text-align: center; margin-top: 20px; font-size: 0.72rem; color: #475569;">
-        &copy; 2026 Trytimeback. All rights reserved.
-    </div>
-    """, unsafe_allow_html=True)
 
     st.stop()
 
