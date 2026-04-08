@@ -4,10 +4,36 @@ import pathlib
 import re
 
 st_dir = pathlib.Path(st.__file__).parent
-index_path = st_dir / "static" / "index.html"
+candidates = [
+    st_dir / "static" / "index.html",
+]
+# Also search common venv/site-packages paths
+import glob
+for g in glob.glob("/opt/**/streamlit/static/index.html", recursive=True):
+    candidates.append(pathlib.Path(g))
+for g in glob.glob("/app/**/streamlit/static/index.html", recursive=True):
+    candidates.append(pathlib.Path(g))
+# pip show streamlit approach
+import subprocess
+try:
+    result = subprocess.run(["pip", "show", "streamlit"], capture_output=True, text=True)
+    for line in result.stdout.splitlines():
+        if line.startswith("Location:"):
+            loc = pathlib.Path(line.split(":", 1)[1].strip()) / "streamlit" / "static" / "index.html"
+            candidates.append(loc)
+except Exception:
+    pass
 
-if not index_path.exists():
-    print(f"⚠️  Not found: {index_path}")
+# Deduplicate and find
+index_path = None
+for c in candidates:
+    print(f"[patch_meta] Checking: {c}  exists={c.exists()}")
+    if c.exists():
+        index_path = c
+        break
+
+if index_path is None:
+    print("⚠️  index.html not found in any candidate path!")
     exit()
 
 html = index_path.read_text(encoding="utf-8")
@@ -28,7 +54,11 @@ html = re.sub(
 # 2) Force <html lang="ko">
 # ══════════════════════════════════════════════
 if 'lang="ko"' not in html:
-    html = re.sub(r"<html([^>]*)>", r'<html lang="ko"\1>', html, count=1)
+    # Replace existing lang="en" or any lang="..." with lang="ko"
+    if re.search(r'<html[^>]*lang="', html):
+        html = re.sub(r'(<html[^>]*?)lang="[^"]*"', r'\1lang="ko"', html, count=1)
+    else:
+        html = re.sub(r"<html", '<html lang="ko"', html, count=1)
 
 # ══════════════════════════════════════════════
 # 3) Force <noscript> content — replace entire noscript body
