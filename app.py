@@ -1667,7 +1667,7 @@ p_total = "$287.88/yr" if is_yearly else ""
 
 import streamlit.components.v1 as paddle_components
 
-paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "test_placeholder")
+paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "live_1a8fd1443de5064e970587e81c9")
 
 pricing_html = f"""
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
