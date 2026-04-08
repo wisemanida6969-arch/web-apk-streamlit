@@ -1594,82 +1594,13 @@ st.markdown("""
 </div>
 """, unsafe_allow_html=True)
 
-# --- Pricing Header & Toggle ---
-st.markdown("<h1 style='text-align:center; margin-bottom:0; color:#e8e8f0;'>Pricing Plans</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align:center; color:#9090b0; margin-bottom:2rem;'>Choose the best plan to save your time.</p>", unsafe_allow_html=True)
-
-col_sp1, col_toggle, col_sp2 = st.columns([1, 2, 1])
-with col_toggle:
-    billing_choice = st.radio(
-        "Billing Cycle",
-        ["Monthly", "Yearly (Save 20% \U0001f4b0)"],
-        horizontal=True,
-        label_visibility="collapsed",
-        key="billing_toggle"
-    )
-is_yearly = "Yearly" in billing_choice
-
-# --- Billing Promo Message ---
-if is_yearly:
-    st.markdown("""
-    <div style="text-align:center; margin:10px auto 0; max-width:650px;">
-        <div style="
-            background: linear-gradient(135deg, rgba(241,196,15,0.1), rgba(243,156,18,0.08));
-            border: 1px solid rgba(241,196,15,0.25);
-            border-radius: 16px;
-            padding: 18px 28px;
-        ">
-            <div style="font-size:1.25rem; font-weight:800; color:#f1c40f; margin-bottom:6px;">
-                \U0001f389 Get 2 Months for FREE!
-            </div>
-            <div style="font-size:0.9rem; color:rgba(200,200,230,0.8); line-height:1.7;">
-                Save 20% by switching to Yearly Billing.<br>
-                Lock in the lowest price for a full year of productivity.
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-else:
-    st.markdown("""
-    <div style="text-align:center; margin:10px auto 0; max-width:650px;">
-        <div style="
-            background: rgba(15, 15, 35, 0.5);
-            border: 1px solid rgba(255,255,255,0.06);
-            border-radius: 16px;
-            padding: 14px 28px;
-        ">
-            <div style="font-size:1.05rem; font-weight:600; color:rgba(200,200,230,0.85);">
-                Flexible. Cancel anytime.
-            </div>
-            <div style="font-size:0.85rem; color:rgba(140,140,170,0.7); margin-top:6px;">
-                \U0001f4a1 Switch to Yearly and save 20% — get 2 months free!
-            </div>
-        </div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# --- Pricing Cards ---
-# --- Paddle Price IDs ---
-PADDLE_PRICES = {
-    "basic_monthly": "pri_01knn7v2ez76tc4b6gbr856jw9",
-    "basic_yearly": "pri_01knn7w9ppn9csr86fz0sq47zh",
-    "pro_monthly": "pri_01knn7r684skwj2z54htyseaj2",
-    "pro_yearly": "pri_01knn7hhdez2seb412f4t34g2c",
-}
-
-basic_price_id = PADDLE_PRICES["basic_yearly"] if is_yearly else PADDLE_PRICES["basic_monthly"]
-pro_price_id = PADDLE_PRICES["pro_yearly"] if is_yearly else PADDLE_PRICES["pro_monthly"]
-
-b_price = "$9.99" if is_yearly else "$12.99"
-p_price = "$23.99" if is_yearly else "$29.99"
-b_total = "$119.88/yr" if is_yearly else ""
-p_total = "$287.88/yr" if is_yearly else ""
-
+# --- Paddle Pricing (all-in-one HTML component with toggle + cards + checkout) ---
 import streamlit.components.v1 as paddle_components
 
 paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "live_1a8fd1443de5064e970587e81c9")
 
-pricing_html = f"""
+pricing_full_html = f"""
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
 <script>
     Paddle.Initialize({{ token: '{paddle_token}' }});
@@ -1678,61 +1609,201 @@ pricing_html = f"""
             items: [{{ priceId: priceId, quantity: 1 }}],
         }});
     }}
+    function toggleBilling() {{
+        var isYearly = document.getElementById('billingToggle').checked;
+        document.getElementById('monthlyView').style.display = isYearly ? 'none' : 'flex';
+        document.getElementById('yearlyView').style.display = isYearly ? 'flex' : 'none';
+        document.getElementById('labelMonthly').style.color = isYearly ? 'rgba(140,140,170,0.6)' : '#e8e8f0';
+        document.getElementById('labelMonthly').style.fontWeight = isYearly ? '400' : '700';
+        document.getElementById('labelYearly').style.color = isYearly ? '#f1c40f' : 'rgba(140,140,170,0.6)';
+        document.getElementById('labelYearly').style.fontWeight = isYearly ? '700' : '400';
+        document.getElementById('promoBar').style.display = isYearly ? 'block' : 'none';
+    }}
 </script>
+<style>
+    * {{ margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }}
+    .pricing-wrap {{ max-width: 780px; margin: 0 auto; padding: 10px 16px; }}
+    .pricing-header {{ text-align: center; margin-bottom: 24px; }}
+    .pricing-header h1 {{ font-size: 2.2rem; font-weight: 900; color: #e8e8f0; margin-bottom: 6px; letter-spacing: -0.03em; }}
+    .pricing-header p {{ color: #9090b0; font-size: 1rem; }}
 
-<div class="pricing-container">
-    <!-- Basic Card -->
-    <div class="pricing-card">
-        <div class="plan-name">Basic</div>
-        <div class="plan-price">{b_price}</div>
-        <div class="plan-duration">per month{f' · <span style="color:#00cec9; font-weight:600;">{b_total}</span>' if is_yearly else ''}</div>
-        {'<div class="save-badge">Save 23% Yearly!</div>' if is_yearly else '<div style="height:37px;"></div>'}
-        <ul class="feature-list">
-            <li>✅ <b>300 Minutes</b> / month</li>
-            <li>✅ Audio Analysis (Whisper)</li>
-            <li>✅ PDF Summary Export</li>
-            <li>✅ 7-Day Money Back</li>
-        </ul>
-        <button onclick="openCheckout('{basic_price_id}')" style="
-            width: 100%; padding: 14px 0;
-            background: linear-gradient(135deg, #6347ed, #a855f7);
-            color: white; border: none; border-radius: 12px;
-            font-size: 1.05rem; font-weight: 700; cursor: pointer;
-            box-shadow: 0 4px 16px rgba(99, 71, 237, 0.3);
-            transition: all 0.3s ease;
-        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"
-        >Select Basic</button>
-    </div>
-    <!-- Pro Card -->
-    <div class="pricing-card pro">
-        <div class="crown-badge">👑 MOST POPULAR</div>
-        <div class="plan-name" style="color:#f1c40f;">Pro</div>
-        <div class="plan-price" style="color:#f1c40f;">{p_price}</div>
-        <div class="plan-duration">per month{f' · <span style="color:#f1c40f; font-weight:600;">{p_total}</span>' if is_yearly else ''}</div>
-        {'<div class="save-badge" style="background:rgba(241,196,15,0.1); color:#f1c40f;">Save 20% Yearly!</div>' if is_yearly else '<div style="height:37px;"></div>'}
-        <ul class="feature-list">
-            <li>✅ <b>1,200 Minutes</b> / month</li>
-            <li>✅ <b>Priority</b> AI Processing</li>
-            <li>✅ Unlimited Video Length</li>
-            <li>✅ Advanced Insights (Mind-map)</li>
-        </ul>
-        <button onclick="openCheckout('{pro_price_id}')" style="
-            width: 100%; padding: 14px 0;
-            background: linear-gradient(135deg, #f1c40f, #f39c12);
-            color: #1a1a2e; border: none; border-radius: 12px;
-            font-size: 1.05rem; font-weight: 700; cursor: pointer;
-            box-shadow: 0 4px 16px rgba(241, 196, 15, 0.3);
-            transition: all 0.3s ease;
-        " onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'"
-        >👑 Go Pro</button>
-    </div>
-</div>
+    /* Toggle Switch */
+    .toggle-wrap {{ display: flex; align-items: center; justify-content: center; gap: 14px; margin: 20px 0 16px; }}
+    .toggle-label {{ font-size: 0.95rem; transition: all 0.3s; cursor: pointer; }}
+    .toggle-switch {{ position: relative; width: 56px; height: 30px; }}
+    .toggle-switch input {{ opacity: 0; width: 0; height: 0; }}
+    .toggle-slider {{
+        position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(255,255,255,0.1); border-radius: 30px; cursor: pointer;
+        transition: 0.3s; border: 1px solid rgba(255,255,255,0.15);
+    }}
+    .toggle-slider::before {{
+        content: ''; position: absolute; height: 22px; width: 22px;
+        left: 3px; bottom: 3px; background: #e8e8f0;
+        border-radius: 50%; transition: 0.3s;
+    }}
+    .toggle-switch input:checked + .toggle-slider {{
+        background: linear-gradient(135deg, #f1c40f, #f39c12);
+        border-color: rgba(241,196,15,0.5);
+    }}
+    .toggle-switch input:checked + .toggle-slider::before {{ transform: translateX(26px); background: #1a1a2e; }}
 
-<div style="text-align: center; margin-top: 20px;">
-    <span style="font-size: 0.78rem; color: rgba(140,140,170,0.6);">🔒 Secure payment powered by Paddle · Cancel anytime</span>
+    /* Promo Bar */
+    .promo-bar {{
+        display: none; text-align: center; margin: 0 auto 20px;
+        background: linear-gradient(135deg, rgba(241,196,15,0.12), rgba(243,156,18,0.08));
+        border: 1px solid rgba(241,196,15,0.25); border-radius: 14px;
+        padding: 14px 24px;
+    }}
+    .promo-bar .promo-title {{ font-size: 1.1rem; font-weight: 800; color: #f1c40f; }}
+    .promo-bar .promo-sub {{ font-size: 0.82rem; color: rgba(200,200,230,0.7); margin-top: 4px; }}
+
+    /* Cards Container */
+    .cards {{ display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }}
+    .card {{
+        background: rgba(15, 15, 35, 0.8); border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 24px; padding: 36px 28px 28px; width: 340px;
+        text-align: center; position: relative; transition: all 0.35s ease;
+    }}
+    .card:hover {{ transform: translateY(-8px); border-color: rgba(99,71,237,0.4); box-shadow: 0 12px 40px rgba(99,71,237,0.12); }}
+    .card.pro {{ border: 2px solid #f1c40f; box-shadow: 0 8px 32px rgba(241,196,15,0.15); }}
+    .card.pro:hover {{ box-shadow: 0 16px 48px rgba(241,196,15,0.2); border-color: #f1c40f; }}
+
+    .badge-pop {{
+        position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+        background: linear-gradient(135deg, #f1c40f, #f39c12); color: #1a1a2e;
+        padding: 5px 18px; border-radius: 20px; font-weight: 800; font-size: 0.82rem;
+        box-shadow: 0 4px 12px rgba(241,196,15,0.4); white-space: nowrap;
+    }}
+    .plan-name {{ font-size: 1.4rem; font-weight: 700; color: #e8e8f0; margin-bottom: 8px; }}
+    .plan-price {{ font-size: 3rem; font-weight: 900; color: #e8e8f0; line-height: 1.1; }}
+    .plan-orig {{ font-size: 1rem; color: rgba(140,140,170,0.5); text-decoration: line-through; margin-bottom: 2px; }}
+    .plan-per {{ color: #9090b0; font-size: 0.88rem; margin-bottom: 4px; }}
+    .plan-total {{ font-size: 0.8rem; color: rgba(140,140,170,0.5); margin-bottom: 6px; }}
+    .save-badge {{
+        display: inline-block; background: linear-gradient(135deg, rgba(241,196,15,0.15), rgba(243,156,18,0.1));
+        color: #f1c40f; padding: 5px 16px; border-radius: 30px;
+        font-size: 0.82rem; font-weight: 700; margin-bottom: 16px;
+        border: 1px solid rgba(241,196,15,0.25);
+    }}
+    .features {{ list-style: none; padding: 0; text-align: left; margin-bottom: 24px; }}
+    .features li {{ color: #b0b0d0; font-size: 0.9rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }}
+    .features li b {{ color: #e8e8f0; }}
+
+    .btn {{
+        width: 100%; padding: 14px 0; border: none; border-radius: 12px;
+        font-size: 1.05rem; font-weight: 700; cursor: pointer;
+        transition: all 0.3s ease; letter-spacing: 0.01em;
+    }}
+    .btn:hover {{ transform: translateY(-2px); }}
+    .btn-basic {{ background: linear-gradient(135deg, #6347ed, #a855f7); color: white; box-shadow: 0 4px 16px rgba(99,71,237,0.3); }}
+    .btn-basic:hover {{ box-shadow: 0 8px 28px rgba(99,71,237,0.4); }}
+    .btn-pro {{ background: linear-gradient(135deg, #f1c40f, #f39c12); color: #1a1a2e; box-shadow: 0 4px 16px rgba(241,196,15,0.3); }}
+    .btn-pro:hover {{ box-shadow: 0 8px 28px rgba(241,196,15,0.4); }}
+    .secure {{ text-align: center; margin-top: 20px; font-size: 0.78rem; color: rgba(140,140,170,0.5); }}
+
+    @media (max-width: 768px) {{
+        .cards {{ flex-direction: column; align-items: center; }}
+        .card {{ width: 100%; max-width: 360px; }}
+        .pricing-header h1 {{ font-size: 1.6rem; }}
+        .plan-price {{ font-size: 2.4rem; }}
+    }}
+</style>
+
+<div class="pricing-wrap">
+    <div class="pricing-header">
+        <h1>Pricing Plans</h1>
+        <p>Choose the best plan to save your time</p>
+    </div>
+
+    <!-- Toggle -->
+    <div class="toggle-wrap">
+        <span id="labelMonthly" class="toggle-label" style="color:#e8e8f0; font-weight:700;" onclick="document.getElementById('billingToggle').checked=false; toggleBilling();">Monthly</span>
+        <label class="toggle-switch">
+            <input type="checkbox" id="billingToggle" onchange="toggleBilling()">
+            <span class="toggle-slider"></span>
+        </label>
+        <span id="labelYearly" class="toggle-label" style="color:rgba(140,140,170,0.6);" onclick="document.getElementById('billingToggle').checked=true; toggleBilling();">
+            Yearly <span style="background:linear-gradient(135deg,#f1c40f,#f39c12); color:#1a1a2e; padding:2px 10px; border-radius:10px; font-size:0.75rem; font-weight:700; margin-left:4px;">SAVE 20%</span>
+        </span>
+    </div>
+
+    <!-- Promo Bar (yearly only) -->
+    <div class="promo-bar" id="promoBar">
+        <div class="promo-title">🎉 Get 2 Months FREE!</div>
+        <div class="promo-sub">Lock in the lowest price for a full year of productivity</div>
+    </div>
+
+    <!-- Monthly Cards -->
+    <div class="cards" id="monthlyView">
+        <div class="card">
+            <div class="plan-name">Basic</div>
+            <div class="plan-price">$12.99</div>
+            <div class="plan-per">per month</div>
+            <div style="height: 32px;"></div>
+            <ul class="features">
+                <li>✅ <b>300 Minutes</b> / month</li>
+                <li>✅ Audio Analysis (Whisper)</li>
+                <li>✅ PDF Summary Export</li>
+                <li>✅ 7-Day Money Back</li>
+            </ul>
+            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7v2ez76tc4b6gbr856jw9')">Select Basic</button>
+        </div>
+        <div class="card pro">
+            <div class="badge-pop">👑 MOST POPULAR</div>
+            <div class="plan-name" style="color:#f1c40f;">Pro</div>
+            <div class="plan-price" style="color:#f1c40f;">$29.99</div>
+            <div class="plan-per">per month</div>
+            <div style="height: 32px;"></div>
+            <ul class="features">
+                <li>✅ <b>1,200 Minutes</b> / month</li>
+                <li>✅ <b>Priority</b> AI Processing</li>
+                <li>✅ Unlimited Video Length</li>
+                <li>✅ Advanced Insights (Mind-map)</li>
+            </ul>
+            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7r684skwj2z54htyseaj2')">👑 Go Pro</button>
+        </div>
+    </div>
+
+    <!-- Yearly Cards -->
+    <div class="cards" id="yearlyView" style="display:none;">
+        <div class="card">
+            <div class="plan-name">Basic</div>
+            <div class="plan-orig">$12.99/mo</div>
+            <div class="plan-price">$9.99</div>
+            <div class="plan-per">per month</div>
+            <div class="plan-total">Billed $119.88 / year</div>
+            <div class="save-badge">💰 Save 23% Yearly!</div>
+            <ul class="features">
+                <li>✅ <b>300 Minutes</b> / month</li>
+                <li>✅ Audio Analysis (Whisper)</li>
+                <li>✅ PDF Summary Export</li>
+                <li>✅ 7-Day Money Back</li>
+            </ul>
+            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7w9ppn9csr86fz0sq47zh')">Select Basic — Yearly</button>
+        </div>
+        <div class="card pro">
+            <div class="badge-pop">👑 MOST POPULAR</div>
+            <div class="plan-name" style="color:#f1c40f;">Pro</div>
+            <div class="plan-orig">$29.99/mo</div>
+            <div class="plan-price" style="color:#f1c40f;">$23.99</div>
+            <div class="plan-per">per month</div>
+            <div class="plan-total" style="color:rgba(241,196,15,0.5);">Billed $287.88 / year</div>
+            <div class="save-badge">💰 Save 20% Yearly!</div>
+            <ul class="features">
+                <li>✅ <b>1,200 Minutes</b> / month</li>
+                <li>✅ <b>Priority</b> AI Processing</li>
+                <li>✅ Unlimited Video Length</li>
+                <li>✅ Advanced Insights (Mind-map)</li>
+            </ul>
+            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7hhdez2seb412f4t34g2c')">👑 Go Pro — Yearly</button>
+        </div>
+    </div>
+
+    <div class="secure">🔒 Secure payment powered by Paddle · Cancel anytime · 7-day money back guarantee</div>
 </div>
 """
-paddle_components.html(pricing_html, height=620)
+paddle_components.html(pricing_full_html, height=780)
 
 st.markdown("<p style='text-align:center; font-size:0.8rem; color:#606080; margin-top:2rem;'>* Pro plan follows Fair Usage Policy (1,200 mins/mo).<br>Credits are deducted based on the total duration of the source video processed.</p>", unsafe_allow_html=True)
 
