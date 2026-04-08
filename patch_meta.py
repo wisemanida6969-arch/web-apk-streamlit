@@ -1,10 +1,16 @@
-"""Patch Streamlit's index.html for comprehensive SEO (Korean-targeted)."""
+"""Patch Streamlit's index.html for SEO + Paddle checkout on main page."""
 import streamlit as st
 import pathlib
+import os
+import re
 
 # Find Streamlit's index.html
 st_dir = pathlib.Path(st.__file__).parent
 index_path = st_dir / "static" / "index.html"
+
+PADDLE_TOKEN = os.environ.get(
+    "PADDLE_CLIENT_TOKEN", "live_1a8fd1443de5064e970587e81c9"
+)
 
 if index_path.exists():
     html = index_path.read_text(encoding="utf-8")
@@ -16,9 +22,7 @@ if index_path.exists():
     if '<html lang="ko">' not in html and "<html>" in html:
         html = html.replace("<html>", '<html lang="ko">')
         patched = True
-    elif '<html lang="ko">' not in html and "<html " in html:
-        # handle cases like <html class="...">
-        import re
+    elif '<html lang="ko">' not in html:
         html, n = re.subn(r'<html(?!\s+lang=)', '<html lang="ko"', html, count=1)
         if n:
             patched = True
@@ -34,38 +38,32 @@ if index_path.exists():
         patched = True
 
     # ──────────────────────────────────────
-    # 3) Inject full SEO meta block in <head>
+    # 3) SEO meta + Paddle SDK in <head>
     # ──────────────────────────────────────
-    SEO_MARKER = "<!-- SEO-PATCHED-V2 -->"
-    if SEO_MARKER not in html:
-        # Remove old partial meta tags from v1 patch if present
-        import re
+    MARKER = "<!-- PATCHED-V3 -->"
+    if MARKER not in html:
+        # Remove any old patches
+        html = re.sub(r'<!-- SEO-PATCHED-V2 -->.*?(?=</head>)', '', html, flags=re.DOTALL)
+        html = re.sub(r'<!-- PADDLE-PARENT -->.*?(?=</head>)', '', html, flags=re.DOTALL)
         html = re.sub(r'<meta\s+name="description"[^>]*>\n?', '', html)
         html = re.sub(r'<meta\s+property="og:[^"]*"[^>]*>\n?', '', html)
 
-        seo_block = f"""{SEO_MARKER}
-<!-- Primary Meta Tags -->
-<meta name="description" content="유튜브 강의 URL만 붙여넣으면 AI가 핵심 포인트 숏츠 5개와 상세 PDF 요약을 자동 생성합니다. 학습 시간을 80% 절약하세요!">
+        inject_block = f"""{MARKER}
+<!-- ═══ SEO Meta Tags ═══ -->
+<meta name="description" content="유튜브 강의 URL만 붙여넣으면 AI가 핵심 포인트 숏츠 5개와 상세 PDF 요약을 자동 생성합니다. 학습 시간을 80%% 절약하세요!">
 <meta name="keywords" content="유튜브 요약, AI 요약, 유튜브 강의 요약, PDF 요약, 핵심 숏츠, YouTube summary, AI lecture summary, trytimeback">
 <meta name="author" content="Trytimeback">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://trytimeback.com">
-
-<!-- Open Graph / Facebook -->
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://trytimeback.com">
 <meta property="og:title" content="세월은간다 - AI 유튜브 요약 · 핵심 숏츠 + PDF 추출">
-<meta property="og:description" content="유튜브 강의 URL만 붙여넣으면 AI가 핵심 포인트 숏츠 5개와 상세 PDF 요약을 자동 생성합니다. 학습 시간을 80% 절약하세요!">
+<meta property="og:description" content="유튜브 강의 URL만 붙여넣으면 AI가 핵심 포인트 숏츠 5개와 상세 PDF 요약을 자동 생성합니다.">
 <meta property="og:site_name" content="세월은간다 (Trytimeback)">
 <meta property="og:locale" content="ko_KR">
-
-<!-- Twitter Card -->
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="세월은간다 - AI 유튜브 요약 · 핵심 숏츠 + PDF 추출">
-<meta name="twitter:description" content="유튜브 강의 URL만 붙여넣으면 AI가 핵심 포인트 숏츠 5개와 상세 PDF 요약을 자동 생성. 학습 시간 80% 절약!">
-
-<!-- Naver Search Advisor -->
-<meta name="naver-site-verification" content="">
+<meta name="twitter:description" content="유튜브 강의 URL만 붙여넣으면 AI가 핵심 포인트 숏츠 5개와 상세 PDF 요약을 자동 생성. 학습 시간 80%% 절약!">
 
 <!-- JSON-LD Structured Data -->
 <script type="application/ld+json">
@@ -83,27 +81,39 @@ if index_path.exists():
     "highPrice": "29.99",
     "priceCurrency": "USD",
     "offerCount": "4"
-  }},
-  "featureList": [
-    "AI 핵심 포인트 숏츠 5개 자동 추출",
-    "상세 PDF 요약 다운로드",
-    "다국어 자막 지원",
-    "모바일 반응형 디자인"
-  ]
+  }}
 }}
 </script>
+
+<!-- ═══ Paddle.js on MAIN page (not inside iframe) ═══ -->
+<script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+<script>
+  // Initialize Paddle on the main Streamlit page
+  Paddle.Initialize({{
+    token: '{PADDLE_TOKEN}',
+    environment: 'production'
+  }});
+  console.log('[Paddle] Initialized on MAIN page — production mode');
+
+  // Listen for checkout requests from iframe components
+  window.addEventListener('message', function(event) {{
+    if (event.data && event.data.type === 'paddle-checkout') {{
+      console.log('[Paddle] Opening checkout for:', event.data.priceId);
+      Paddle.Checkout.open({{
+        items: [{{ priceId: event.data.priceId, quantity: 1 }}]
+      }});
+    }}
+  }});
+</script>
 """
-        html = html.replace("</head>", seo_block + "\n</head>")
+        html = html.replace("</head>", inject_block + "\n</head>")
         patched = True
 
     # ──────────────────────────────────────
-    # 4) Patch <noscript> — 구글 크롤러가 이걸 읽음
+    # 4) Patch <noscript>
     # ──────────────────────────────────────
     old_noscript_msgs = [
         "You need to enable JavaScript to run this app.",
-        "세월은간다 (Trytimeback) — 유튜브를 요약하고 학습 시간을 단축하는 최고의 AI 도구. "
-        "유튜브 강의 URL을 붙여넣으면 핵심 포인트 숏츠 5개와 PDF 전체 요약을 "
-        "몇 초 만에 받아보세요. trytimeback.com",
     ]
     new_noscript = """
     <div style="font-family:sans-serif; max-width:800px; margin:40px auto; padding:20px; line-height:1.8;">
@@ -111,14 +121,12 @@ if index_path.exists():
       <p>유튜브 강의 URL만 붙여넣으면 AI가 <strong>핵심 포인트 숏츠 5개</strong>와 <strong>상세 PDF 요약</strong>을 자동으로 생성합니다.</p>
       <h2>주요 기능</h2>
       <ul>
-        <li>🎬 AI가 선별한 핵심 포인트 숏츠 5개 자동 추출</li>
-        <li>📄 강의 전체 내용을 정리한 상세 PDF 요약 다운로드</li>
-        <li>🌍 한국어, 영어 등 다국어 자막 자동 감지</li>
-        <li>📱 PC · 모바일 반응형 디자인</li>
-        <li>⚡ GPT-4o 기반 정확한 분석</li>
+        <li>AI가 선별한 핵심 포인트 숏츠 5개 자동 추출</li>
+        <li>강의 전체 내용을 정리한 상세 PDF 요약 다운로드</li>
+        <li>한국어, 영어 등 다국어 자막 자동 감지</li>
+        <li>PC, 모바일 반응형 디자인</li>
       </ul>
-      <h2>요금제</h2>
-      <p>Basic $12.99/월 (300분) | Pro $29.99/월 (1,200분) — 연간 결제 시 최대 23% 할인</p>
+      <p>Basic $12.99/월 | Pro $29.99/월 — 연간 결제 시 최대 23%% 할인</p>
       <p><a href="https://trytimeback.com">trytimeback.com</a>에서 지금 시작하세요!</p>
     </div>
     """
@@ -133,8 +141,8 @@ if index_path.exists():
     # ──────────────────────────────────────
     if patched:
         index_path.write_text(html, encoding="utf-8")
-        print(f"✅ SEO v2 patched: {index_path}")
+        print(f"✅ Patched v3 (SEO + Paddle): {index_path}")
     else:
-        print(f"ℹ️  Already patched (v2): {index_path}")
+        print(f"ℹ️  Already patched (v3): {index_path}")
 else:
     print(f"⚠️  index.html not found at {index_path}")

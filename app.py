@@ -1597,37 +1597,15 @@ st.markdown("""
 # --- Paddle Pricing (all-in-one HTML component with toggle + cards + checkout) ---
 import streamlit.components.v1 as paddle_components
 
-paddle_token = get_secret("PADDLE_CLIENT_TOKEN", "live_1a8fd1443de5064e970587e81c9")
-
-pricing_full_html = f"""
+pricing_full_html = """
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script>
-    // Step 1: Load Paddle.js dynamically to guarantee order
-    var s = document.createElement('script');
-    s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
-    s.onload = function() {{
-        // Step 2: Initialize immediately after SDK loads (v2 API only)
-        Paddle.Initialize({{
-            token: '{paddle_token}',
-            environment: 'production'
-        }});
-        console.log('[Paddle] SDK loaded & initialized — production');
-        // Step 3: Enable all checkout buttons
-        var btns = document.querySelectorAll('.btn-checkout');
-        btns.forEach(function(b) {{
-            b.disabled = false;
-            b.style.opacity = '1';
-            b.style.cursor = 'pointer';
-        }});
-    }};
-    document.head.appendChild(s);
-
-    function openCheckout(priceId) {{
-        Paddle.Checkout.open({{
-            items: [{{ priceId: priceId, quantity: 1 }}]
-        }});
-    }}
-    function toggleBilling() {{
+    // Paddle SDK lives on the MAIN page (injected by patch_meta.py).
+    // This iframe just sends a postMessage to the parent to open checkout.
+    function openCheckout(priceId) {
+        window.parent.postMessage({ type: 'paddle-checkout', priceId: priceId }, '*');
+    }
+    function toggleBilling() {
         var isYearly = document.getElementById('billingToggle').checked;
         document.getElementById('monthlyView').style.display = isYearly ? 'none' : 'flex';
         document.getElementById('yearlyView').style.display = isYearly ? 'flex' : 'none';
@@ -1636,96 +1614,96 @@ pricing_full_html = f"""
         document.getElementById('labelYearly').style.color = isYearly ? '#f1c40f' : 'rgba(140,140,170,0.6)';
         document.getElementById('labelYearly').style.fontWeight = isYearly ? '700' : '400';
         document.getElementById('promoBar').style.display = isYearly ? 'block' : 'none';
-    }}
+    }
 </script>
 <style>
-    * {{ margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }}
-    .pricing-wrap {{ max-width: 780px; margin: 0 auto; padding: 10px 16px; }}
-    .pricing-header {{ text-align: center; margin-bottom: 24px; }}
-    .pricing-header h1 {{ font-size: 2.2rem; font-weight: 900; color: #e8e8f0; margin-bottom: 6px; letter-spacing: -0.03em; }}
-    .pricing-header p {{ color: #9090b0; font-size: 1rem; }}
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', -apple-system, sans-serif; }
+    .pricing-wrap { max-width: 780px; margin: 0 auto; padding: 10px 16px; }
+    .pricing-header { text-align: center; margin-bottom: 24px; }
+    .pricing-header h1 { font-size: 2.2rem; font-weight: 900; color: #e8e8f0; margin-bottom: 6px; letter-spacing: -0.03em; }
+    .pricing-header p { color: #9090b0; font-size: 1rem; }
 
     /* Toggle Switch */
-    .toggle-wrap {{ display: flex; align-items: center; justify-content: center; gap: 14px; margin: 20px 0 16px; }}
-    .toggle-label {{ font-size: 0.95rem; transition: all 0.3s; cursor: pointer; }}
-    .toggle-switch {{ position: relative; width: 56px; height: 30px; }}
-    .toggle-switch input {{ opacity: 0; width: 0; height: 0; }}
-    .toggle-slider {{
+    .toggle-wrap { display: flex; align-items: center; justify-content: center; gap: 14px; margin: 20px 0 16px; }
+    .toggle-label { font-size: 0.95rem; transition: all 0.3s; cursor: pointer; }
+    .toggle-switch { position: relative; width: 56px; height: 30px; }
+    .toggle-switch input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider {
         position: absolute; top: 0; left: 0; right: 0; bottom: 0;
         background: rgba(255,255,255,0.1); border-radius: 30px; cursor: pointer;
         transition: 0.3s; border: 1px solid rgba(255,255,255,0.15);
-    }}
-    .toggle-slider::before {{
+    }
+    .toggle-slider::before {
         content: ''; position: absolute; height: 22px; width: 22px;
         left: 3px; bottom: 3px; background: #e8e8f0;
         border-radius: 50%; transition: 0.3s;
-    }}
-    .toggle-switch input:checked + .toggle-slider {{
+    }
+    .toggle-switch input:checked + .toggle-slider {
         background: linear-gradient(135deg, #f1c40f, #f39c12);
         border-color: rgba(241,196,15,0.5);
-    }}
-    .toggle-switch input:checked + .toggle-slider::before {{ transform: translateX(26px); background: #1a1a2e; }}
+    }
+    .toggle-switch input:checked + .toggle-slider::before { transform: translateX(26px); background: #1a1a2e; }
 
     /* Promo Bar */
-    .promo-bar {{
+    .promo-bar {
         display: none; text-align: center; margin: 0 auto 20px;
         background: linear-gradient(135deg, rgba(241,196,15,0.12), rgba(243,156,18,0.08));
         border: 1px solid rgba(241,196,15,0.25); border-radius: 14px;
         padding: 14px 24px;
-    }}
-    .promo-bar .promo-title {{ font-size: 1.1rem; font-weight: 800; color: #f1c40f; }}
-    .promo-bar .promo-sub {{ font-size: 0.82rem; color: rgba(200,200,230,0.7); margin-top: 4px; }}
+    }
+    .promo-bar .promo-title { font-size: 1.1rem; font-weight: 800; color: #f1c40f; }
+    .promo-bar .promo-sub { font-size: 0.82rem; color: rgba(200,200,230,0.7); margin-top: 4px; }
 
     /* Cards Container */
-    .cards {{ display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }}
-    .card {{
+    .cards { display: flex; justify-content: center; gap: 24px; flex-wrap: wrap; }
+    .card {
         background: rgba(15, 15, 35, 0.8); border: 1px solid rgba(255,255,255,0.08);
         border-radius: 24px; padding: 36px 28px 28px; width: 340px;
         text-align: center; position: relative; transition: all 0.35s ease;
-    }}
-    .card:hover {{ transform: translateY(-8px); border-color: rgba(99,71,237,0.4); box-shadow: 0 12px 40px rgba(99,71,237,0.12); }}
-    .card.pro {{ border: 2px solid #f1c40f; box-shadow: 0 8px 32px rgba(241,196,15,0.15); }}
-    .card.pro:hover {{ box-shadow: 0 16px 48px rgba(241,196,15,0.2); border-color: #f1c40f; }}
+    }
+    .card:hover { transform: translateY(-8px); border-color: rgba(99,71,237,0.4); box-shadow: 0 12px 40px rgba(99,71,237,0.12); }
+    .card.pro { border: 2px solid #f1c40f; box-shadow: 0 8px 32px rgba(241,196,15,0.15); }
+    .card.pro:hover { box-shadow: 0 16px 48px rgba(241,196,15,0.2); border-color: #f1c40f; }
 
-    .badge-pop {{
+    .badge-pop {
         position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
         background: linear-gradient(135deg, #f1c40f, #f39c12); color: #1a1a2e;
         padding: 5px 18px; border-radius: 20px; font-weight: 800; font-size: 0.82rem;
         box-shadow: 0 4px 12px rgba(241,196,15,0.4); white-space: nowrap;
-    }}
-    .plan-name {{ font-size: 1.4rem; font-weight: 700; color: #e8e8f0; margin-bottom: 8px; }}
-    .plan-price {{ font-size: 3rem; font-weight: 900; color: #e8e8f0; line-height: 1.1; }}
-    .plan-orig {{ font-size: 1rem; color: rgba(140,140,170,0.5); text-decoration: line-through; margin-bottom: 2px; }}
-    .plan-per {{ color: #9090b0; font-size: 0.88rem; margin-bottom: 4px; }}
-    .plan-total {{ font-size: 0.8rem; color: rgba(140,140,170,0.5); margin-bottom: 6px; }}
-    .save-badge {{
+    }
+    .plan-name { font-size: 1.4rem; font-weight: 700; color: #e8e8f0; margin-bottom: 8px; }
+    .plan-price { font-size: 3rem; font-weight: 900; color: #e8e8f0; line-height: 1.1; }
+    .plan-orig { font-size: 1rem; color: rgba(140,140,170,0.5); text-decoration: line-through; margin-bottom: 2px; }
+    .plan-per { color: #9090b0; font-size: 0.88rem; margin-bottom: 4px; }
+    .plan-total { font-size: 0.8rem; color: rgba(140,140,170,0.5); margin-bottom: 6px; }
+    .save-badge {
         display: inline-block; background: linear-gradient(135deg, rgba(241,196,15,0.15), rgba(243,156,18,0.1));
         color: #f1c40f; padding: 5px 16px; border-radius: 30px;
         font-size: 0.82rem; font-weight: 700; margin-bottom: 16px;
         border: 1px solid rgba(241,196,15,0.25);
-    }}
-    .features {{ list-style: none; padding: 0; text-align: left; margin-bottom: 24px; }}
-    .features li {{ color: #b0b0d0; font-size: 0.9rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }}
-    .features li b {{ color: #e8e8f0; }}
+    }
+    .features { list-style: none; padding: 0; text-align: left; margin-bottom: 24px; }
+    .features li { color: #b0b0d0; font-size: 0.9rem; margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }
+    .features li b { color: #e8e8f0; }
 
-    .btn {{
+    .btn {
         width: 100%; padding: 14px 0; border: none; border-radius: 12px;
         font-size: 1.05rem; font-weight: 700; cursor: pointer;
         transition: all 0.3s ease; letter-spacing: 0.01em;
-    }}
-    .btn:hover {{ transform: translateY(-2px); }}
-    .btn-basic {{ background: linear-gradient(135deg, #6347ed, #a855f7); color: white; box-shadow: 0 4px 16px rgba(99,71,237,0.3); }}
-    .btn-basic:hover {{ box-shadow: 0 8px 28px rgba(99,71,237,0.4); }}
-    .btn-pro {{ background: linear-gradient(135deg, #f1c40f, #f39c12); color: #1a1a2e; box-shadow: 0 4px 16px rgba(241,196,15,0.3); }}
-    .btn-pro:hover {{ box-shadow: 0 8px 28px rgba(241,196,15,0.4); }}
-    .secure {{ text-align: center; margin-top: 20px; font-size: 0.78rem; color: rgba(140,140,170,0.5); }}
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn-basic { background: linear-gradient(135deg, #6347ed, #a855f7); color: white; box-shadow: 0 4px 16px rgba(99,71,237,0.3); }
+    .btn-basic:hover { box-shadow: 0 8px 28px rgba(99,71,237,0.4); }
+    .btn-pro { background: linear-gradient(135deg, #f1c40f, #f39c12); color: #1a1a2e; box-shadow: 0 4px 16px rgba(241,196,15,0.3); }
+    .btn-pro:hover { box-shadow: 0 8px 28px rgba(241,196,15,0.4); }
+    .secure { text-align: center; margin-top: 20px; font-size: 0.78rem; color: rgba(140,140,170,0.5); }
 
-    @media (max-width: 768px) {{
-        .cards {{ flex-direction: column; align-items: center; }}
-        .card {{ width: 100%; max-width: 360px; }}
-        .pricing-header h1 {{ font-size: 1.6rem; }}
-        .plan-price {{ font-size: 2.4rem; }}
-    }}
+    @media (max-width: 768px) {
+        .cards { flex-direction: column; align-items: center; }
+        .card { width: 100%; max-width: 360px; }
+        .pricing-header h1 { font-size: 1.6rem; }
+        .plan-price { font-size: 2.4rem; }
+    }
 </style>
 
 <div class="pricing-wrap">
@@ -1765,7 +1743,7 @@ pricing_full_html = f"""
                 <li>✅ PDF Summary Export</li>
                 <li>✅ 7-Day Money Back</li>
             </ul>
-            <button class="btn btn-basic btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7v2ez76tc4b6gbr856jw9')">Select Basic</button>
+            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7v2ez76tc4b6gbr856jw9')">Select Basic</button>
         </div>
         <div class="card pro">
             <div class="badge-pop">👑 MOST POPULAR</div>
@@ -1779,7 +1757,7 @@ pricing_full_html = f"""
                 <li>✅ Unlimited Video Length</li>
                 <li>✅ Advanced Insights (Mind-map)</li>
             </ul>
-            <button class="btn btn-pro btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7r684skwj2z54htyseaj2')">👑 Go Pro</button>
+            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7r684skwj2z54htyseaj2')">👑 Go Pro</button>
         </div>
     </div>
 
@@ -1798,7 +1776,7 @@ pricing_full_html = f"""
                 <li>✅ PDF Summary Export</li>
                 <li>✅ 7-Day Money Back</li>
             </ul>
-            <button class="btn btn-basic btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7w9ppn9csr86fz0sq47zh')">Select Basic — Yearly</button>
+            <button class="btn btn-basic" onclick="openCheckout('pri_01knn7w9ppn9csr86fz0sq47zh')">Select Basic — Yearly</button>
         </div>
         <div class="card pro">
             <div class="badge-pop">👑 MOST POPULAR</div>
@@ -1814,7 +1792,7 @@ pricing_full_html = f"""
                 <li>✅ Unlimited Video Length</li>
                 <li>✅ Advanced Insights (Mind-map)</li>
             </ul>
-            <button class="btn btn-pro btn-checkout" disabled style="opacity:0.5;cursor:wait;" onclick="openCheckout('pri_01knn7hhdez2seb412f4t34g2c')">👑 Go Pro — Yearly</button>
+            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7hhdez2seb412f4t34g2c')">👑 Go Pro — Yearly</button>
         </div>
     </div>
 
