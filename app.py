@@ -1883,7 +1883,7 @@ pricing_full_html = """
                 <li>✅ Unlimited Video Length</li>
                 <li>✅ Advanced Insights (Mind-map)</li>
             </ul>
-            <button class="btn btn-pro" onclick="openCheckout('pri_01knn7v2ez76tc4b6gbr856jw9')">👑 Go Pro</button>
+            <button class="btn btn-pro" onclick="openCheckout('pri_01knpry35zcjv6wqxsyjzdma9j')">👑 Go Pro</button>
         </div>
     </div>
 
