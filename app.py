@@ -862,7 +862,7 @@ st.markdown("""
         position: relative;
         min-height: 100vh;
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 40%, #0f172a 100%);
-        overflow: hidden;
+        overflow-x: hidden;
     }
     .lp-hero::before {
         content: '';
@@ -1338,6 +1338,18 @@ if not st.session_state.get("logged_in", False):
     st.markdown("""
     <style>
         .stApp { background: #0f172a !important; }
+        /* Remove Streamlit container constraints for full-width landing */
+        .stApp > div > div > div > .block-container {
+            max-width: 100% !important;
+            padding: 0 !important;
+            margin: 0 !important;
+        }
+        .stMainBlockContainer { padding: 0 !important; max-width: 100% !important; }
+        header[data-testid="stHeader"] { display: none !important; }
+        section[data-testid="stSidebar"] { display: none !important; }
+        #MainMenu { display: none !important; }
+        footer { display: none !important; }
+        .stDeployButton { display: none !important; }
         .stButton>button {
             background: rgba(30,41,59,0.8) !important;
             color: #94a3b8 !important;
@@ -1346,6 +1358,7 @@ if not st.session_state.get("logged_in", False):
             font-size: 0.85rem !important;
             font-weight: 500 !important;
             transition: all 0.2s !important;
+            width: auto !important;
         }
         .stButton>button:hover {
             background: rgba(51,65,85,0.8) !important;
@@ -1363,8 +1376,6 @@ if not st.session_state.get("logged_in", False):
         .stExpander div[data-testid="stExpanderDetails"] span { color: #94a3b8 !important; }
         .stExpander div[data-testid="stExpanderDetails"] strong { color: #e2e8f0 !important; }
         hr { border-color: rgba(255,255,255,0.06) !important; }
-        section[data-testid="stSidebar"] { display: none !important; }
-        header[data-testid="stHeader"] { background: transparent !important; }
     </style>
     """, unsafe_allow_html=True)
 
