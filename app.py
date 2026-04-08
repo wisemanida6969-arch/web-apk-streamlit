@@ -13,13 +13,103 @@ APP_VERSION = "2026-04-07-v1"
 
 # ─── Config ───
 st.set_page_config(
-    page_title="세월은간다 - AI 유튜브 요약 및 PDF 추출",
+    page_title="Trytimeback - AI YouTube Summarizer & PDF Export",
     page_icon="🎬",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
-# Meta tags are injected into Streamlit's index.html by patch_meta.py at startup
+# ─── SEO: Inject meta tags into the MAIN page via window.top ───
+import streamlit.components.v1 as seo_components
+seo_components.html("""
+<script>
+(function() {
+    var doc = window.top.document;
+
+    // 1) Force <title>
+    doc.title = 'Trytimeback - AI YouTube Summarizer & PDF Export';
+
+    // 2) Helper: set or create <meta>
+    function setMeta(attr, attrVal, content) {
+        var el = doc.querySelector('meta[' + attr + '="' + attrVal + '"]');
+        if (!el) {
+            el = doc.createElement('meta');
+            el.setAttribute(attr, attrVal);
+            doc.head.appendChild(el);
+        }
+        el.setAttribute('content', content);
+    }
+
+    // 3) Primary SEO
+    setMeta('name', 'description', 'Summarize YouTube videos in seconds and export to PDF. Save 10+ hours a week with Trytimeback.');
+    setMeta('name', 'keywords', 'YouTube summary, AI summarizer, PDF export, lecture notes, Trytimeback, 유튜브 요약, AI 요약');
+    setMeta('name', 'author', 'Trytimeback');
+    setMeta('name', 'robots', 'index, follow');
+
+    // 4) Open Graph
+    setMeta('property', 'og:title', 'Trytimeback - AI YouTube Summarizer & PDF Export');
+    setMeta('property', 'og:description', 'Summarize YouTube videos in seconds and export to PDF. Save 10+ hours a week with Trytimeback.');
+    setMeta('property', 'og:type', 'website');
+    setMeta('property', 'og:url', 'https://trytimeback.com');
+    setMeta('property', 'og:site_name', 'Trytimeback');
+    setMeta('property', 'og:locale', 'en_US');
+
+    // 5) Twitter Card
+    setMeta('name', 'twitter:card', 'summary_large_image');
+    setMeta('name', 'twitter:title', 'Trytimeback - AI YouTube Summarizer & PDF Export');
+    setMeta('name', 'twitter:description', 'Summarize YouTube videos in seconds and export to PDF. Save 10+ hours a week.');
+
+    // 6) Canonical URL
+    if (!doc.querySelector('link[rel="canonical"]')) {
+        var link = doc.createElement('link');
+        link.rel = 'canonical';
+        link.href = 'https://trytimeback.com';
+        doc.head.appendChild(link);
+    }
+
+    // 7) <html lang="en">
+    doc.documentElement.setAttribute('lang', 'en');
+
+    // 8) JSON-LD Structured Data
+    if (!doc.querySelector('script[data-seo="trytimeback"]')) {
+        var ld = doc.createElement('script');
+        ld.type = 'application/ld+json';
+        ld.setAttribute('data-seo', 'trytimeback');
+        ld.textContent = JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "WebApplication",
+            "name": "Trytimeback",
+            "url": "https://trytimeback.com",
+            "description": "Summarize YouTube videos in seconds and export to PDF. Save 10+ hours a week.",
+            "applicationCategory": "EducationalApplication",
+            "operatingSystem": "Web",
+            "offers": {
+                "@type": "AggregateOffer",
+                "lowPrice": "9.99",
+                "highPrice": "29.99",
+                "priceCurrency": "USD",
+                "offerCount": "4"
+            }
+        });
+        doc.head.appendChild(ld);
+    }
+
+    // 9) Update <noscript> — for crawlers that read it
+    var ns = doc.querySelector('noscript');
+    if (ns) {
+        ns.innerHTML = '<div style="font-family:sans-serif;max-width:800px;margin:40px auto;padding:20px;line-height:1.8;">' +
+            '<h1>Trytimeback - AI YouTube Summarizer</h1>' +
+            '<p>Paste any YouTube lecture URL and get 5 key-point short clips + a detailed PDF summary in seconds.</p>' +
+            '<ul><li>5 AI-curated key moment clips</li><li>Comprehensive PDF summary download</li>' +
+            '<li>Multi-language subtitle support</li><li>Mobile responsive</li></ul>' +
+            '<p>Basic $12.99/mo | Pro $29.99/mo — Save up to 23% with yearly billing</p>' +
+            '<p><a href="https://trytimeback.com">trytimeback.com</a></p></div>';
+    }
+
+    console.log('[SEO] Meta tags injected into top document');
+})();
+</script>
+""", height=0, scrolling=False)
 
 # ─── Safe secrets helper ───
 def get_secret(key: str, default: str = "") -> str:
