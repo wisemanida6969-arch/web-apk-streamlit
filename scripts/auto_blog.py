@@ -10,12 +10,12 @@ import json
 import random
 import requests
 
-# ─── Config from environment (strip whitespace/newlines) ───
-ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"].strip()
-GOOGLE_CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"].strip()
-GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"].strip()
-GOOGLE_REFRESH_TOKEN = os.environ["GOOGLE_REFRESH_TOKEN"].strip()
-BLOGGER_BLOG_ID = os.environ.get("BLOGGER_BLOG_ID", "3305767414653621134").strip()
+# ─── Config from environment (remove all whitespace/newlines) ───
+ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"].replace("\n", "").replace("\r", "").strip()
+GOOGLE_CLIENT_ID = os.environ["GOOGLE_CLIENT_ID"].replace("\n", "").replace("\r", "").strip()
+GOOGLE_CLIENT_SECRET = os.environ["GOOGLE_CLIENT_SECRET"].replace("\n", "").replace("\r", "").strip()
+GOOGLE_REFRESH_TOKEN = os.environ["GOOGLE_REFRESH_TOKEN"].replace("\n", "").replace("\r", "").strip()
+BLOGGER_BLOG_ID = os.environ.get("BLOGGER_BLOG_ID", "3305767414653621134").replace("\n", "").replace("\r", "").strip()
 
 # ─── Blog topics related to Trytimeback ───
 TOPICS = [
