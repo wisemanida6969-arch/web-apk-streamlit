@@ -1,0 +1,26 @@
+# Secrets
+.env
+.streamlit/secrets.toml
+*.secret
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyc
+venv/
+env/
+.venv/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
