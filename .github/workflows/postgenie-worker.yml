@@ -1,0 +1,35 @@
+name: PostGenie Worker
+
+on:
+  # Runs every hour to process due schedules
+  schedule:
+    - cron: '15 * * * *'  # 15 minutes past every hour
+  workflow_dispatch:
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: postgenie
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run PostGenie worker
+        env:
+          SUPABASE_URL: ${{ secrets.POSTGENIE_SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.POSTGENIE_SUPABASE_SERVICE_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BLOGGER_CLIENT_ID: ${{ secrets.POSTGENIE_BLOGGER_CLIENT_ID }}
+          BLOGGER_CLIENT_SECRET: ${{ secrets.POSTGENIE_BLOGGER_CLIENT_SECRET }}
+        run: python scripts/worker.py

@@ -1,0 +1,240 @@
+"""
+PostGenie — AI Blog Automation SaaS
+Main Streamlit application entry point.
+"""
+import streamlit as st
+
+from lib.auth import get_login_url, handle_oauth_callback, logout
+from lib.supabase_client import db
+
+
+# ─── Page Config ───
+st.set_page_config(
+    page_title="PostGenie — AI Blog Automation",
+    page_icon="✨",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
+
+
+# ─── Global Styles ───
+st.markdown("""
+<style>
+    .stApp {
+        background: #0f172a;
+        color: #e2e8f0;
+    }
+    .main-hero {
+        text-align: center;
+        padding: 60px 20px 40px;
+    }
+    .logo-text {
+        font-size: 3.5rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #8b5cf6, #3b82f6, #06b6d4);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: -0.03em;
+        margin-bottom: 8px;
+    }
+    .tagline {
+        font-size: 1.2rem;
+        color: #94a3b8;
+        margin-bottom: 32px;
+    }
+    .features-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 20px;
+        max-width: 900px;
+        margin: 40px auto;
+    }
+    .feature-card {
+        background: rgba(30, 41, 59, 0.6);
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 16px;
+        padding: 24px;
+        text-align: center;
+    }
+    .feature-icon {
+        font-size: 2.2rem;
+        margin-bottom: 12px;
+    }
+    .feature-title {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: #f1f5f9;
+        margin-bottom: 8px;
+    }
+    .feature-desc {
+        font-size: 0.85rem;
+        color: #64748b;
+        line-height: 1.6;
+    }
+    .google-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+        background: #ffffff;
+        color: #1e293b;
+        padding: 14px 36px;
+        border-radius: 12px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 1rem;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+        margin: 20px 0;
+    }
+    .google-btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 32px rgba(139,92,246,0.3);
+    }
+    section[data-testid="stSidebar"] {
+        background: rgba(15, 23, 42, 0.95);
+    }
+    .stButton>button {
+        background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        padding: 10px 24px;
+        font-weight: 600;
+        transition: all 0.2s;
+    }
+    .stButton>button:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 16px rgba(139,92,246,0.4);
+    }
+</style>
+""", unsafe_allow_html=True)
+
+
+# ─── OAuth Callback Handler ───
+handle_oauth_callback()
+
+
+# ─── Not Logged In → Landing Page ───
+if not st.session_state.get("logged_in"):
+    login_url = get_login_url()
+
+    st.markdown(f"""
+    <div class="main-hero">
+        <div class="logo-text">✨ PostGenie</div>
+        <div class="tagline">AI-Powered Blog Automation — Set it and forget it.</div>
+        <a href="{login_url}" target="_self" class="google-btn">
+            <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59A14.5 14.5 0 0 1 9.5 24c0-1.59.28-3.14.76-4.59l-7.98-6.19A23.99 23.99 0 0 0 0 24c0 3.77.9 7.35 2.56 10.54l7.97-5.95z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 5.95C6.51 42.62 14.62 48 24 48z"/></svg>
+            Sign in with Google
+        </a>
+    </div>
+
+    <div class="features-grid">
+        <div class="feature-card">
+            <div class="feature-icon">🤖</div>
+            <div class="feature-title">AI-Written Content</div>
+            <div class="feature-desc">Claude AI generates high-quality SEO blog posts tailored to your niche.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">📅</div>
+            <div class="feature-title">Auto-Scheduled</div>
+            <div class="feature-desc">Set your schedule once. Posts go live daily without lifting a finger.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🌍</div>
+            <div class="feature-title">Trending Topics</div>
+            <div class="feature-desc">Auto-fetches trending news to keep your content fresh and relevant.</div>
+        </div>
+        <div class="feature-card">
+            <div class="feature-icon">🔗</div>
+            <div class="feature-title">Multi-Platform</div>
+            <div class="feature-desc">Publishes directly to Blogger, WordPress, and more.</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # Pricing section
+    st.markdown("---")
+    st.markdown("<h2 style='text-align:center; color:#f1f5f9;'>Simple Pricing</h2>", unsafe_allow_html=True)
+
+    cols = st.columns(4)
+    plans = [
+        ("Free", "$0", ["1 blog", "1 post/week", "Basic topics"]),
+        ("Basic", "$9/mo", ["1 blog", "1 post/day", "All categories"]),
+        ("Pro", "$29/mo", ["3 blogs", "3 posts/day", "Custom topics"]),
+        ("Agency", "$99/mo", ["10 blogs", "30 posts/day", "API access"]),
+    ]
+    for col, (name, price, features) in zip(cols, plans):
+        with col:
+            st.markdown(f"""
+            <div class="feature-card">
+                <div class="feature-title">{name}</div>
+                <div style="font-size:1.8rem; font-weight:900; color:#8b5cf6; margin:12px 0;">{price}</div>
+                <div class="feature-desc">
+                    {"<br>".join("✓ " + f for f in features)}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+    st.stop()
+
+
+# ─── Logged In → Dashboard ───
+user = st.session_state.get("user", {})
+
+# Sidebar
+with st.sidebar:
+    if user.get("picture"):
+        st.image(user["picture"], width=60)
+    st.markdown(f"**{user.get('name', 'User')}**")
+    st.caption(user.get("email", ""))
+    st.caption(f"Plan: **{user.get('plan', 'free').title()}**")
+    st.divider()
+
+    page = st.radio(
+        "Navigation",
+        ["📊 Dashboard", "🔗 Connect Blog", "📅 Schedules", "📝 Posts", "💎 Upgrade"],
+        label_visibility="collapsed",
+    )
+
+    st.divider()
+    if st.button("Sign Out", use_container_width=True):
+        logout()
+
+# Main content
+st.markdown(f"### Welcome back, {user.get('name', 'there')}! 👋")
+
+if page == "📊 Dashboard":
+    st.markdown("#### Dashboard")
+
+    col1, col2, col3 = st.columns(3)
+    blogs = db.get_user_blogs(user["id"]) if user.get("id") else []
+    schedules = db.get_user_schedules(user["id"]) if user.get("id") else []
+    posts = db.get_user_posts(user["id"], limit=100) if user.get("id") else []
+
+    col1.metric("Connected Blogs", len(blogs))
+    col2.metric("Active Schedules", len([s for s in schedules if s.get("enabled")]))
+    col3.metric("Posts Published", len([p for p in posts if p.get("status") == "published"]))
+
+    st.markdown("#### Recent Posts")
+    if posts:
+        for post in posts[:10]:
+            status_emoji = {"published": "✅", "pending": "⏳", "failed": "❌"}.get(post["status"], "•")
+            st.markdown(f"{status_emoji} **{post['title']}** — _{post['created_at'][:10]}_")
+    else:
+        st.info("No posts yet. Connect a blog and create a schedule to get started!")
+
+elif page == "🔗 Connect Blog":
+    from pages_lib.connect_blog import render as render_connect
+    render_connect(user)
+
+elif page == "📅 Schedules":
+    from pages_lib.schedules import render as render_schedules
+    render_schedules(user)
+
+elif page == "📝 Posts":
+    from pages_lib.posts import render as render_posts
+    render_posts(user)
+
+elif page == "💎 Upgrade":
+    from pages_lib.upgrade import render as render_upgrade
+    render_upgrade(user)
