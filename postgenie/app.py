@@ -126,37 +126,7 @@ if not st.session_state.get("logged_in"):
     </div>
     """, unsafe_allow_html=True)
 
-    # Sign in button — use st.link_button (reliable), styled via CSS
-    # Google G logo embedded as base64 SVG data URI (no external image dependency)
-    google_logo_b64 = "PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA0OCA0OCI+PHBhdGggZmlsbD0iI0VBNDMzNSIgZD0iTTI0IDkuNWMzLjU0IDAgNi43MSAxLjIyIDkuMjEgMy42bDYuODUtNi44NUMzNS45IDIuMzggMzAuNDcgMCAyNCAwIDE0LjYyIDAgNi41MSA1LjM4IDIuNTYgMTMuMjJsNy45OCA2LjE5QzEyLjQzIDEzLjcyIDE3Ljc0IDkuNSAyNCA5LjV6Ii8+PHBhdGggZmlsbD0iIzQyODVGNCIgZD0iTTQ2Ljk4IDI0LjU1YzAtMS41Ny0uMTUtMy4wOS0uMzgtNC41NUgyNHY5LjAyaDEyLjk0Yy0uNTggMi45Ni0yLjI2IDUuNDgtNC43OCA3LjE4bDcuNzMgNmM0LjUxLTQuMTggNy4wOS0xMC4zNiA3LjA5LTE3LjY1eiIvPjxwYXRoIGZpbGw9IiNGQkJDMDUiIGQ9Ik0xMC41MyAyOC41OUExNC41IDE0LjUgMCAwIDEgOS41IDI0YzAtMS41OS4yOC0zLjE0Ljc2LTQuNTlsLTcuOTgtNi4xOUEyMy45OSAyMy45OSAwIDAgMCAwIDI0YzAgMy43Ny45IDcuMzUgMi41NiAxMC41NGw3Ljk3LTUuOTV6Ii8+PHBhdGggZmlsbD0iIzM0QTg1MyIgZD0iTTI0IDQ4YzYuNDggMCAxMS45My0yLjEzIDE1Ljg5LTUuODFsLTcuNzMtNmMtMi4xNSAxLjQ1LTQuOTIgMi4zLTguMTYgMi4zLTYuMjYgMC0xMS41Ny00LjIyLTEzLjQ3LTkuOTFsLTcuOTggNS45NUM2LjUxIDQyLjYyIDE0LjYyIDQ4IDI0IDQ4eiIvPjwvc3ZnPg=="
-
-    st.markdown(f"""
-    <style>
-        /* Google-style white button */
-        div[data-testid="stLinkButton"] > a[kind="primary"],
-        a[data-testid="stBaseLinkButton-primary"] {{
-            background: #ffffff !important;
-            color: #3c4043 !important;
-            border: 1px solid rgba(0,0,0,0.08) !important;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
-            font-weight: 500 !important;
-            font-family: 'Roboto', 'Inter', sans-serif !important;
-            padding-left: 52px !important;
-            background-image: url('data:image/svg+xml;base64,{google_logo_b64}') !important;
-            background-repeat: no-repeat !important;
-            background-position: 20px center !important;
-            background-size: 18px 18px !important;
-        }}
-        div[data-testid="stLinkButton"] > a[kind="primary"]:hover,
-        a[data-testid="stBaseLinkButton-primary"]:hover {{
-            background-color: #f8f9fa !important;
-            color: #3c4043 !important;
-            box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
-            transform: translateY(-1px);
-        }}
-    </style>
-    """, unsafe_allow_html=True)
-
+    # Sign in button — plain st.link_button (reliable, default styling)
     col_a, col_b, col_c = st.columns([1, 1.5, 1])
     with col_b:
         st.link_button(
