@@ -85,10 +85,15 @@ def handle_oauth_callback():
             picture=user_info.get("picture", ""),
         )
 
-        # Auto-promote admin emails to 'admin' plan
+        # Auto-promote admin emails to 'admin' plan (best-effort)
         if is_admin(user.get("email", "")) and user.get("plan") != "admin":
-            db.update_user_plan(user["id"], "admin")
-            user["plan"] = "admin"
+            try:
+                db.update_user_plan(user["id"], "admin")
+                user["plan"] = "admin"
+            except Exception as promo_err:
+                # DB constraint may not yet allow 'admin' plan
+                # (run migrations/001_add_admin_plan.sql in Supabase)
+                print(f"[auth] Admin promotion skipped: {promo_err}")
 
         st.session_state["logged_in"] = True
         st.session_state["user"] = user
