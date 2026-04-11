@@ -185,6 +185,19 @@ if not st.session_state.get("logged_in"):
             </div>
             """, unsafe_allow_html=True)
 
+    # User Guide link
+    st.markdown("""
+    <div style="text-align:center; margin:40px 0 20px;">
+        <a href="https://github.com/wisemanida6969-arch/web-apk-streamlit/raw/master/postgenie/docs/PostGenie_Guide.pdf"
+           target="_blank"
+           style="color:#94a3b8; font-size:0.9rem; text-decoration:none;
+                  padding:10px 20px; border:1px solid rgba(255,255,255,0.15);
+                  border-radius:8px; display:inline-block;">
+            📘 처음이신가요? 사용 가이드 (PDF) 보기
+        </a>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.stop()
 
 
@@ -214,6 +227,11 @@ with st.sidebar:
     )
 
     st.divider()
+    st.link_button(
+        "📘 사용 가이드 (PDF)",
+        "https://github.com/wisemanida6969-arch/web-apk-streamlit/raw/master/postgenie/docs/PostGenie_Guide.pdf",
+        use_container_width=True,
+    )
     if st.button("Sign Out", use_container_width=True):
         logout()
 
