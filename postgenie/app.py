@@ -195,9 +195,16 @@ user = st.session_state.get("user", {})
 with st.sidebar:
     if user.get("picture"):
         st.image(user["picture"], width=60)
-    st.markdown(f"**{user.get('name', 'User')}**")
+
+    plan = user.get("plan", "free")
+    name_suffix = " 👑" if plan == "admin" else ""
+    st.markdown(f"**{user.get('name', 'User')}{name_suffix}**")
     st.caption(user.get("email", ""))
-    st.caption(f"Plan: **{user.get('plan', 'free').title()}**")
+
+    if plan == "admin":
+        st.success("👑 **ADMIN** — Unlimited access")
+    else:
+        st.caption(f"Plan: **{plan.title()}**")
     st.divider()
 
     page = st.radio(

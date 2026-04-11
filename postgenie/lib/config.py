@@ -52,4 +52,17 @@ PLAN_LIMITS = {
     "basic": {"blogs": 1, "posts_per_day": 1, "schedules": 1},
     "pro": {"blogs": 3, "posts_per_day": 3, "schedules": 3},
     "agency": {"blogs": 10, "posts_per_day": 30, "schedules": 10},
+    "admin": {"blogs": 9999, "posts_per_day": 9999, "schedules": 9999},
 }
+
+# ─── Admin Emails (comma-separated, full access) ───
+ADMIN_EMAILS = [
+    e.strip().lower()
+    for e in get_secret("ADMIN_EMAILS", "wisemanida6969@gmail.com").split(",")
+    if e.strip()
+]
+
+
+def is_admin(email: str) -> bool:
+    """Check if the given email has admin privileges."""
+    return (email or "").strip().lower() in ADMIN_EMAILS

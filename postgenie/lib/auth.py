@@ -7,6 +7,7 @@ from lib.config import (
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_REDIRECT_URI,
+    is_admin,
 )
 from lib.supabase_client import db
 
@@ -83,6 +84,11 @@ def handle_oauth_callback():
             name=user_info.get("name", ""),
             picture=user_info.get("picture", ""),
         )
+
+        # Auto-promote admin emails to 'admin' plan
+        if is_admin(user.get("email", "")) and user.get("plan") != "admin":
+            db.update_user_plan(user["id"], "admin")
+            user["plan"] = "admin"
 
         st.session_state["logged_in"] = True
         st.session_state["user"] = user

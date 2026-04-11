@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS pg_users (
     email TEXT UNIQUE NOT NULL,
     name TEXT,
     picture TEXT,
-    plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'basic', 'pro', 'agency')),
+    plan TEXT DEFAULT 'free' CHECK (plan IN ('free', 'basic', 'pro', 'agency', 'admin')),
     paddle_subscription_id TEXT,
     paddle_customer_id TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW(),
