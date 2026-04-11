@@ -126,30 +126,39 @@ if not st.session_state.get("logged_in"):
     </div>
     """, unsafe_allow_html=True)
 
-    # Sign in button — white Google-style button (st.markdown for iframe-free rendering)
-    st.markdown(f"""
-    <div style="display:flex; justify-content:center; margin:20px 0 40px;">
-        <a href="{login_url}" style="
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            background: #ffffff;
-            color: #3c4043;
-            padding: 14px 32px;
-            border-radius: 10px;
-            text-decoration: none;
-            font-weight: 500;
-            font-size: 15px;
-            font-family: 'Roboto', 'Inter', -apple-system, sans-serif;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.25), 0 0 0 1px rgba(0,0,0,0.06);
-            transition: all 0.2s ease;
-        ">
-            <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/5/53/Google_%22G%22_Logo.svg/200px-Google_%22G%22_Logo.svg.png"
-                 width="18" height="18" alt="Google">
-            Sign in with Google
-        </a>
-    </div>
+    # Sign in button — use st.link_button (reliable), styled via CSS
+    st.markdown("""
+    <style>
+        /* Google-style white button for primary link button */
+        div[data-testid="stLinkButton"] > a[kind="primary"],
+        div[data-testid="stBaseLinkButton-primary"] a,
+        a[data-testid="stBaseLinkButton-primary"] {
+            background: #ffffff !important;
+            color: #3c4043 !important;
+            border: 1px solid rgba(0,0,0,0.08) !important;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
+            font-weight: 500 !important;
+            font-family: 'Roboto', 'Inter', sans-serif !important;
+        }
+        div[data-testid="stLinkButton"] > a[kind="primary"]:hover,
+        div[data-testid="stBaseLinkButton-primary"] a:hover,
+        a[data-testid="stBaseLinkButton-primary"]:hover {
+            background: #f8f9fa !important;
+            color: #3c4043 !important;
+            box-shadow: 0 4px 16px rgba(0,0,0,0.3) !important;
+            transform: translateY(-1px);
+        }
+    </style>
     """, unsafe_allow_html=True)
+
+    col_a, col_b, col_c = st.columns([1, 1.5, 1])
+    with col_b:
+        st.link_button(
+            "🔐  Sign in with Google",
+            login_url,
+            use_container_width=True,
+            type="primary",
+        )
 
     # Features section
     st.markdown("""
