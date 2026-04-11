@@ -1,14 +1,22 @@
 """PostGenie configuration loader."""
 import os
-import streamlit as st
+
+# Streamlit is optional — worker runs without it
+try:
+    import streamlit as st
+    _HAS_STREAMLIT = True
+except ImportError:
+    _HAS_STREAMLIT = False
 
 
 def get_secret(key: str, default: str = "") -> str:
-    """Read secret from Streamlit secrets or env var."""
-    try:
-        return st.secrets.get(key, os.environ.get(key, default))
-    except Exception:
-        return os.environ.get(key, default)
+    """Read secret from Streamlit secrets (if available) or env var."""
+    if _HAS_STREAMLIT:
+        try:
+            return st.secrets.get(key, os.environ.get(key, default))
+        except Exception:
+            pass
+    return os.environ.get(key, default)
 
 
 # ─── Supabase ───
