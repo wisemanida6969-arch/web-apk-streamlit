@@ -226,14 +226,21 @@ if not st.session_state.get("logged_in"):
            target="_blank"
            style="color:#94a3b8; font-size:0.9rem; text-decoration:none;
                   padding:10px 20px; border:1px solid rgba(255,255,255,0.15);
-                  border-radius:8px; display:inline-block; margin:0 8px;">
-            📘 사용 가이드 (PDF)
+                  border-radius:8px; display:inline-block; margin:0 6px;">
+            📘 사용 가이드 (한국어 PDF)
+        </a>
+        <a href="https://github.com/wisemanida6969-arch/web-apk-streamlit/raw/master/postgenie/docs/PostGenie_Guide_EN.pdf"
+           target="_blank"
+           style="color:#94a3b8; font-size:0.9rem; text-decoration:none;
+                  padding:10px 20px; border:1px solid rgba(255,255,255,0.15);
+                  border-radius:8px; display:inline-block; margin:0 6px;">
+            📘 User Guide (English PDF)
         </a>
         <a href="mailto:admin@trytimeback.com"
            style="color:#94a3b8; font-size:0.9rem; text-decoration:none;
                   padding:10px 20px; border:1px solid rgba(255,255,255,0.15);
-                  border-radius:8px; display:inline-block; margin:0 8px;">
-            ✉️ 문의하기
+                  border-radius:8px; display:inline-block; margin:0 6px;">
+            ✉️ 문의하기 / Contact
         </a>
     </div>
     <div style="text-align:center; margin:20px 0 10px; color:#64748b; font-size:0.8rem;">
@@ -274,8 +281,18 @@ with st.sidebar:
 
     st.divider()
     st.link_button(
-        "📘 사용 가이드 (PDF)",
+        "📘 사용 가이드 (한국어)",
         "https://github.com/wisemanida6969-arch/web-apk-streamlit/raw/master/postgenie/docs/PostGenie_Guide.pdf",
+        use_container_width=True,
+    )
+    st.link_button(
+        "📘 User Guide (English)",
+        "https://github.com/wisemanida6969-arch/web-apk-streamlit/raw/master/postgenie/docs/PostGenie_Guide_EN.pdf",
+        use_container_width=True,
+    )
+    st.link_button(
+        "✉️ 문의 / Contact",
+        "mailto:admin@trytimeback.com",
         use_container_width=True,
     )
     if st.button("Sign Out", use_container_width=True):
