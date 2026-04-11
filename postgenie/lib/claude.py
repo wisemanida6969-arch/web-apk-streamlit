@@ -80,6 +80,8 @@ Format:
     result = resp.json()
 
     html_content = result["content"][0]["text"]
+    # Strip markdown code fences if Claude wrapped the output
+    html_content = _strip_code_fences(html_content)
     title = extract_title(html_content)
     token_count = result.get("usage", {}).get("output_tokens", 0)
 
@@ -88,6 +90,16 @@ Format:
         "content": html_content,
         "token_count": token_count,
     }
+
+
+def _strip_code_fences(text: str) -> str:
+    """Remove leading/trailing markdown code fences like ```html ... ```."""
+    text = text.strip()
+    # Remove opening fence: ```html, ```HTML, ```, etc.
+    text = re.sub(r"^```[a-zA-Z]*\s*\n?", "", text)
+    # Remove closing fence
+    text = re.sub(r"\n?```\s*$", "", text)
+    return text.strip()
 
 
 def extract_title(html: str) -> str:
