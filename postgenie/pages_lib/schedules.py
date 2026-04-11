@@ -46,64 +46,77 @@ def render(user: dict):
     # ─── Create New Schedule ───
     st.markdown("##### Create New Schedule")
 
-    with st.form("new_schedule"):
-        name = st.text_input("Schedule Name", placeholder="e.g., Daily Tech News")
+    # NOTE: Using regular widgets instead of st.form so language changes
+    # immediately update the category options.
 
-        blog_choice = st.selectbox(
-            "Target Blog",
-            options=blogs,
-            format_func=lambda b: b.get("blog_name") or b.get("blog_id", "Unknown"),
-        )
+    name = st.text_input(
+        "Schedule Name",
+        placeholder="e.g., Daily Tech News",
+        key="sched_name",
+    )
 
-        language = st.selectbox(
-            "Content Language",
-            ["en", "ko", "ja", "es"],
-            format_func=lambda x: {
-                "en": "🇺🇸 English",
-                "ko": "🇰🇷 한국어",
-                "ja": "🇯🇵 日本語",
-                "es": "🇪🇸 Español",
-            }[x],
-        )
+    blog_choice = st.selectbox(
+        "Target Blog",
+        options=blogs,
+        format_func=lambda b: b.get("blog_name") or b.get("blog_id", "Unknown"),
+        key="sched_blog",
+    )
 
-        # Filter categories by language
-        available_cats = {
-            k: v for k, v in CATEGORY_FEEDS.items() if v["language"] == language
-        }
-        if not available_cats:
-            available_cats = CATEGORY_FEEDS
+    language = st.selectbox(
+        "Content Language",
+        ["en", "ko", "ja", "es"],
+        format_func=lambda x: {
+            "en": "🇺🇸 English",
+            "ko": "🇰🇷 한국어",
+            "ja": "🇯🇵 日本語",
+            "es": "🇪🇸 Español",
+        }[x],
+        key="sched_lang",
+    )
 
-        category_keys = st.multiselect(
-            "Content Categories",
-            options=list(available_cats.keys()),
-            format_func=lambda k: available_cats[k]["name"],
-            default=list(available_cats.keys())[:2] if available_cats else [],
-        )
+    # Filter categories by language (reacts immediately since not in a form)
+    available_cats = {
+        k: v for k, v in CATEGORY_FEEDS.items() if v["language"] == language
+    }
+    if not available_cats:
+        available_cats = CATEGORY_FEEDS
 
-        custom_topics = st.text_area(
-            "Custom Topics (optional, one per line)",
-            placeholder="How to save money on groceries\nBest AI tools for writers\n...",
-            help="If provided, these topics will be used instead of trending news.",
-        )
+    # Use language in key so selection resets when language changes
+    category_keys = st.multiselect(
+        "Content Categories",
+        options=list(available_cats.keys()),
+        format_func=lambda k: available_cats[k]["name"],
+        default=list(available_cats.keys())[:2] if available_cats else [],
+        key=f"sched_cats_{language}",
+    )
 
-        frequency = st.selectbox(
-            "Posting Frequency",
-            ["daily", "twice_daily", "weekly"],
-            format_func=lambda x: {
-                "daily": "Daily (1 post/day)",
-                "twice_daily": "Twice Daily (2 posts/day)",
-                "weekly": "Weekly (1 post/week)",
-            }[x],
-        )
+    custom_topics = st.text_area(
+        "Custom Topics (optional, one per line)",
+        placeholder="How to save money on groceries\nBest AI tools for writers\n...",
+        help="If provided, these topics will be used instead of trending news.",
+        key="sched_custom",
+    )
 
-        tone = st.selectbox(
-            "Writing Tone",
-            ["friendly", "professional", "casual", "educational", "persuasive"],
-        )
+    frequency = st.selectbox(
+        "Posting Frequency",
+        ["daily", "twice_daily", "weekly"],
+        format_func=lambda x: {
+            "daily": "Daily (1 post/day)",
+            "twice_daily": "Twice Daily (2 posts/day)",
+            "weekly": "Weekly (1 post/week)",
+        }[x],
+        key="sched_freq",
+    )
 
-        word_count = st.slider("Target Word Count", 500, 2000, 1000, step=100)
+    tone = st.selectbox(
+        "Writing Tone",
+        ["friendly", "professional", "casual", "educational", "persuasive"],
+        key="sched_tone",
+    )
 
-        if st.form_submit_button("Create Schedule"):
+    word_count = st.slider("Target Word Count", 500, 2000, 1000, step=100, key="sched_wc")
+
+    if st.button("Create Schedule", type="primary", key="sched_create"):
             if not name or not category_keys:
                 st.error("Name and at least one category required")
             else:
