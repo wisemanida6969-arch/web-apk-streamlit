@@ -136,9 +136,11 @@ def render(user: dict):
                 st.rerun()
         else:
             auth_url = get_blogger_auth_url()
-            st.markdown(
-                f'<a href="{auth_url}" target="_self" class="google-btn">Authorize Blogger</a>',
-                unsafe_allow_html=True,
+            st.link_button(
+                "🔗 Authorize Blogger",
+                auth_url,
+                use_container_width=True,
+                type="primary",
             )
 
     elif platform == "wordpress":
