@@ -17,7 +17,8 @@ def get_blogger_auth_url() -> str:
         "client_id": BLOGGER_CLIENT_ID,
         "redirect_uri": GOOGLE_REDIRECT_URI,
         "response_type": "code",
-        "scope": "https://www.googleapis.com/auth/blogger",
+        # Include login scopes so we can also verify the user
+        "scope": "openid email profile https://www.googleapis.com/auth/blogger",
         "access_type": "offline",
         "prompt": "consent",
         "state": "blogger_connect",
@@ -81,34 +82,23 @@ def render(user: dict):
     if platform == "blogger":
         st.info("Click below to authorize PostGenie to post to your Blogger account.")
 
-        # Handle OAuth callback
-        params = st.query_params
-        if params.get("code") and params.get("state") == "blogger_connect":
-            code = params.get("code")
+        # If auth.py handled the callback, refresh token is already in session.
+        # Fetch the list of blogs using the access token saved during login.
+        if st.session_state.get("_pending_blogger_refresh") and not st.session_state.get("_pending_blogger_blogs"):
             try:
-                token_data = exchange_blogger_code(code)
-                access_token = token_data["access_token"]
-                refresh_token = token_data.get("refresh_token", "")
-
-                if not refresh_token:
-                    st.error("No refresh token received. Try revoking access in your Google account and reconnecting.")
-                    st.query_params.clear()
-                    return
-
+                access_token = st.session_state["_pending_blogger_access"]
                 blogs = list_user_blogs(access_token)
-                if not blogs:
+                if blogs:
+                    st.session_state["_pending_blogger_blogs"] = blogs
+                    st.rerun()
+                else:
                     st.error("No Blogger blogs found on your account.")
-                    st.query_params.clear()
-                    return
-
-                st.session_state["_pending_blogger_blogs"] = blogs
-                st.session_state["_pending_blogger_refresh"] = refresh_token
-                st.session_state["_pending_blogger_access"] = access_token
-                st.query_params.clear()
-                st.rerun()
+                    st.session_state.pop("_pending_blogger_refresh", None)
+                    st.session_state.pop("_pending_blogger_access", None)
             except Exception as e:
-                st.error(f"Blogger connection failed: {e}")
-                st.query_params.clear()
+                st.error(f"Failed to load blogs: {e}")
+                st.session_state.pop("_pending_blogger_refresh", None)
+                st.session_state.pop("_pending_blogger_access", None)
 
         # Show pending blog selection
         if st.session_state.get("_pending_blogger_blogs"):
@@ -129,9 +119,9 @@ def render(user: dict):
                     refresh_token=st.session_state["_pending_blogger_refresh"],
                     access_token=st.session_state["_pending_blogger_access"],
                 )
-                del st.session_state["_pending_blogger_blogs"]
-                del st.session_state["_pending_blogger_refresh"]
-                del st.session_state["_pending_blogger_access"]
+                st.session_state.pop("_pending_blogger_blogs", None)
+                st.session_state.pop("_pending_blogger_refresh", None)
+                st.session_state.pop("_pending_blogger_access", None)
                 st.success("Blog connected!")
                 st.rerun()
         else:

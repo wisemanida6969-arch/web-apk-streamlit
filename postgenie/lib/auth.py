@@ -51,33 +51,55 @@ def get_user_info(access_token: str) -> dict:
 
 
 def handle_oauth_callback():
-    """Handle OAuth redirect and create/update user in DB."""
+    """Handle OAuth redirect and create/update user in DB.
+
+    This handles BOTH login callbacks AND Blogger connection callbacks.
+    Blogger connection uses state='blogger_connect' and also gets the refresh token.
+    """
     if st.session_state.get("login_error"):
         st.error(st.session_state.pop("login_error"))
 
     params = st.query_params
     code = params.get("code")
+    state = params.get("state", "")
 
-    if code and not st.session_state.get("logged_in"):
-        try:
-            token_data = exchange_code_for_token(code)
-            user_info = get_user_info(token_data["access_token"])
+    if not code:
+        return
 
-            # Upsert user in Supabase
-            user = db.upsert_user(
-                email=user_info["email"],
-                name=user_info.get("name", ""),
-                picture=user_info.get("picture", ""),
-            )
+    # Skip if already handled in a previous run
+    if st.session_state.get("_oauth_processed") == code:
+        return
 
-            st.session_state["logged_in"] = True
-            st.session_state["user"] = user
-            st.query_params.clear()
-            st.rerun()
-        except Exception as e:
-            st.session_state["login_error"] = f"Login failed: {e}"
-            st.query_params.clear()
-            st.rerun()
+    try:
+        token_data = exchange_code_for_token(code)
+        access_token = token_data["access_token"]
+        refresh_token = token_data.get("refresh_token", "")
+
+        user_info = get_user_info(access_token)
+
+        # Upsert user in Supabase (works for both login and blogger connect)
+        user = db.upsert_user(
+            email=user_info["email"],
+            name=user_info.get("name", ""),
+            picture=user_info.get("picture", ""),
+        )
+
+        st.session_state["logged_in"] = True
+        st.session_state["user"] = user
+        st.session_state["_oauth_processed"] = code
+
+        # If this was a Blogger connect flow, stash tokens for the connect_blog page
+        if state == "blogger_connect" and refresh_token:
+            st.session_state["_pending_blogger_refresh"] = refresh_token
+            st.session_state["_pending_blogger_access"] = access_token
+            st.session_state["_pending_page"] = "🔗 Connect Blog"
+
+        st.query_params.clear()
+        st.rerun()
+    except Exception as e:
+        st.session_state["login_error"] = f"Login failed: {e}"
+        st.query_params.clear()
+        st.rerun()
 
 
 def logout():
