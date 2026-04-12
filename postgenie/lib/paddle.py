@@ -9,7 +9,7 @@ PADDLE_API_URL = "https://api.paddle.com"
 
 
 def create_checkout_url(price_id: str, customer_email: str = "") -> str | None:
-    """Create a Paddle transaction and return the checkout URL."""
+    """Create a Paddle transaction and return the TRANSACTION ID."""
     if not PADDLE_API_KEY:
         return None
 
@@ -19,7 +19,6 @@ def create_checkout_url(price_id: str, customer_email: str = "") -> str | None:
 
     if customer_email:
         payload["customer"] = {"email": customer_email}
-        payload["checkout"] = {"url": "https://postgenie.trytimeback.com/"}
 
     try:
         resp = requests.post(
@@ -33,8 +32,9 @@ def create_checkout_url(price_id: str, customer_email: str = "") -> str | None:
         )
         resp.raise_for_status()
         data = resp.json()
-        checkout = data.get("data", {}).get("checkout", {})
-        return checkout.get("url", None)
+        # Return the transaction ID (not the overlay URL)
+        txn_id = data.get("data", {}).get("id", "")
+        return txn_id if txn_id else None
     except Exception as e:
-        print(f"[Paddle] Error creating checkout: {e}")
+        print(f"[Paddle] Error creating transaction: {e}")
         return None
