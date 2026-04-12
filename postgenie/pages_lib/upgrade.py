@@ -82,7 +82,7 @@ def render(user: dict):
             for feat in plan["features"]:
                 st.markdown(f"- {feat}")
 
-            if plan["btn"] and current_plan not in ("admin",):
+            if plan["btn"]:
                 email = user.get("email", "")
                 subject = f"PostGenie Upgrade to {plan['name']} Plan"
                 body = f"Hi, I would like to upgrade to the {plan['name']} plan (${plan['price']}/mo).\n\nAccount email: {email}\n\nThank you!"
