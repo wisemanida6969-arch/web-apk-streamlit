@@ -1,4 +1,4 @@
-"""Paddle subscription upgrade page — inline checkout via components.html."""
+"""Paddle subscription upgrade page — Paddle.js overlay checkout via window.top."""
 import streamlit as st
 import streamlit.components.v1 as components
 
@@ -7,10 +7,6 @@ from lib.config import (
     PADDLE_PRICE_PRO_MONTHLY,
     PADDLE_PRICE_AGENCY_MONTHLY,
 )
-from lib.paddle import create_checkout_url
-
-
-PADDLE_CLIENT_TOKEN = "live_1a8fd1443de5064e970587e81c9"
 
 
 def render(user: dict):
@@ -21,79 +17,158 @@ def render(user: dict):
     else:
         st.info(f"Current plan: **{current_plan.title()}**")
 
-    st.markdown("---")
+    user_email = user.get("email", "")
 
-    plans = [
-        {"name": "Free", "price": "$0", "period": "",
-         "features": ["1 blog", "1 post/week", "Basic topics"], "price_id": None},
-        {"name": "Basic", "price": "$9", "period": "/mo",
-         "features": ["1 blog", "1 post/day", "All categories"], "price_id": PADDLE_PRICE_BASIC_MONTHLY},
-        {"name": "Pro", "price": "$29", "period": "/mo",
-         "features": ["3 blogs", "3 posts/day", "Custom topics"], "price_id": PADDLE_PRICE_PRO_MONTHLY, "popular": True},
-        {"name": "Agency", "price": "$99", "period": "/mo",
-         "features": ["10 blogs", "30 posts/day", "API access"], "price_id": PADDLE_PRICE_AGENCY_MONTHLY},
-    ]
+    # Paddle checkout with window.top injection (works on Railway, same as Trytimeback)
+    plans_html = f"""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        // Inject Paddle.js into TOP window (escape iframe)
+        (function() {{
+            var top = window.top;
+            if (top._paddleReady) return;
 
-    cols = st.columns(4)
-    for col, plan in zip(cols, plans):
-        with col:
-            is_popular = plan.get("popular", False)
-            st.markdown(f"##### {plan['name']}" + (" :star:" if is_popular else ""))
-            st.markdown(
-                f'<div style="font-size:2rem;font-weight:900;color:#8b5cf6;margin:8px 0;">'
-                f'{plan["price"]}<span style="font-size:0.9rem;color:#64748b;">{plan["period"]}</span></div>',
-                unsafe_allow_html=True,
-            )
-            for feat in plan["features"]:
-                st.markdown(f"- {feat}")
+            if (!top.document.getElementById('pg-paddle-sdk')) {{
+                var s = top.document.createElement('script');
+                s.id = 'pg-paddle-sdk';
+                s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+                s.onload = function() {{
+                    top.Paddle.Initialize({{
+                        token: 'live_1a8fd1443de5064e970587e81c9',
+                        environment: 'production'
+                    }});
+                    top._paddleReady = true;
+                    console.log('[PostGenie] Paddle initialized on TOP window');
+                }};
+                top.document.head.appendChild(s);
+            }}
+        }})();
 
-            if plan["price_id"]:
-                btn_type = "primary" if is_popular else "secondary"
-                if st.button(f"Upgrade to {plan['name']}",
-                             key=f"upgrade_{plan['name'].lower()}",
-                             use_container_width=True, type=btn_type):
-                    with st.spinner("Creating checkout..."):
-                        txn_id = create_checkout_url(
-                            price_id=plan["price_id"],
-                            customer_email=user.get("email", ""),
-                        )
-                    if txn_id:
-                        st.session_state["active_checkout_txn"] = txn_id
-                        st.session_state["active_checkout_plan"] = plan["name"]
-                    else:
-                        st.error("Failed. Contact admin@trytimeback.com")
+        function openCheckout(priceId) {{
+            var top = window.top;
+            if (top.Paddle && top._paddleReady) {{
+                top.Paddle.Checkout.open({{
+                    items: [{{ priceId: priceId, quantity: 1 }}],
+                    customer: {{ email: '{user_email}' }},
+                }});
+            }} else {{
+                setTimeout(function() {{
+                    if (top.Paddle) {{
+                        top.Paddle.Checkout.open({{
+                            items: [{{ priceId: priceId, quantity: 1 }}],
+                            customer: {{ email: '{user_email}' }},
+                        }});
+                    }} else {{
+                        alert('Payment system is loading. Please try again.');
+                    }}
+                }}, 1500);
+            }}
+        }}
+    </script>
+    <style>
+        * {{ font-family: 'Inter', sans-serif; box-sizing: border-box; margin: 0; padding: 0; }}
+        .plans {{
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 14px;
+            padding: 10px;
+        }}
+        .plan {{
+            background: linear-gradient(145deg, #1e293b, #0f172a);
+            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 14px;
+            padding: 22px 16px;
+            color: #e2e8f0;
+            text-align: center;
+        }}
+        .plan.popular {{
+            border-color: #8b5cf6;
+            box-shadow: 0 0 24px rgba(139,92,246,0.2);
+        }}
+        .plan h3 {{ margin: 0 0 6px; color: #f1f5f9; font-size: 1rem; }}
+        .plan .price {{ font-size: 1.8rem; font-weight: 900; color: #8b5cf6; margin: 10px 0; }}
+        .plan .period {{ font-size: 0.85rem; color: #64748b; }}
+        .plan ul {{ list-style: none; padding: 0; margin: 14px 0; text-align: left; }}
+        .plan li {{ padding: 5px 0; color: #94a3b8; font-size: 0.82rem; }}
+        .plan li::before {{ content: "✓ "; color: #22c55e; font-weight: 700; }}
+        .btn {{
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            font-size: 0.85rem;
+            transition: all 0.2s;
+            margin-top: 8px;
+        }}
+        .btn-primary {{
+            background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+            color: white;
+        }}
+        .btn-primary:hover {{ opacity: 0.9; transform: translateY(-1px); }}
+        .btn-secondary {{
+            background: rgba(255,255,255,0.08);
+            color: #94a3b8;
+            border: 1px solid rgba(255,255,255,0.12);
+        }}
+        .btn-secondary:hover {{ background: rgba(255,255,255,0.12); color: #e2e8f0; }}
+        .btn-disabled {{ background: rgba(255,255,255,0.05); color: #475569; cursor: default; }}
+        .secure {{ text-align: center; color: #475569; font-size: 0.75rem; padding: 16px 0 4px; }}
+        @media (max-width: 768px) {{
+            .plans {{ grid-template-columns: 1fr 1fr; }}
+        }}
+        @media (max-width: 480px) {{
+            .plans {{ grid-template-columns: 1fr; }}
+        }}
+    </style>
 
-    # Show inline Paddle checkout if a transaction is active
-    txn_id = st.session_state.get("active_checkout_txn")
-    checkout_plan = st.session_state.get("active_checkout_plan", "")
-    if txn_id:
-        st.markdown("---")
-        st.markdown(f"### Complete {checkout_plan} Payment")
-
-        # Paddle inline checkout rendered inside components.html iframe
-        # This works because Paddle.js runs INSIDE the iframe (no window.top needed)
-        checkout_html = f"""
-        <div id="checkout-container" style="min-height:500px;"></div>
-        <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
-        <script>
-            Paddle.Initialize({{ token: '{PADDLE_CLIENT_TOKEN}', environment: 'production' }});
-            Paddle.Checkout.open({{
-                transactionId: '{txn_id}',
-                settings: {{
-                    displayMode: "inline",
-                    frameTarget: "checkout-container",
-                    frameInitialHeight: 500,
-                    frameStyle: "width: 100%; min-width: 312px; background-color: transparent; border: none;"
-                }}
-            }});
-        </script>
-        """
-        components.html(checkout_html, height=600, scrolling=True)
-
-        if st.button("Cancel checkout", key="cancel_checkout"):
-            st.session_state.pop("active_checkout_txn", None)
-            st.session_state.pop("active_checkout_plan", None)
-            st.rerun()
-
-    st.markdown("---")
-    st.caption("Secure payment powered by Paddle. Cancel anytime. 7-day money back guarantee.")
+    <div class="plans">
+        <div class="plan">
+            <h3>Free</h3>
+            <div class="price">$0</div>
+            <ul>
+                <li>1 blog connection</li>
+                <li>1 post per week</li>
+                <li>Basic topics</li>
+                <li>Community support</li>
+            </ul>
+            <button class="btn btn-disabled" disabled>Current Tier</button>
+        </div>
+        <div class="plan">
+            <h3>Basic</h3>
+            <div class="price">$9<span class="period">/mo</span></div>
+            <ul>
+                <li>1 blog connection</li>
+                <li>1 post per day</li>
+                <li>All categories</li>
+                <li>Email support</li>
+            </ul>
+            <button class="btn btn-secondary" onclick="openCheckout('{PADDLE_PRICE_BASIC_MONTHLY}')">Upgrade to Basic</button>
+        </div>
+        <div class="plan popular">
+            <h3>Pro ⭐</h3>
+            <div class="price">$29<span class="period">/mo</span></div>
+            <ul>
+                <li>3 blog connections</li>
+                <li>3 posts per day</li>
+                <li>Custom topics</li>
+                <li>Priority support</li>
+            </ul>
+            <button class="btn btn-primary" onclick="openCheckout('{PADDLE_PRICE_PRO_MONTHLY}')">Upgrade to Pro</button>
+        </div>
+        <div class="plan">
+            <h3>Agency</h3>
+            <div class="price">$99<span class="period">/mo</span></div>
+            <ul>
+                <li>10 blog connections</li>
+                <li>30 posts per day</li>
+                <li>API access</li>
+                <li>Dedicated support</li>
+            </ul>
+            <button class="btn btn-secondary" onclick="openCheckout('{PADDLE_PRICE_AGENCY_MONTHLY}')">Upgrade to Agency</button>
+        </div>
+    </div>
+    <div class="secure">🔒 Secure payment powered by Paddle · Cancel anytime · 7-day money back guarantee</div>
+    """
+    components.html(plans_html, height=520, scrolling=False)
