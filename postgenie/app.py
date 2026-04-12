@@ -114,6 +114,22 @@ st.markdown("""
 handle_oauth_callback()
 
 
+# ─── Legal Page Routing (available to everyone, logged in or not) ───
+_legal_page = st.query_params.get("page", "")
+if _legal_page in ("terms", "privacy", "cookies", "refund"):
+    from pages_lib.legal import render_legal_page, render_footer
+    render_legal_page(_legal_page)
+    # Back link
+    st.markdown(
+        '<div style="text-align:center; margin:20px 0;">'
+        '<a href="/" style="color:#8b5cf6; text-decoration:none;">← Back to PostGenie</a>'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+    render_footer()
+    st.stop()
+
+
 # ─── Not Logged In → Landing Page ───
 if not st.session_state.get("logged_in"):
     login_url = get_login_url()
@@ -213,7 +229,7 @@ if not st.session_state.get("logged_in"):
             </div>
             """, unsafe_allow_html=True)
 
-    # User Guide + Contact footer
+    # User Guide + Contact buttons
     st.markdown("""
     <div style="text-align:center; margin:40px 0 10px;">
         <a href="https://github.com/wisemanida6969-arch/web-apk-streamlit/raw/master/postgenie/docs/PostGenie_Guide.pdf"
@@ -240,10 +256,11 @@ if not st.session_state.get("logged_in"):
     <div style="text-align:center; margin:20px 0 10px; color:#64748b; font-size:0.8rem;">
         문의 / Support: <a href="mailto:admin@trytimeback.com" style="color:#8b5cf6; text-decoration:none;">admin@trytimeback.com</a>
     </div>
-    <div style="text-align:center; margin:10px 0 30px; color:#475569; font-size:0.75rem;">
-        © 2026 PostGenie. AI-Powered Blog Automation.
-    </div>
     """, unsafe_allow_html=True)
+
+    # Legal footer with Terms / Privacy / Cookie / Refund links
+    from pages_lib.legal import render_footer
+    render_footer()
 
     st.stop()
 
@@ -330,3 +347,7 @@ elif page == "📝 Posts":
 elif page == "💎 Upgrade":
     from pages_lib.upgrade import render as render_upgrade
     render_upgrade(user)
+
+# ─── Shared footer with legal links (for all dashboard pages) ───
+from pages_lib.legal import render_footer as _render_legal_footer
+_render_legal_footer()
