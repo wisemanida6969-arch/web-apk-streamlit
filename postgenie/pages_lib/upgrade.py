@@ -85,12 +85,14 @@ def render(user: dict):
                             customer_email=user.get("email", ""),
                         )
                     if checkout_url:
-                        st.success("Checkout ready!")
-                        st.link_button(
-                            f"Complete {plan['name']} Payment",
-                            checkout_url,
-                            use_container_width=True,
-                            type="primary",
+                        st.success("Checkout ready! Click the link below:")
+                        st.markdown(
+                            f'<a href="{checkout_url}" target="_blank" style="'
+                            f'display:block; text-align:center; background:linear-gradient(135deg,#8b5cf6,#3b82f6);'
+                            f'color:white; padding:14px 20px; border-radius:10px; text-decoration:none;'
+                            f'font-weight:700; font-size:1rem; margin-top:8px;'
+                            f'">Complete {plan["name"]} Payment →</a>',
+                            unsafe_allow_html=True,
                         )
                     else:
                         st.error("Failed to create checkout. Please try again or contact admin@trytimeback.com")
