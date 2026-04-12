@@ -130,7 +130,7 @@ if not st.session_state.get("logged_in"):
     col_a, col_b, col_c = st.columns([1, 1.5, 1])
     with col_b:
         st.link_button(
-            "Sign in with Google",
+            "Continue with Google →",
             login_url,
             use_container_width=True,
             type="primary",
