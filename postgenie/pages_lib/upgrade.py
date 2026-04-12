@@ -56,22 +56,48 @@ def render(user: dict):
         .btn:hover {{ opacity: 0.9; }}
         .btn.current {{ background: rgba(255,255,255,0.1); cursor: default; }}
     </style>
-    <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
     <script>
-        window.addEventListener('load', function() {{
-            if (window.Paddle) {{
-                Paddle.Initialize({{ token: 'live_1a8fd1443de5064e970587e81c9', environment: 'production' }});
+        // Inject Paddle.js into the TOP window (escape iframe)
+        (function() {{
+            var top = window.top;
+            if (top._paddleReady) return;
+
+            if (!top.document.getElementById('pg-paddle-sdk')) {{
+                var s = top.document.createElement('script');
+                s.id = 'pg-paddle-sdk';
+                s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+                s.onload = function() {{
+                    top.Paddle.Initialize({{
+                        token: 'live_1a8fd1443de5064e970587e81c9',
+                        environment: 'production'
+                    }});
+                    top._paddleReady = true;
+                    console.log('[PostGenie] Paddle initialized on TOP window');
+                }};
+                top.document.head.appendChild(s);
             }}
-        }});
+        }})();
+
         function openCheckout(priceId) {{
-            if (window.Paddle) {{
-                Paddle.Checkout.open({{
+            var top = window.top;
+            if (top.Paddle && top._paddleReady) {{
+                top.Paddle.Checkout.open({{
                     items: [{{ priceId: priceId, quantity: 1 }}],
                     customer: {{ email: '{user.get("email", "")}' }},
                 }});
             }} else {{
-                alert('Payment system loading, try again in a moment.');
+                setTimeout(function() {{
+                    if (top.Paddle) {{
+                        top.Paddle.Checkout.open({{
+                            items: [{{ priceId: priceId, quantity: 1 }}],
+                            customer: {{ email: '{user.get("email", "")}' }},
+                        }});
+                    }} else {{
+                        alert('Payment system is loading. Please try again in a moment.');
+                    }}
+                }}, 1500);
             }}
+        }}
         }}
     </script>
     <div class="plans">
