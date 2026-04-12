@@ -126,11 +126,39 @@ if not st.session_state.get("logged_in"):
     </div>
     """, unsafe_allow_html=True)
 
-    # Sign in button — plain st.link_button (reliable, default styling)
+    # Sign in button — clean, highly visible text button
+    st.markdown("""
+    <style>
+        /* Make the primary link button more prominent */
+        div[data-testid="stLinkButton"] a,
+        a[data-testid="stBaseLinkButton-primary"],
+        a[data-testid="stBaseLinkButton-secondary"] {
+            background: linear-gradient(135deg, #8b5cf6, #3b82f6) !important;
+            color: #ffffff !important;
+            border: none !important;
+            font-size: 1.1rem !important;
+            font-weight: 700 !important;
+            padding: 16px 32px !important;
+            border-radius: 12px !important;
+            box-shadow: 0 4px 20px rgba(139, 92, 246, 0.4) !important;
+            letter-spacing: 0.02em !important;
+            transition: all 0.2s ease !important;
+        }
+        div[data-testid="stLinkButton"] a:hover,
+        a[data-testid="stBaseLinkButton-primary"]:hover,
+        a[data-testid="stBaseLinkButton-secondary"]:hover {
+            background: linear-gradient(135deg, #7c3aed, #2563eb) !important;
+            color: #ffffff !important;
+            box-shadow: 0 6px 28px rgba(139, 92, 246, 0.6) !important;
+            transform: translateY(-2px) !important;
+        }
+    </style>
+    """, unsafe_allow_html=True)
+
     col_a, col_b, col_c = st.columns([1, 1.5, 1])
     with col_b:
         st.link_button(
-            "Continue with Google →",
+            "Sign in with Google",
             login_url,
             use_container_width=True,
             type="primary",
