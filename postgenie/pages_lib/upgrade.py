@@ -60,7 +60,7 @@ def render(user: dict):
     <script>
         window.addEventListener('load', function() {{
             if (window.Paddle) {{
-                Paddle.Initialize({{ token: 'live_YOUR_CLIENT_TOKEN', environment: 'production' }});
+                Paddle.Initialize({{ token: 'live_1a8fd1443de5064e970587e81c9', environment: 'production' }});
             }}
         }});
         function openCheckout(priceId) {{
