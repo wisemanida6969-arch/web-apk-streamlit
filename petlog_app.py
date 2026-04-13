@@ -2,10 +2,13 @@
 PetLog AI — 반려동물 AI 건강 일지 SaaS
 Phase 1: Google 로그인 + 반려동물 프로필 등록 + 메인 대시보드
 Phase 2: 매일 건강 체크 + 캘린더 보기 + 이상 증상 경고
+Phase 3: Claude AI 사진 분석 + 월별 건강 리포트
 """
 import streamlit as st
 import sqlite3
 import os
+import json
+import base64
 import calendar as pycal
 import requests
 from datetime import datetime, date, timedelta
@@ -17,7 +20,7 @@ from pathlib import Path
 # ══════════════════════════════════════
 APP_NAME = "PetLog AI"
 APP_DOMAIN = "petlog.trytimeback.com"
-APP_VERSION = "2026-04-13-phase1"
+APP_VERSION = "2026-04-13-phase3"
 
 st.set_page_config(
     page_title=f"{APP_NAME} — 반려동물 AI 건강 일지",
@@ -68,6 +71,21 @@ def init_db():
             emoji TEXT,
             created_at TEXT,
             FOREIGN KEY(user_email) REFERENCES users(email)
+        );
+        CREATE TABLE IF NOT EXISTS photo_analyses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pet_id INTEGER NOT NULL,
+            user_email TEXT NOT NULL,
+            photo_path TEXT,
+            analysis_text TEXT,
+            eye_score INTEGER,
+            coat_score INTEGER,
+            body_score INTEGER,
+            activity_score INTEGER,
+            alert_level INTEGER DEFAULT 0,
+            concerns TEXT,
+            created_at TEXT,
+            FOREIGN KEY(pet_id) REFERENCES pets(id)
         );
         CREATE TABLE IF NOT EXISTS daily_logs (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -222,7 +240,248 @@ def count_logs_today(email: str) -> int:
         return int(row["c"]) if row else 0
 
 
+# ── 사진 분석 DB ──
+PHOTO_DIR = Path(get_secret("PETLOG_PHOTO_DIR", "petlog_photos"))
+PHOTO_DIR.mkdir(exist_ok=True)
+
+
+def save_photo_analysis(pet_id: int, email: str, photo_path: str,
+                        analysis: dict):
+    with db_conn() as conn:
+        conn.execute(
+            """INSERT INTO photo_analyses
+               (pet_id, user_email, photo_path, analysis_text,
+                eye_score, coat_score, body_score, activity_score,
+                alert_level, concerns, created_at)
+               VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
+            (pet_id, email, photo_path,
+             analysis.get("summary", ""),
+             int(analysis.get("eye_score", 0) or 0),
+             int(analysis.get("coat_score", 0) or 0),
+             int(analysis.get("body_score", 0) or 0),
+             int(analysis.get("activity_score", 0) or 0),
+             int(analysis.get("alert_level", 0) or 0),
+             json.dumps(analysis.get("concerns", []), ensure_ascii=False),
+             datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+
+
+def list_photo_analyses(pet_id: int, limit: int = 20):
+    with db_conn() as conn:
+        rows = conn.execute(
+            """SELECT * FROM photo_analyses WHERE pet_id=?
+               ORDER BY created_at DESC LIMIT ?""",
+            (pet_id, limit),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def count_photo_analyses_today(email: str) -> int:
+    today = date.today().isoformat()
+    with db_conn() as conn:
+        row = conn.execute(
+            """SELECT COUNT(*) AS c FROM photo_analyses
+               WHERE user_email=? AND created_at LIKE ?""",
+            (email, f"{today}%"),
+        ).fetchone()
+        return int(row["c"]) if row else 0
+
+
+def get_photo_analyses_in_month(pet_id: int, year: int, month: int):
+    start = date(year, month, 1).isoformat()
+    last_day = pycal.monthrange(year, month)[1]
+    end = (date(year, month, last_day) + timedelta(days=1)).isoformat()
+    with db_conn() as conn:
+        rows = conn.execute(
+            """SELECT * FROM photo_analyses
+               WHERE pet_id=? AND created_at >= ? AND created_at < ?
+               ORDER BY created_at DESC""",
+            (pet_id, start, end),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
 init_db()
+
+
+# ══════════════════════════════════════
+# Claude AI 사진 분석
+# ══════════════════════════════════════
+ANTHROPIC_API_KEY = get_secret("ANTHROPIC_API_KEY", "")
+
+
+def analyze_pet_photo(image_bytes: bytes, media_type: str, pet: dict) -> dict:
+    """Claude vision으로 반려동물 사진 건강 분석.
+
+    반환: {summary, eye_score, coat_score, body_score, activity_score,
+           alert_level, concerns: [str]}
+    """
+    if not ANTHROPIC_API_KEY:
+        raise RuntimeError(
+            "ANTHROPIC_API_KEY가 설정되지 않았습니다. Streamlit secrets에 추가해주세요."
+        )
+
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        raise RuntimeError("anthropic 패키지가 설치되지 않았습니다. requirements.txt 확인.")
+
+    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+    b64 = base64.standard_b64encode(image_bytes).decode("utf-8")
+
+    system_prompt = (
+        "You are a compassionate veterinary assistant AI. "
+        "Analyze the uploaded pet photo and assess visible health indicators. "
+        "Always respond in Korean. Be warm but honest. "
+        "Output ONLY valid JSON — no prose, no code fences."
+    )
+
+    user_prompt = f"""
+이 반려동물 사진을 보고 건강 상태를 분석해주세요.
+
+반려동물 정보:
+- 이름: {pet.get('name')}
+- 종류: {pet.get('species')}
+- 품종: {pet.get('breed') or '미상'}
+- 나이: {pet.get('age_years')}살
+- 몸무게: {pet.get('weight_kg')}kg
+
+다음 JSON 형식으로만 응답하세요:
+{{
+  "summary": "전반적 건강 평가 (2-3문장, 따뜻한 말투)",
+  "eye_score": 1-10 정수 (눈 상태: 맑음/충혈/분비물 등),
+  "coat_score": 1-10 정수 (털 상태: 윤기/빠짐/탈모),
+  "body_score": 1-10 정수 (체형: 마름/비만/적정),
+  "activity_score": 1-10 정수 (사진 속 활기/자세),
+  "alert_level": 0|1|2 (0=정상, 1=주의, 2=경고: 병원 방문 필요),
+  "concerns": ["관찰된 우려 사항 1", "우려 사항 2"],
+  "recommendations": ["권장 사항 1", "권장 사항 2"]
+}}
+
+사진에서 명확히 보이지 않는 항목은 5점(보통)으로 평가하고, concerns에
+"사진으로는 판단이 어려워요"라고 써주세요.
+""".strip()
+
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1200,
+        system=system_prompt,
+        messages=[{
+            "role": "user",
+            "content": [
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": media_type,
+                        "data": b64,
+                    },
+                },
+                {"type": "text", "text": user_prompt},
+            ],
+        }],
+    )
+
+    text = resp.content[0].text.strip()
+    # JSON 코드 펜스 제거
+    if text.startswith("```"):
+        text = text.split("```", 2)[1]
+        if text.startswith("json"):
+            text = text[4:]
+        text = text.strip()
+
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        # fallback: 줄 내용을 요약으로
+        data = {
+            "summary": text[:500],
+            "eye_score": 5, "coat_score": 5, "body_score": 5,
+            "activity_score": 5, "alert_level": 0,
+            "concerns": ["AI 응답 파싱에 실패했어요. 원문을 확인해주세요."],
+            "recommendations": [],
+        }
+    return data
+
+
+def generate_monthly_report_text(pet: dict, logs: list, analyses: list,
+                                 year: int, month: int) -> str:
+    """Claude로 월별 종합 건강 리포트 텍스트 생성."""
+    if not ANTHROPIC_API_KEY:
+        return _fallback_report(pet, logs, analyses, year, month)
+
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return _fallback_report(pet, logs, analyses, year, month)
+
+    client = Anthropic(api_key=ANTHROPIC_API_KEY)
+
+    logs_summary = [
+        {
+            "date": l["log_date"],
+            "appetite": l.get("appetite"),
+            "activity": l.get("activity"),
+            "stool": l.get("stool"),
+            "notes": (l.get("notes") or "")[:200],
+            "alert_level": l.get("alert_level", 0),
+        }
+        for l in logs
+    ]
+    analyses_summary = [
+        {
+            "date": a["created_at"][:10],
+            "summary": (a.get("analysis_text") or "")[:300],
+            "eye_score": a.get("eye_score"),
+            "coat_score": a.get("coat_score"),
+            "body_score": a.get("body_score"),
+            "activity_score": a.get("activity_score"),
+            "alert_level": a.get("alert_level", 0),
+        }
+        for a in analyses
+    ]
+
+    prompt = f"""
+아래는 반려동물 {pet['name']} ({pet['species']}, {pet.get('breed') or '품종 미상'},
+{pet.get('age_years')}살)의 {year}년 {month}월 건강 기록이에요.
+
+일별 건강 체크 ({len(logs)}건):
+{json.dumps(logs_summary, ensure_ascii=False, indent=2)}
+
+AI 사진 분석 기록 ({len(analyses)}건):
+{json.dumps(analyses_summary, ensure_ascii=False, indent=2)}
+
+이 데이터를 바탕으로 한국어로 월별 종합 건강 리포트를 작성해주세요.
+따뜻하고 친근한 말투로, 반려인이 읽기 쉽게 4-6개 문단으로요.
+다음 내용을 포함해주세요:
+1. 이번 달 전반적 건강 상태 요약
+2. 긍정적인 변화 또는 잘 관리된 부분
+3. 주의가 필요했던 부분 (있다면)
+4. 다음 달을 위한 따뜻한 제안
+
+마크다운은 사용하지 말고 일반 텍스트로만 써주세요.
+""".strip()
+
+    resp = client.messages.create(
+        model="claude-haiku-4-5-20251001",
+        max_tokens=1500,
+        messages=[{"role": "user", "content": prompt}],
+    )
+    return resp.content[0].text.strip()
+
+
+def _fallback_report(pet, logs, analyses, year, month) -> str:
+    n_logs = len(logs)
+    n_ana = len(analyses)
+    alerts = sum(1 for l in logs if l.get("alert_level", 0) >= 2)
+    warns = sum(1 for l in logs if l.get("alert_level", 0) == 1)
+    return (
+        f"🐾 {pet['name']}의 {year}년 {month}월 건강 요약\n\n"
+        f"이번 달 건강 체크 {n_logs}건, AI 사진 분석 {n_ana}건을 기록했어요.\n"
+        f"정상 {n_logs - alerts - warns}일 · 주의 {warns}일 · 경고 {alerts}일.\n\n"
+        "(AI 종합 리포트는 ANTHROPIC_API_KEY를 설정하면 활성화됩니다.)"
+    )
 
 
 # ══════════════════════════════════════
@@ -471,6 +730,47 @@ st.markdown("""
         color: #8A6A20; font-weight: 600;
     }
 
+    /* AI 스코어 바 */
+    .score-row {
+        display:flex; gap:10px; margin: 12px 0;
+        flex-wrap: wrap;
+    }
+    .score-item {
+        flex:1; min-width: 140px;
+        background: rgba(255,255,255,0.7);
+        border-radius: 14px; padding: 12px 14px;
+        border: 1px solid #FFE0E0;
+    }
+    .score-label { font-size:0.82rem; color:#8B6F6F; margin-bottom:6px; font-weight:600;}
+    .score-bar-wrap {
+        height: 8px; background: #FFEBEB; border-radius: 4px; overflow:hidden;
+        margin-top: 4px;
+    }
+    .score-bar-fill {
+        height: 100%; border-radius: 4px;
+        background: linear-gradient(90deg, #FFB5A7, #FFA6C1);
+    }
+    .score-value { font-size: 1.15rem; font-weight: 800; color: #6B4A4A; }
+
+    .concern-pill {
+        display:inline-block; background:#FFECEC; color:#8B4A4A;
+        padding:4px 10px; border-radius:10px; font-size:0.82rem;
+        margin:3px 4px 3px 0; border:1px solid #FFD0D0;
+    }
+    .rec-pill {
+        display:inline-block; background:#FFF6E8; color:#8A6A20;
+        padding:4px 10px; border-radius:10px; font-size:0.82rem;
+        margin:3px 4px 3px 0; border:1px solid #F1D89B;
+    }
+
+    .report-box {
+        background: linear-gradient(135deg, #FFF9F0 0%, #FFF0F5 100%);
+        border-radius: 18px; padding: 24px 26px;
+        border: 1px solid #FFD6D6;
+        line-height: 1.9; color: #5B4A4A;
+        white-space: pre-wrap;
+    }
+
     /* 푸터 */
     .petlog-footer {
         text-align: center; color: #B89898; font-size: 0.85rem;
@@ -688,6 +988,7 @@ def render_dashboard():
 
     # 통계
     today_count = count_logs_today(email)
+    photo_count = count_photo_analyses_today(email)
     st.markdown(f"""
     <div class="stat-row">
         <div class="stat-box">
@@ -699,7 +1000,7 @@ def render_dashboard():
             <div class="stat-lbl">📝 오늘 기록</div>
         </div>
         <div class="stat-box">
-            <div class="stat-num">0</div>
+            <div class="stat-num">{photo_count}</div>
             <div class="stat-lbl">📸 사진 분석</div>
         </div>
     </div>
@@ -717,7 +1018,7 @@ def render_dashboard():
     <div class="petlog-card" style="background:rgba(255,240,230,0.6);">
         <div style="font-weight:800; color:#6B4A4A; margin-bottom:10px;">🚧 곧 만나요!</div>
         <div style="color:#9B7A7A; line-height:1.9;">
-            📸 AI 사진 분석 · 📊 월별 리포트
+            💳 Paddle 결제 연동 (월 9,900원) · 🔔 이메일 알림
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -918,6 +1219,281 @@ def render_calendar(pet: dict):
         """, unsafe_allow_html=True)
 
 
+def _score_bar_html(label: str, emoji: str, score) -> str:
+    try:
+        s = int(score or 0)
+    except (TypeError, ValueError):
+        s = 0
+    s = max(0, min(10, s))
+    pct = s * 10
+    return (
+        f'<div class="score-item">'
+        f'<div class="score-label">{emoji} {label}</div>'
+        f'<div class="score-value">{s}/10</div>'
+        f'<div class="score-bar-wrap"><div class="score-bar-fill" style="width:{pct}%"></div></div>'
+        f'</div>'
+    )
+
+
+def render_analysis_result(analysis: dict):
+    alert_level = int(analysis.get("alert_level", 0) or 0)
+    if alert_level == 2:
+        st.markdown(f"""
+        <div class="alert-banner">
+            🚨 <b>이상 징후가 발견되었어요!</b><br>
+            <span style="font-weight:500;">AI 분석 결과 병원 방문이 권장됩니다. 수의사와 상담하세요.</span>
+        </div>
+        """, unsafe_allow_html=True)
+    elif alert_level == 1:
+        st.markdown("""
+        <div class="warn-banner">
+            ⚠️ <b>조금 주의가 필요해 보여요.</b> 상태를 지켜보시고 컨디션이 계속되면 병원에 문의해주세요.
+        </div>
+        """, unsafe_allow_html=True)
+
+    # 요약
+    summary = analysis.get("summary", "") or "(요약 없음)"
+    st.markdown(f"""
+    <div class="petlog-card">
+        <div style="font-weight:800;color:#6B4A4A;margin-bottom:10px;">🤖 AI 종합 평가</div>
+        <div style="color:#5B4A4A;line-height:1.8;">{summary}</div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    # 스코어 바
+    bars = (
+        _score_bar_html("눈 상태", "👁️", analysis.get("eye_score"))
+        + _score_bar_html("털 상태", "🧶", analysis.get("coat_score"))
+        + _score_bar_html("체형", "⚖️", analysis.get("body_score"))
+        + _score_bar_html("활동성", "🏃", analysis.get("activity_score"))
+    )
+    st.markdown(f'<div class="score-row">{bars}</div>', unsafe_allow_html=True)
+
+    # 우려 / 권장
+    concerns = analysis.get("concerns") or []
+    if isinstance(concerns, str):
+        try:
+            concerns = json.loads(concerns)
+        except Exception:
+            concerns = [concerns]
+    if concerns:
+        pills = "".join(f'<span class="concern-pill">⚠️ {c}</span>' for c in concerns)
+        st.markdown(f"""
+        <div class="petlog-card">
+            <div style="font-weight:700;color:#6B4A4A;margin-bottom:8px;">🔎 관찰된 점</div>
+            {pills}
+        </div>
+        """, unsafe_allow_html=True)
+
+    recs = analysis.get("recommendations") or []
+    if recs:
+        pills = "".join(f'<span class="rec-pill">💡 {r}</span>' for r in recs)
+        st.markdown(f"""
+        <div class="petlog-card">
+            <div style="font-weight:700;color:#6B4A4A;margin-bottom:8px;">💝 권장 사항</div>
+            {pills}
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def render_photo_analysis_tab(pet: dict, email: str):
+    pet_id = pet["id"]
+
+    st.markdown(f"#### 📸 {pet['name']}의 사진으로 건강 체크")
+    st.markdown(
+        '<div style="color:#8B6F6F;margin-bottom:12px;">'
+        '또렷한 얼굴/전신 사진을 올려주시면 Claude AI가 눈·털·체형·활동성을 분석해드려요.'
+        '</div>',
+        unsafe_allow_html=True,
+    )
+
+    uploaded = st.file_uploader(
+        "사진 업로드",
+        type=["jpg", "jpeg", "png", "webp"],
+        key=f"upl_{pet_id}",
+        label_visibility="collapsed",
+    )
+
+    if uploaded is not None:
+        image_bytes = uploaded.getvalue()
+        st.image(image_bytes, caption=f"{pet['emoji']} {pet['name']}", width=320)
+
+        if st.button("🤖 Claude AI로 분석하기", type="primary",
+                     key=f"ana_{pet_id}", use_container_width=True):
+            with st.spinner("🐾 AI가 사진을 살펴보고 있어요..."):
+                try:
+                    mt = uploaded.type or "image/jpeg"
+                    if mt == "image/jpg":
+                        mt = "image/jpeg"
+                    analysis = analyze_pet_photo(image_bytes, mt, pet)
+
+                    # 사진 저장
+                    ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
+                    ext = uploaded.name.rsplit(".", 1)[-1].lower() if "." in uploaded.name else "jpg"
+                    path = PHOTO_DIR / f"{pet_id}_{ts}.{ext}"
+                    path.write_bytes(image_bytes)
+
+                    save_photo_analysis(pet_id, email, str(path), analysis)
+                    st.session_state[f"last_ana_{pet_id}"] = analysis
+                    st.rerun()
+                except Exception as e:
+                    st.error(f"분석 실패: {e}")
+
+    # 마지막 분석 결과
+    last = st.session_state.get(f"last_ana_{pet_id}")
+    if last:
+        st.markdown("---")
+        st.markdown("### 🔍 방금 분석 결과")
+        render_analysis_result(last)
+
+    # 이전 분석 기록
+    history = list_photo_analyses(pet_id, limit=10)
+    if history:
+        st.markdown("---")
+        st.markdown("#### 📚 이전 AI 분석 기록")
+        for h in history:
+            concerns = h.get("concerns") or "[]"
+            try:
+                concerns_list = json.loads(concerns)
+            except Exception:
+                concerns_list = []
+            lvl = h.get("alert_level", 0)
+            emoji = "✅" if lvl == 0 else ("⚠️" if lvl == 1 else "🚨")
+            bg = "#F5FBF5" if lvl == 0 else ("#FFF9E9" if lvl == 1 else "#FFF0F0")
+            date_str = (h.get("created_at") or "")[:10]
+            with st.expander(f"{emoji} {date_str} — 눈 {h.get('eye_score','?')}/10 · "
+                             f"털 {h.get('coat_score','?')}/10 · "
+                             f"체형 {h.get('body_score','?')}/10 · "
+                             f"활동 {h.get('activity_score','?')}/10"):
+                if h.get("photo_path") and Path(h["photo_path"]).exists():
+                    try:
+                        st.image(h["photo_path"], width=240)
+                    except Exception:
+                        pass
+                st.markdown(
+                    f'<div style="background:{bg};padding:12px 14px;border-radius:10px;'
+                    f'color:#5B4A4A;line-height:1.7;">'
+                    f'{h.get("analysis_text","")}'
+                    f'</div>',
+                    unsafe_allow_html=True,
+                )
+                if concerns_list:
+                    st.markdown(
+                        "".join(f'<span class="concern-pill">⚠️ {c}</span>'
+                                for c in concerns_list),
+                        unsafe_allow_html=True,
+                    )
+
+
+def render_monthly_report_tab(pet: dict, email: str):
+    pet_id = pet["id"]
+    today = date.today()
+
+    rkey = f"rep_{pet_id}"
+    if rkey not in st.session_state:
+        st.session_state[rkey] = (today.year, today.month)
+    year, month = st.session_state[rkey]
+
+    c1, c2, c3 = st.columns([1, 3, 1])
+    with c1:
+        if st.button("◀", key=f"rprev_{pet_id}"):
+            y, m = year, month - 1
+            if m < 1:
+                y, m = y - 1, 12
+            st.session_state[rkey] = (y, m)
+            st.rerun()
+    with c2:
+        st.markdown(
+            f"<div style='text-align:center;font-weight:800;color:#6B4A4A;"
+            f"font-size:1.25rem;'>📊 {year}년 {month}월 건강 리포트</div>",
+            unsafe_allow_html=True,
+        )
+    with c3:
+        allow_next = not (year == today.year and month == today.month)
+        if st.button("▶", key=f"rnext_{pet_id}", disabled=not allow_next):
+            y, m = year, month + 1
+            if m > 12:
+                y, m = y + 1, 1
+            st.session_state[rkey] = (y, m)
+            st.rerun()
+
+    logs = list(get_logs_in_month(pet_id, year, month).values())
+    analyses = get_photo_analyses_in_month(pet_id, year, month)
+
+    total_days = pycal.monthrange(year, month)[1]
+    n_logs = len(logs)
+    n_ana = len(analyses)
+    alerts = sum(1 for l in logs if l.get("alert_level", 0) >= 2)
+    warns = sum(1 for l in logs if l.get("alert_level", 0) == 1)
+    ok = n_logs - alerts - warns
+    coverage = int((n_logs / total_days) * 100) if total_days else 0
+
+    # 통계 카드
+    st.markdown(f"""
+    <div class="stat-row">
+        <div class="stat-box">
+            <div class="stat-num">{coverage}%</div>
+            <div class="stat-lbl">📅 기록 커버리지</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-num" style="color:#4A8A5C;">{ok}</div>
+            <div class="stat-lbl">✅ 정상일</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-num" style="color:#A07A20;">{warns}</div>
+            <div class="stat-lbl">⚠️ 주의일</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-num" style="color:#B5484A;">{alerts}</div>
+            <div class="stat-lbl">🚨 경고일</div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
+
+    if n_logs == 0 and n_ana == 0:
+        st.markdown("""
+        <div class="petlog-card" style="text-align:center;color:#9B7A7A;">
+            이 달에는 아직 기록이 없어요 🐾<br>
+            건강 체크나 사진 분석을 먼저 진행해주세요.
+        </div>
+        """, unsafe_allow_html=True)
+        return
+
+    # AI 요약
+    report_cache_key = f"reptxt_{pet_id}_{year}_{month}"
+    if st.button("🤖 AI 월간 종합 리포트 생성하기",
+                 type="primary", use_container_width=True,
+                 key=f"genrep_{pet_id}_{year}_{month}"):
+        with st.spinner("📝 Claude가 이번 달을 정리하고 있어요..."):
+            try:
+                text = generate_monthly_report_text(pet, logs, analyses, year, month)
+                st.session_state[report_cache_key] = text
+            except Exception as e:
+                st.error(f"리포트 생성 실패: {e}")
+
+    report_text = st.session_state.get(report_cache_key)
+    if report_text:
+        st.markdown("#### 💌 AI가 쓴 이번 달 이야기")
+        st.markdown(f'<div class="report-box">{report_text}</div>',
+                    unsafe_allow_html=True)
+
+    # AI 사진 평균 점수
+    if analyses:
+        def _avg(key):
+            vals = [a.get(key) for a in analyses if a.get(key) is not None]
+            return round(sum(vals) / len(vals), 1) if vals else 0
+
+        st.markdown("#### 📸 이번 달 AI 사진 분석 평균")
+        bars = (
+            _score_bar_html("눈 상태", "👁️", _avg("eye_score"))
+            + _score_bar_html("털 상태", "🧶", _avg("coat_score"))
+            + _score_bar_html("체형", "⚖️", _avg("body_score"))
+            + _score_bar_html("활동성", "🏃", _avg("activity_score"))
+        )
+        st.markdown(f'<div class="score-row">{bars}</div>',
+                    unsafe_allow_html=True)
+
+
 def render_health_page():
     user = st.session_state["user_info"]
     email = user["email"]
@@ -948,13 +1524,21 @@ def render_health_page():
     if today_log:
         render_alert_banner(today_log.get("alert_level", 0), pet["name"])
 
-    # 입력 폼
-    st.markdown('<div class="petlog-card">', unsafe_allow_html=True)
-    render_health_form(pet, email)
-    st.markdown('</div>', unsafe_allow_html=True)
+    tab_daily, tab_photo, tab_report = st.tabs(
+        ["📝 매일 체크", "📸 AI 사진 분석", "📊 월별 리포트"]
+    )
 
-    # 캘린더
-    render_calendar(pet)
+    with tab_daily:
+        st.markdown('<div class="petlog-card">', unsafe_allow_html=True)
+        render_health_form(pet, email)
+        st.markdown('</div>', unsafe_allow_html=True)
+        render_calendar(pet)
+
+    with tab_photo:
+        render_photo_analysis_tab(pet, email)
+
+    with tab_report:
+        render_monthly_report_tab(pet, email)
 
 
 # ══════════════════════════════════════
