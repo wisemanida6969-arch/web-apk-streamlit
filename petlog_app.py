@@ -3,6 +3,7 @@ PetLog AI — 반려동물 AI 건강 일지 SaaS
 Phase 1: Google 로그인 + 반려동물 프로필 등록 + 메인 대시보드
 Phase 2: 매일 건강 체크 + 캘린더 보기 + 이상 증상 경고
 Phase 3: Claude AI 사진 분석 + 월별 건강 리포트
+Phase 4: Paddle 구독 결제 (월 9,900원) + 플랜 제한
 """
 import streamlit as st
 import sqlite3
@@ -20,7 +21,19 @@ from pathlib import Path
 # ══════════════════════════════════════
 APP_NAME = "PetLog AI"
 APP_DOMAIN = "petlog.trytimeback.com"
-APP_VERSION = "2026-04-13-phase3"
+APP_VERSION = "2026-04-13-phase4"
+
+# ─── Plans ───
+FREE_MAX_PETS = 1
+FREE_MAX_PHOTOS_PER_MONTH = 3
+PRO_PRICE_KRW = 9900
+
+ADMIN_EMAILS = [
+    e.strip().lower() for e in
+    os.environ.get("PETLOG_ADMIN_EMAILS",
+                   "wisemanida6969@gmail.com").split(",")
+    if e.strip()
+]
 
 st.set_page_config(
     page_title=f"{APP_NAME} — 반려동물 AI 건강 일지",
@@ -70,6 +83,18 @@ def init_db():
             weight_kg REAL,
             emoji TEXT,
             created_at TEXT,
+            FOREIGN KEY(user_email) REFERENCES users(email)
+        );
+        CREATE TABLE IF NOT EXISTS subscriptions (
+            user_email TEXT PRIMARY KEY,
+            plan TEXT DEFAULT 'free',
+            status TEXT,
+            paddle_customer_id TEXT,
+            paddle_subscription_id TEXT,
+            paddle_transaction_id TEXT,
+            current_period_end TEXT,
+            cancel_at_period_end INTEGER DEFAULT 0,
+            updated_at TEXT,
             FOREIGN KEY(user_email) REFERENCES users(email)
         );
         CREATE TABLE IF NOT EXISTS photo_analyses (
@@ -302,6 +327,218 @@ def get_photo_analyses_in_month(pet_id: int, year: int, month: int):
         return [dict(r) for r in rows]
 
 
+def count_photo_analyses_this_month(pet_id_or_email, by: str = "email") -> int:
+    """이번 달 사진 분석 횟수. by='email' 또는 'pet'"""
+    today = date.today()
+    start = date(today.year, today.month, 1).isoformat()
+    last_day = pycal.monthrange(today.year, today.month)[1]
+    end = (date(today.year, today.month, last_day) + timedelta(days=1)).isoformat()
+    with db_conn() as conn:
+        if by == "email":
+            row = conn.execute(
+                """SELECT COUNT(*) AS c FROM photo_analyses
+                   WHERE user_email=? AND created_at >= ? AND created_at < ?""",
+                (pet_id_or_email, start, end),
+            ).fetchone()
+        else:
+            row = conn.execute(
+                """SELECT COUNT(*) AS c FROM photo_analyses
+                   WHERE pet_id=? AND created_at >= ? AND created_at < ?""",
+                (pet_id_or_email, start, end),
+            ).fetchone()
+        return int(row["c"]) if row else 0
+
+
+# ── 구독 / 플랜 ──
+def get_subscription(email: str) -> dict:
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM subscriptions WHERE user_email=?", (email,)
+        ).fetchone()
+        return dict(row) if row else {}
+
+
+def upsert_subscription(email: str, **fields):
+    sub = get_subscription(email)
+    data = {
+        "user_email": email,
+        "plan": sub.get("plan", "free"),
+        "status": sub.get("status"),
+        "paddle_customer_id": sub.get("paddle_customer_id"),
+        "paddle_subscription_id": sub.get("paddle_subscription_id"),
+        "paddle_transaction_id": sub.get("paddle_transaction_id"),
+        "current_period_end": sub.get("current_period_end"),
+        "cancel_at_period_end": sub.get("cancel_at_period_end", 0),
+    }
+    data.update(fields)
+    data["updated_at"] = datetime.utcnow().isoformat()
+    with db_conn() as conn:
+        conn.execute("""
+            INSERT INTO subscriptions
+              (user_email, plan, status, paddle_customer_id,
+               paddle_subscription_id, paddle_transaction_id,
+               current_period_end, cancel_at_period_end, updated_at)
+            VALUES(:user_email, :plan, :status, :paddle_customer_id,
+                   :paddle_subscription_id, :paddle_transaction_id,
+                   :current_period_end, :cancel_at_period_end, :updated_at)
+            ON CONFLICT(user_email) DO UPDATE SET
+              plan=excluded.plan,
+              status=excluded.status,
+              paddle_customer_id=excluded.paddle_customer_id,
+              paddle_subscription_id=excluded.paddle_subscription_id,
+              paddle_transaction_id=excluded.paddle_transaction_id,
+              current_period_end=excluded.current_period_end,
+              cancel_at_period_end=excluded.cancel_at_period_end,
+              updated_at=excluded.updated_at
+        """, data)
+        conn.commit()
+
+
+def is_admin(email: str) -> bool:
+    return (email or "").strip().lower() in ADMIN_EMAILS
+
+
+def get_user_plan(email: str) -> str:
+    """admin / pro / free"""
+    if is_admin(email):
+        return "admin"
+    sub = get_subscription(email)
+    if not sub:
+        return "free"
+    plan = sub.get("plan", "free")
+    status = (sub.get("status") or "").lower()
+    # active, trialing, past_due까지 pro로 간주 (canceled/expired는 만료일까지 유효)
+    if plan == "pro" and status in ("active", "trialing", "past_due"):
+        return "pro"
+    # canceled인데 아직 기간이 남은 경우에도 pro 유지
+    if plan == "pro" and sub.get("current_period_end"):
+        try:
+            if datetime.fromisoformat(sub["current_period_end"].replace("Z", "")) > datetime.utcnow():
+                return "pro"
+        except Exception:
+            pass
+    return "free"
+
+
+def plan_limits(plan: str) -> dict:
+    if plan in ("pro", "admin"):
+        return {"max_pets": 9999, "max_photos_per_month": 9999}
+    return {"max_pets": FREE_MAX_PETS, "max_photos_per_month": FREE_MAX_PHOTOS_PER_MONTH}
+
+
+# ── Paddle API ──
+PADDLE_API_KEY = get_secret("PADDLE_API_KEY", "")
+PADDLE_API_URL = "https://api.paddle.com"
+PADDLE_CLIENT_TOKEN = get_secret("PADDLE_CLIENT_TOKEN",
+                                 "live_1a8fd1443de5064e970587e81c9")
+PADDLE_PRICE_PETLOG_MONTHLY = get_secret("PADDLE_PRICE_PETLOG_MONTHLY", "")
+
+
+def paddle_get(path: str) -> dict:
+    if not PADDLE_API_KEY:
+        raise RuntimeError("PADDLE_API_KEY가 설정되지 않았습니다.")
+    r = requests.get(
+        f"{PADDLE_API_URL}{path}",
+        headers={"Authorization": f"Bearer {PADDLE_API_KEY}"},
+        timeout=15,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def paddle_post(path: str, payload: dict) -> dict:
+    if not PADDLE_API_KEY:
+        raise RuntimeError("PADDLE_API_KEY가 설정되지 않았습니다.")
+    r = requests.post(
+        f"{PADDLE_API_URL}{path}",
+        headers={
+            "Authorization": f"Bearer {PADDLE_API_KEY}",
+            "Content-Type": "application/json",
+        },
+        json=payload,
+        timeout=15,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def sync_plan_from_transaction(email: str, txn_id: str) -> bool:
+    """Paddle 결제 완료 후 transaction → subscription 조회해 DB 업데이트."""
+    try:
+        txn = paddle_get(f"/transactions/{txn_id}").get("data", {})
+        sub_id = txn.get("subscription_id")
+        customer_id = txn.get("customer_id")
+        if not sub_id:
+            return False
+        sub = paddle_get(f"/subscriptions/{sub_id}").get("data", {})
+        status = sub.get("status", "active")
+        period = (sub.get("current_billing_period") or {})
+        ends_at = period.get("ends_at") or sub.get("next_billed_at") or ""
+        cancel_flag = 1 if sub.get("scheduled_change", {}).get("action") == "cancel" else 0
+        upsert_subscription(
+            email,
+            plan="pro",
+            status=status,
+            paddle_customer_id=customer_id,
+            paddle_subscription_id=sub_id,
+            paddle_transaction_id=txn_id,
+            current_period_end=ends_at,
+            cancel_at_period_end=cancel_flag,
+        )
+        return True
+    except Exception as e:
+        print(f"[Paddle] sync error: {e}")
+        return False
+
+
+def sync_plan_from_email(email: str) -> bool:
+    """이메일로 고객의 활성 구독 찾기 (fallback)."""
+    try:
+        # 1. 고객 검색
+        cust = paddle_get(f"/customers?email={email}").get("data", [])
+        if not cust:
+            return False
+        customer_id = cust[0]["id"]
+        # 2. 구독 목록
+        subs = paddle_get(f"/subscriptions?customer_id={customer_id}").get("data", [])
+        if not subs:
+            return False
+        # 가장 최근 활성 구독 선택
+        subs.sort(key=lambda s: s.get("created_at", ""), reverse=True)
+        sub = next((s for s in subs if s.get("status") in ("active", "trialing", "past_due")), subs[0])
+        period = (sub.get("current_billing_period") or {})
+        ends_at = period.get("ends_at") or sub.get("next_billed_at") or ""
+        cancel_flag = 1 if sub.get("scheduled_change", {}).get("action") == "cancel" else 0
+        upsert_subscription(
+            email,
+            plan="pro" if sub.get("status") in ("active", "trialing", "past_due") else "free",
+            status=sub.get("status"),
+            paddle_customer_id=customer_id,
+            paddle_subscription_id=sub["id"],
+            current_period_end=ends_at,
+            cancel_at_period_end=cancel_flag,
+        )
+        return True
+    except Exception as e:
+        print(f"[Paddle] email sync error: {e}")
+        return False
+
+
+def cancel_subscription(email: str) -> bool:
+    sub = get_subscription(email)
+    sub_id = sub.get("paddle_subscription_id")
+    if not sub_id:
+        return False
+    try:
+        paddle_post(f"/subscriptions/{sub_id}/cancel",
+                    {"effective_from": "next_billing_period"})
+        upsert_subscription(email, cancel_at_period_end=1, status="canceled")
+        return True
+    except Exception as e:
+        print(f"[Paddle] cancel error: {e}")
+        return False
+
+
 init_db()
 
 
@@ -528,6 +765,30 @@ def get_user_info(access_token: str) -> dict:
     )
     resp.raise_for_status()
     return resp.json()
+
+
+def handle_paddle_callback():
+    """?paddle_txn=... 또는 ?paddle_success=1 쿼리 파라미터를 처리."""
+    if not st.session_state.get("logged_in"):
+        return
+    email = st.session_state.get("user_info", {}).get("email", "")
+    if not email:
+        return
+
+    txn_id = st.query_params.get("paddle_txn")
+    success = st.query_params.get("paddle_success")
+    if not (txn_id or success):
+        return
+
+    synced = False
+    if txn_id:
+        synced = sync_plan_from_transaction(email, txn_id)
+    if not synced:
+        synced = sync_plan_from_email(email)
+
+    st.session_state["paddle_result"] = "success" if synced else "pending"
+    st.query_params.clear()
+    st.rerun()
 
 
 def handle_oauth_callback():
@@ -786,9 +1047,10 @@ st.markdown("""
 
 
 # ══════════════════════════════════════
-# OAuth 콜백 처리
+# OAuth 콜백 & Paddle 콜백 처리
 # ══════════════════════════════════════
 handle_oauth_callback()
+handle_paddle_callback()
 
 
 # ══════════════════════════════════════
@@ -874,23 +1136,53 @@ SPECIES_EMOJI = {
 def render_topbar(user):
     picture = user.get("picture") or ""
     img_tag = f'<img src="{picture}" alt="">' if picture else '<span style="font-size:1.5rem;">👤</span>'
-    col1, col2 = st.columns([5, 1])
+    plan = get_user_plan(user.get("email", ""))
+    plan_badge = ""
+    if plan == "admin":
+        plan_badge = '<span style="background:linear-gradient(135deg,#F1C873,#F3A34C);color:white;padding:3px 10px;border-radius:10px;font-size:0.72rem;font-weight:800;margin-left:8px;">👑 ADMIN</span>'
+    elif plan == "pro":
+        plan_badge = '<span style="background:linear-gradient(135deg,#FFB5A7,#FFA6C1);color:white;padding:3px 10px;border-radius:10px;font-size:0.72rem;font-weight:800;margin-left:8px;">💝 PRO</span>'
+    else:
+        plan_badge = '<span style="background:#F5F0F0;color:#9B7A7A;padding:3px 10px;border-radius:10px;font-size:0.72rem;font-weight:700;margin-left:8px;">FREE</span>'
+
+    col1, col2, col3 = st.columns([4, 1, 1])
     with col1:
         st.markdown(f"""
         <div class="topbar">
             <div class="topbar-user">
                 {img_tag}
-                <span>{user.get('name', '반려인')}님 🌸</span>
+                <span>{user.get('name', '반려인')}님 🌸{plan_badge}</span>
             </div>
             <div style="font-weight:800; color:#FF8FA3;">🐾 PetLog AI</div>
         </div>
         """, unsafe_allow_html=True)
     with col2:
+        if not st.session_state.get("show_upgrade"):
+            if st.button("💳 구독", key="upg_btn"):
+                st.session_state["show_upgrade"] = True
+                st.session_state.pop("selected_pet_id", None)
+                st.rerun()
+    with col3:
         if st.button("로그아웃", key="logout_btn"):
             logout()
 
 
 def render_pet_form(email: str):
+    plan = get_user_plan(email)
+    limits = plan_limits(plan)
+    existing_count = len(list_pets(email))
+    if existing_count >= limits["max_pets"]:
+        st.markdown(f"""
+        <div class="warn-banner">
+            🔒 <b>무료 플랜은 반려동물 {FREE_MAX_PETS}마리까지 등록할 수 있어요.</b><br>
+            PetLog Pro (월 {PRO_PRICE_KRW:,}원)로 업그레이드하면 무제한으로 등록할 수 있습니다.
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("💝 Pro로 업그레이드하기", key="upg_from_pet", use_container_width=True):
+            st.session_state["show_upgrade"] = True
+            st.rerun()
+        return
+
     with st.form("pet_form", clear_on_submit=True):
         st.markdown("#### 🐾 새 반려동물 등록")
         c1, c2 = st.columns(2)
@@ -1013,15 +1305,24 @@ def render_dashboard():
     with st.expander("➕ 반려동물 등록하기", expanded=(len(pets) == 0)):
         render_pet_form(email)
 
-    # 준비 중 기능
-    st.markdown("""
-    <div class="petlog-card" style="background:rgba(255,240,230,0.6);">
-        <div style="font-weight:800; color:#6B4A4A; margin-bottom:10px;">🚧 곧 만나요!</div>
-        <div style="color:#9B7A7A; line-height:1.9;">
-            💳 Paddle 결제 연동 (월 9,900원) · 🔔 이메일 알림
+    # 플랜별 액션 카드
+    plan = get_user_plan(email)
+    if plan == "free":
+        st.markdown(f"""
+        <div class="petlog-card" style="background:linear-gradient(135deg,#FFF9F0,#FFECEC);
+                                        border:2px solid #FFB5A7;">
+            <div style="font-weight:900; color:#6B4A4A; margin-bottom:6px; font-size:1.05rem;">
+                💝 PetLog Pro로 더 알차게!
+            </div>
+            <div style="color:#8B6F6F; line-height:1.8; margin-bottom:10px;">
+                반려동물 무제한 · 사진 분석 무제한 · 월별 AI 리포트<br>
+                <b style="color:#FF8FA3;">월 {PRO_PRICE_KRW:,}원</b> — 언제든 취소 가능
+            </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
+        if st.button("💝 Pro 알아보기", key="upg_dash", use_container_width=True):
+            st.session_state["show_upgrade"] = True
+            st.rerun()
 
 
 # ══════════════════════════════════════
@@ -1299,13 +1600,45 @@ def render_analysis_result(analysis: dict):
 def render_photo_analysis_tab(pet: dict, email: str):
     pet_id = pet["id"]
 
+    plan = get_user_plan(email)
+    limits = plan_limits(plan)
+    used = count_photo_analyses_this_month(email, by="email")
+    remaining = max(0, limits["max_photos_per_month"] - used)
+
     st.markdown(f"#### 📸 {pet['name']}의 사진으로 건강 체크")
+    if plan in ("pro", "admin"):
+        st.markdown(
+            '<div style="color:#4A8A5C;margin-bottom:8px;font-weight:600;">'
+            '✨ Pro 플랜: 이번 달 사진 분석 무제한</div>',
+            unsafe_allow_html=True,
+        )
+    else:
+        st.markdown(f"""
+        <div style="color:#8B6F6F;margin-bottom:8px;">
+            🆓 무료 플랜: 이번 달 <b>{used} / {FREE_MAX_PHOTOS_PER_MONTH}</b>회 사용
+            ({remaining}회 남음)
+        </div>
+        """, unsafe_allow_html=True)
+
     st.markdown(
         '<div style="color:#8B6F6F;margin-bottom:12px;">'
         '또렷한 얼굴/전신 사진을 올려주시면 Claude AI가 눈·털·체형·활동성을 분석해드려요.'
         '</div>',
         unsafe_allow_html=True,
     )
+
+    if plan == "free" and remaining <= 0:
+        st.markdown(f"""
+        <div class="warn-banner">
+            🔒 <b>이번 달 무료 분석 {FREE_MAX_PHOTOS_PER_MONTH}회를 모두 사용했어요.</b><br>
+            PetLog Pro (월 {PRO_PRICE_KRW:,}원)로 업그레이드하면 무제한으로 분석할 수 있습니다.
+        </div>
+        """, unsafe_allow_html=True)
+        if st.button("💝 Pro로 업그레이드하기", key=f"upg_photo_{pet_id}",
+                     use_container_width=True):
+            st.session_state["show_upgrade"] = True
+            st.rerun()
+        return
 
     uploaded = st.file_uploader(
         "사진 업로드",
@@ -1542,10 +1875,301 @@ def render_health_page():
 
 
 # ══════════════════════════════════════
+# Pricing / Upgrade 페이지
+# ══════════════════════════════════════
+import streamlit.components.v1 as paddle_components
+
+
+def render_pricing_checkout(user: dict):
+    """PostGenie와 동일한 window.top 탈출 방식 Paddle.js 체크아웃."""
+    email = user.get("email", "")
+    price_id = PADDLE_PRICE_PETLOG_MONTHLY or ""
+    client_token = PADDLE_CLIENT_TOKEN
+    app_host = get_secret("PETLOG_APP_URL", f"https://{APP_DOMAIN}")
+
+    html = f"""
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <script>
+        (function() {{
+            var top = window.top;
+            if (top._petlogPaddleReady) return;
+            if (!top.document.getElementById('petlog-paddle-sdk')) {{
+                var s = top.document.createElement('script');
+                s.id = 'petlog-paddle-sdk';
+                s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+                s.onload = function() {{
+                    top.Paddle.Initialize({{
+                        token: '{client_token}',
+                        environment: 'production',
+                        eventCallback: function(ev) {{
+                            if (ev && ev.name === 'checkout.completed') {{
+                                var txn = (ev.data && ev.data.transaction_id) || '';
+                                var sep = '{app_host}'.indexOf('?') >= 0 ? '&' : '?';
+                                top.location.href = '{app_host}' + sep + 'paddle_txn=' + txn;
+                            }}
+                        }}
+                    }});
+                    top._petlogPaddleReady = true;
+                }};
+                top.document.head.appendChild(s);
+            }}
+        }})();
+
+        function openPetlogCheckout() {{
+            var top = window.top;
+            var priceId = '{price_id}';
+            if (!priceId) {{
+                alert('가격 ID가 설정되지 않았습니다. PADDLE_PRICE_PETLOG_MONTHLY 시크릿을 확인해주세요.');
+                return;
+            }}
+            function doOpen() {{
+                top.Paddle.Checkout.open({{
+                    items: [{{ priceId: priceId, quantity: 1 }}],
+                    customer: {{ email: '{email}' }},
+                    customData: {{ user_email: '{email}' }},
+                    settings: {{
+                        successUrl: '{app_host}?paddle_success=1'
+                    }}
+                }});
+            }}
+            if (top.Paddle && top._petlogPaddleReady) {{ doOpen(); }}
+            else {{
+                setTimeout(function() {{
+                    if (top.Paddle) doOpen();
+                    else alert('결제 시스템을 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
+                }}, 1500);
+            }}
+        }}
+    </script>
+    <style>
+        * {{ font-family: 'Inter', -apple-system, sans-serif; box-sizing: border-box;
+             margin: 0; padding: 0; }}
+        body {{ background: transparent; }}
+        .pricing-wrap {{ max-width: 560px; margin: 0 auto; padding: 12px; }}
+        .pricing-header {{ text-align: center; margin-bottom: 18px; }}
+        .pricing-header h1 {{
+            font-size: 1.8rem; font-weight: 900; color: #6B4A4A;
+            margin-bottom: 4px; letter-spacing: -0.02em;
+        }}
+        .pricing-header p {{ color: #9B7A7A; font-size: 0.98rem; }}
+
+        .card {{
+            background: linear-gradient(135deg, #FFF9F0 0%, #FFECEC 100%);
+            border: 2px solid #FFB5A7;
+            border-radius: 24px;
+            padding: 28px 28px 24px;
+            text-align: center;
+            box-shadow: 0 8px 28px rgba(255, 181, 167, 0.25);
+            position: relative;
+        }}
+        .badge {{
+            position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
+            background: linear-gradient(135deg, #FFB5A7, #FFA6C1);
+            color: white; padding: 5px 18px; border-radius: 20px;
+            font-weight: 800; font-size: 0.82rem;
+            box-shadow: 0 4px 12px rgba(255, 166, 193, 0.4);
+        }}
+        .plan-emoji {{ font-size: 2.8rem; margin-bottom: 4px; }}
+        .plan-name {{ font-size: 1.5rem; font-weight: 900; color: #6B4A4A; margin-bottom: 4px; }}
+        .plan-price {{
+            font-size: 3rem; font-weight: 900;
+            background: linear-gradient(135deg, #FF8FA3, #FFB085);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.1;
+        }}
+        .plan-per {{ color: #9B7A7A; font-size: 0.9rem; margin-bottom: 18px; }}
+
+        .features {{ list-style: none; padding: 0; text-align: left; margin: 20px 0; }}
+        .features li {{ color: #5B4A4A; font-size: 0.95rem;
+                       margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }}
+        .features li b {{ color: #6B4A4A; }}
+
+        .btn {{
+            width: 100%; padding: 14px 0; border: none; border-radius: 14px;
+            font-size: 1.05rem; font-weight: 800; cursor: pointer;
+            background: linear-gradient(135deg, #FFB5A7, #FFA6C1);
+            color: white;
+            box-shadow: 0 4px 16px rgba(255, 166, 193, 0.4);
+            transition: all 0.25s;
+        }}
+        .btn:hover {{ transform: translateY(-2px);
+                      box-shadow: 0 8px 28px rgba(255, 166, 193, 0.55); }}
+
+        .secure {{ text-align: center; margin-top: 16px;
+                   font-size: 0.8rem; color: #B89898; }}
+
+        .compare {{
+            display: flex; gap: 12px; margin-bottom: 20px;
+        }}
+        .col {{
+            flex: 1; background: rgba(255,255,255,0.7);
+            border-radius: 16px; padding: 18px;
+            border: 1px solid #FFE0E0;
+        }}
+        .col h3 {{ font-size: 1rem; color: #6B4A4A; margin-bottom: 8px; }}
+        .col .p {{ font-weight: 800; color: #FF8FA3; font-size: 1.4rem; margin-bottom: 10px; }}
+        .col ul {{ list-style: none; padding: 0; }}
+        .col li {{ font-size: 0.85rem; color: #8B6F6F; padding: 3px 0; }}
+    </style>
+
+    <div class="pricing-wrap">
+        <div class="pricing-header">
+            <h1>🐾 PetLog Pro</h1>
+            <p>우리 아이 건강을 더 세심하게 챙겨보세요</p>
+        </div>
+
+        <div class="compare">
+            <div class="col">
+                <h3>🆓 무료</h3>
+                <div class="p">₩0</div>
+                <ul>
+                    <li>🐶 반려동물 1마리</li>
+                    <li>📸 사진 분석 3회/월</li>
+                    <li>📝 매일 건강 체크</li>
+                </ul>
+            </div>
+            <div class="col" style="background:linear-gradient(135deg,#FFF9F0,#FFECEC);
+                                    border:2px solid #FFB5A7;">
+                <h3>💝 Pro</h3>
+                <div class="p">₩9,900<span style="font-size:0.85rem;color:#9B7A7A;">/월</span></div>
+                <ul>
+                    <li>🐾 반려동물 <b>무제한</b></li>
+                    <li>📸 사진 분석 <b>무제한</b></li>
+                    <li>📊 월별 AI 리포트</li>
+                    <li>🚨 실시간 이상 증상 알림</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="badge">👑 가장 인기</div>
+            <div class="plan-emoji">💝</div>
+            <div class="plan-name">PetLog Pro</div>
+            <div class="plan-price">₩9,900</div>
+            <div class="plan-per">월 구독 · 언제든 취소 가능</div>
+            <ul class="features">
+                <li>✅ 반려동물 <b>무제한</b> 등록</li>
+                <li>✅ Claude AI 사진 분석 <b>무제한</b></li>
+                <li>✅ 월별 AI 건강 리포트 무제한 생성</li>
+                <li>✅ 이상 증상 즉시 알림</li>
+                <li>✅ 7일 내 전액 환불 보장</li>
+            </ul>
+            <button class="btn" onclick="openPetlogCheckout()">
+                💝 Pro 시작하기 — 월 9,900원
+            </button>
+        </div>
+
+        <div class="secure">🔒 Paddle 안전 결제 · 언제든 취소 가능 · 7일 환불 보장</div>
+    </div>
+    """
+    paddle_components.html(html, height=820, scrolling=False)
+
+
+def render_upgrade_page():
+    user = st.session_state["user_info"]
+    email = user["email"]
+    plan = get_user_plan(email)
+    sub = get_subscription(email)
+
+    render_topbar(user)
+
+    c1, c2 = st.columns([1, 5])
+    with c1:
+        if st.button("← 뒤로", key="back_from_upg"):
+            st.session_state.pop("show_upgrade", None)
+            st.rerun()
+    with c2:
+        st.markdown(
+            "<div style='font-size:1.5rem;font-weight:900;color:#6B4A4A;'>"
+            "💳 구독 & 결제</div>",
+            unsafe_allow_html=True,
+        )
+
+    # 결제 결과 알림
+    result = st.session_state.pop("paddle_result", None)
+    if result == "success":
+        st.success("🎉 결제가 완료되었어요! Pro 플랜이 활성화되었습니다. 🐾")
+    elif result == "pending":
+        st.info("⏳ 결제 처리 중입니다. 잠시 후 '결제 확인' 버튼을 눌러주세요.")
+
+    # 현재 상태 카드
+    if plan == "admin":
+        st.markdown("""
+        <div class="petlog-card" style="background:linear-gradient(135deg,#FFF4E0,#FFE8D0);
+                                        border-color:#F1C873;">
+            <div style="font-weight:900;color:#8A6A20;font-size:1.1rem;">
+                👑 ADMIN — 모든 기능 무제한
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+    elif plan == "pro":
+        period_end = sub.get("current_period_end", "") or "-"
+        cancel_at = sub.get("cancel_at_period_end", 0)
+        status_emoji = "✨" if not cancel_at else "⏳"
+        status_text = (
+            "활성 구독 중이에요" if not cancel_at
+            else "구독이 예정된 취소 상태입니다 (현재 기간까지 이용 가능)"
+        )
+        st.markdown(f"""
+        <div class="petlog-card" style="background:linear-gradient(135deg,#FFF9F0,#FFECEC);
+                                        border-color:#FFB5A7;">
+            <div style="font-weight:900;color:#6B4A4A;font-size:1.15rem;margin-bottom:6px;">
+                {status_emoji} PetLog Pro
+            </div>
+            <div style="color:#8B6F6F;line-height:1.8;">
+                {status_text}<br>
+                다음 갱신일: <b>{period_end[:10] if period_end else '-'}</b>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        if not cancel_at:
+            with st.expander("⚙️ 구독 관리"):
+                st.markdown(
+                    "구독을 취소하면 **현재 결제 기간이 끝날 때까지 Pro 기능을 계속 이용**할 수 있어요."
+                )
+                if st.button("😢 구독 취소하기", key="cancel_sub"):
+                    ok = cancel_subscription(email)
+                    if ok:
+                        st.success("구독 취소 요청이 접수되었어요. 현재 기간 종료 후 무료 플랜으로 전환됩니다.")
+                        st.rerun()
+                    else:
+                        st.error("구독 취소에 실패했어요. 잠시 후 다시 시도해주세요.")
+        else:
+            st.info("이미 취소 요청이 접수되어 있어요.")
+    else:
+        # 무료 플랜 — Pro 업그레이드 카드
+        render_pricing_checkout(user)
+
+    # 결제 확인 버튼 (resync)
+    with st.expander("🔄 결제 후 플랜이 안 바뀌었나요?"):
+        st.markdown(
+            "결제가 완료되었는데 플랜이 여전히 무료로 표시된다면 아래 버튼을 눌러주세요. "
+            "Paddle에 등록된 이메일(`"
+            + email + "`)로 구독을 다시 조회합니다."
+        )
+        if st.button("🔄 결제 상태 새로 가져오기", key="resync"):
+            if sync_plan_from_email(email):
+                st.success("✅ 구독 정보가 업데이트되었어요!")
+                st.rerun()
+            else:
+                st.warning("구독을 찾지 못했어요. Paddle 결제 이메일이 Google 로그인 이메일과 같은지 확인해주세요.")
+
+    # 관리자 전용
+    if is_admin(email):
+        with st.expander("🛠 관리자 전용"):
+            st.write("현재 subscription 레코드:")
+            st.json(sub or {"note": "no record"})
+
+
+# ══════════════════════════════════════
 # Router
 # ══════════════════════════════════════
 if st.session_state.get("logged_in"):
-    if st.session_state.get("selected_pet_id"):
+    if st.session_state.get("show_upgrade"):
+        render_upgrade_page()
+    elif st.session_state.get("selected_pet_id"):
         render_health_page()
     else:
         render_dashboard()
