@@ -1,12 +1,14 @@
 """
 PetLog AI — 반려동물 AI 건강 일지 SaaS
 Phase 1: Google 로그인 + 반려동물 프로필 등록 + 메인 대시보드
+Phase 2: 매일 건강 체크 + 캘린더 보기 + 이상 증상 경고
 """
 import streamlit as st
 import sqlite3
 import os
+import calendar as pycal
 import requests
-from datetime import datetime
+from datetime import datetime, date, timedelta
 from urllib.parse import urlencode
 from pathlib import Path
 
@@ -67,6 +69,20 @@ def init_db():
             created_at TEXT,
             FOREIGN KEY(user_email) REFERENCES users(email)
         );
+        CREATE TABLE IF NOT EXISTS daily_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            pet_id INTEGER NOT NULL,
+            user_email TEXT NOT NULL,
+            log_date TEXT NOT NULL,
+            appetite TEXT,
+            activity TEXT,
+            stool TEXT,
+            notes TEXT,
+            alert_level INTEGER DEFAULT 0,
+            created_at TEXT,
+            UNIQUE(pet_id, log_date),
+            FOREIGN KEY(pet_id) REFERENCES pets(id)
+        );
         """)
         conn.commit()
 
@@ -106,7 +122,104 @@ def add_pet(email: str, name: str, species: str, breed: str,
 def delete_pet(pet_id: int, email: str):
     with db_conn() as conn:
         conn.execute("DELETE FROM pets WHERE id=? AND user_email=?", (pet_id, email))
+        conn.execute("DELETE FROM daily_logs WHERE pet_id=? AND user_email=?",
+                     (pet_id, email))
         conn.commit()
+
+
+def get_pet(pet_id: int, email: str):
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM pets WHERE id=? AND user_email=?",
+            (pet_id, email),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+# ── 이상 증상 감지 ──
+APPETITE_LEVELS = ["매우 좋음", "좋음", "보통", "적음", "없음"]
+ACTIVITY_LEVELS = ["매우 활발", "활발", "보통", "낮음", "매우 낮음"]
+STOOL_LEVELS = ["정상", "무름", "설사", "변비", "혈변"]
+ALERT_KEYWORDS = [
+    "구토", "토함", "피", "혈", "발작", "쓰러", "경련", "호흡",
+    "숨참", "의식", "절뚝", "다리", "심하게", "심각", "응급",
+]
+
+
+def compute_alert_level(appetite: str, activity: str, stool: str, notes: str) -> int:
+    """0=정상, 1=주의, 2=경고"""
+    level = 0
+    if appetite in ("적음",):
+        level = max(level, 1)
+    if appetite in ("없음",):
+        level = max(level, 2)
+    if activity in ("낮음",):
+        level = max(level, 1)
+    if activity in ("매우 낮음",):
+        level = max(level, 2)
+    if stool in ("무름", "변비"):
+        level = max(level, 1)
+    if stool in ("설사", "혈변"):
+        level = max(level, 2)
+    if notes:
+        low = notes.lower()
+        if any(k in low for k in ALERT_KEYWORDS):
+            level = max(level, 2)
+    return level
+
+
+def upsert_daily_log(pet_id: int, email: str, log_date: str,
+                     appetite: str, activity: str, stool: str,
+                     notes: str, alert_level: int):
+    with db_conn() as conn:
+        conn.execute(
+            """INSERT INTO daily_logs
+               (pet_id, user_email, log_date, appetite, activity, stool, notes,
+                alert_level, created_at)
+               VALUES(?,?,?,?,?,?,?,?,?)
+               ON CONFLICT(pet_id, log_date) DO UPDATE SET
+                 appetite=excluded.appetite,
+                 activity=excluded.activity,
+                 stool=excluded.stool,
+                 notes=excluded.notes,
+                 alert_level=excluded.alert_level,
+                 created_at=excluded.created_at""",
+            (pet_id, email, log_date, appetite, activity, stool, notes,
+             alert_level, datetime.utcnow().isoformat()),
+        )
+        conn.commit()
+
+
+def get_log(pet_id: int, log_date: str):
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT * FROM daily_logs WHERE pet_id=? AND log_date=?",
+            (pet_id, log_date),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def get_logs_in_month(pet_id: int, year: int, month: int) -> dict:
+    start = date(year, month, 1).isoformat()
+    last_day = pycal.monthrange(year, month)[1]
+    end = date(year, month, last_day).isoformat()
+    with db_conn() as conn:
+        rows = conn.execute(
+            """SELECT * FROM daily_logs
+               WHERE pet_id=? AND log_date BETWEEN ? AND ?""",
+            (pet_id, start, end),
+        ).fetchall()
+        return {r["log_date"]: dict(r) for r in rows}
+
+
+def count_logs_today(email: str) -> int:
+    today = date.today().isoformat()
+    with db_conn() as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) AS c FROM daily_logs WHERE user_email=? AND log_date=?",
+            (email, today),
+        ).fetchone()
+        return int(row["c"]) if row else 0
 
 
 init_db()
@@ -301,6 +414,63 @@ st.markdown("""
     .stat-num { font-size: 1.8rem; font-weight: 900; color: #FF8FA3; }
     .stat-lbl { font-size: 0.85rem; color: #9B7A7A; margin-top: 4px; }
 
+    /* 캘린더 */
+    .cal-wrap {
+        background: rgba(255,255,255,0.85);
+        border-radius: 18px;
+        padding: 18px;
+        border: 1px solid #FFE0E0;
+        margin-bottom: 18px;
+    }
+    .cal-header {
+        display:flex; justify-content:space-between; align-items:center;
+        margin-bottom:14px;
+    }
+    .cal-month { font-size:1.2rem; font-weight:800; color:#6B4A4A; }
+    .cal-grid {
+        display:grid; grid-template-columns: repeat(7, 1fr); gap:6px;
+    }
+    .cal-dow {
+        text-align:center; font-size:0.78rem; color:#B89898;
+        padding:4px 0; font-weight:700;
+    }
+    .cal-day {
+        aspect-ratio: 1 / 1;
+        border-radius: 10px;
+        background: rgba(255,240,235,0.5);
+        display:flex; flex-direction:column; align-items:center; justify-content:center;
+        font-size:0.82rem; color:#8B6F6F;
+        border: 1px solid transparent;
+        position: relative;
+    }
+    .cal-day.empty { background: transparent; }
+    .cal-day.today { border-color: #FF8FA3; font-weight: 800; color: #FF8FA3; }
+    .cal-day.ok { background: #DFF5E1; color: #4A8A5C; }
+    .cal-day.warn { background: #FFF0C9; color: #A07A20; }
+    .cal-day.alert { background: #FFD5D5; color: #B5484A; font-weight:700; }
+    .cal-dot { font-size:0.72rem; margin-top:1px; }
+
+    .legend-row { display:flex; gap:14px; justify-content:center; margin-top:12px; font-size:0.82rem; color:#8B6F6F;}
+    .legend-dot { display:inline-block; width:12px; height:12px; border-radius:4px; margin-right:4px; vertical-align:middle; }
+
+    /* 경고 배너 */
+    .alert-banner {
+        background: linear-gradient(135deg, #FFD5D5, #FFC0C0);
+        border: 2px solid #FF9999;
+        border-radius: 16px;
+        padding: 16px 20px;
+        margin-bottom: 18px;
+        color: #8B3A3A; font-weight: 700;
+    }
+    .warn-banner {
+        background: linear-gradient(135deg, #FFF0C9, #FFE4A3);
+        border: 2px solid #F1C873;
+        border-radius: 16px;
+        padding: 14px 18px;
+        margin-bottom: 18px;
+        color: #8A6A20; font-weight: 600;
+    }
+
     /* 푸터 */
     .petlog-footer {
         text-align: center; color: #B89898; font-size: 0.85rem;
@@ -459,16 +629,27 @@ def render_pet_list(pets, email: str):
         return
 
     st.markdown("#### 💝 내 반려동물")
+    today_str = date.today().isoformat()
     for pet in pets:
-        c1, c2 = st.columns([6, 1])
+        c1, c2, c3 = st.columns([5, 2, 1])
         with c1:
             breed = pet.get("breed") or "-"
+            today_log = get_log(pet["id"], today_str)
+            badge = ""
+            if today_log:
+                lvl = today_log.get("alert_level", 0)
+                if lvl == 0:
+                    badge = '<span style="background:#DFF5E1;color:#4A8A5C;padding:3px 10px;border-radius:10px;font-size:0.75rem;font-weight:700;margin-left:8px;">✅ 오늘 기록됨</span>'
+                elif lvl == 1:
+                    badge = '<span style="background:#FFF0C9;color:#A07A20;padding:3px 10px;border-radius:10px;font-size:0.75rem;font-weight:700;margin-left:8px;">⚠️ 주의</span>'
+                else:
+                    badge = '<span style="background:#FFD5D5;color:#B5484A;padding:3px 10px;border-radius:10px;font-size:0.75rem;font-weight:800;margin-left:8px;">🚨 경고</span>'
             st.markdown(f"""
             <div class="pet-card">
                 <div style="display:flex; align-items:center;">
                     <div class="pet-emoji">{pet['emoji']}</div>
                     <div>
-                        <div class="pet-name">{pet['name']}</div>
+                        <div class="pet-name">{pet['name']}{badge}</div>
                         <div class="pet-meta">
                             {pet['species']} · {breed} ·
                             {pet['age_years']:.1f}살 · {pet['weight_kg']:.1f}kg
@@ -478,7 +659,11 @@ def render_pet_list(pets, email: str):
             </div>
             """, unsafe_allow_html=True)
         with c2:
-            if st.button("삭제", key=f"del_{pet['id']}"):
+            if st.button("📝 건강 기록", key=f"log_{pet['id']}", use_container_width=True):
+                st.session_state["selected_pet_id"] = pet["id"]
+                st.rerun()
+        with c3:
+            if st.button("🗑", key=f"del_{pet['id']}"):
                 delete_pet(pet["id"], email)
                 st.rerun()
 
@@ -502,6 +687,7 @@ def render_dashboard():
     """, unsafe_allow_html=True)
 
     # 통계
+    today_count = count_logs_today(email)
     st.markdown(f"""
     <div class="stat-row">
         <div class="stat-box">
@@ -509,7 +695,7 @@ def render_dashboard():
             <div class="stat-lbl">🐾 등록된 아이</div>
         </div>
         <div class="stat-box">
-            <div class="stat-num">0</div>
+            <div class="stat-num">{today_count}</div>
             <div class="stat-lbl">📝 오늘 기록</div>
         </div>
         <div class="stat-box">
@@ -531,17 +717,254 @@ def render_dashboard():
     <div class="petlog-card" style="background:rgba(255,240,230,0.6);">
         <div style="font-weight:800; color:#6B4A4A; margin-bottom:10px;">🚧 곧 만나요!</div>
         <div style="color:#9B7A7A; line-height:1.9;">
-            📝 매일 건강 체크 · 📸 AI 사진 분석 · 📊 월별 리포트 · 🚨 이상 증상 알림
+            📸 AI 사진 분석 · 📊 월별 리포트
         </div>
     </div>
     """, unsafe_allow_html=True)
 
 
 # ══════════════════════════════════════
+# 건강 기록 페이지
+# ══════════════════════════════════════
+def render_alert_banner(level: int, pet_name: str):
+    if level == 2:
+        st.markdown(f"""
+        <div class="alert-banner">
+            🚨 <b>{pet_name}의 이상 증상이 감지되었어요!</b><br>
+            <span style="font-weight:500;">가까운 동물병원에 방문하거나 수의사와 상담을 권장드립니다.</span>
+        </div>
+        """, unsafe_allow_html=True)
+    elif level == 1:
+        st.markdown(f"""
+        <div class="warn-banner">
+            ⚠️ <b>{pet_name}의 상태를 주의 깊게 지켜봐주세요.</b>
+            오늘 하루 컨디션을 더 자주 체크해주세요.
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def render_health_form(pet: dict, email: str):
+    pet_id = pet["id"]
+    sel_date = st.date_input(
+        "📅 기록 날짜",
+        value=date.today(),
+        max_value=date.today(),
+        key=f"date_{pet_id}",
+    )
+    date_str = sel_date.isoformat()
+    existing = get_log(pet_id, date_str)
+
+    if existing:
+        st.info(f"📌 {date_str}에 이미 기록이 있어요. 아래에서 수정할 수 있습니다.")
+
+    with st.form(f"health_form_{pet_id}"):
+        st.markdown(f"#### 📝 {pet['emoji']} {pet['name']}의 오늘 건강 체크")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            appetite = st.select_slider(
+                "🍽️ 식욕",
+                options=APPETITE_LEVELS,
+                value=existing["appetite"] if existing and existing.get("appetite") in APPETITE_LEVELS else "보통",
+            )
+            stool = st.select_slider(
+                "💩 대변 상태",
+                options=STOOL_LEVELS,
+                value=existing["stool"] if existing and existing.get("stool") in STOOL_LEVELS else "정상",
+            )
+        with c2:
+            activity = st.select_slider(
+                "🏃 활동량",
+                options=ACTIVITY_LEVELS,
+                value=existing["activity"] if existing and existing.get("activity") in ACTIVITY_LEVELS else "보통",
+            )
+
+        notes = st.text_area(
+            "✏️ 특이사항",
+            value=existing.get("notes", "") if existing else "",
+            placeholder="예: 왼쪽 다리를 조금 절뚝거려요 / 평소보다 조용해요 / 물을 많이 마셔요",
+            height=100,
+        )
+
+        submitted = st.form_submit_button("💝 기록 저장하기", type="primary",
+                                          use_container_width=True)
+        if submitted:
+            lvl = compute_alert_level(appetite, activity, stool, notes)
+            upsert_daily_log(pet_id, email, date_str,
+                             appetite, activity, stool, notes, lvl)
+            if lvl == 2:
+                st.error(f"🚨 이상 증상이 감지되었습니다. 병원 방문을 권장드려요!")
+            elif lvl == 1:
+                st.warning("⚠️ 조금 주의가 필요한 상태예요. 잘 지켜봐주세요.")
+            else:
+                st.success(f"✅ {pet['name']}의 {date_str} 기록이 저장되었어요! 🐾")
+            st.rerun()
+
+
+def render_calendar(pet: dict):
+    pet_id = pet["id"]
+    today = date.today()
+
+    # 월 이동 상태
+    cal_key = f"cal_{pet_id}"
+    if cal_key not in st.session_state:
+        st.session_state[cal_key] = (today.year, today.month)
+    year, month = st.session_state[cal_key]
+
+    c1, c2, c3 = st.columns([1, 3, 1])
+    with c1:
+        if st.button("◀", key=f"prev_{pet_id}"):
+            y, m = year, month - 1
+            if m < 1:
+                y, m = y - 1, 12
+            st.session_state[cal_key] = (y, m)
+            st.rerun()
+    with c2:
+        st.markdown(
+            f"<div style='text-align:center;font-weight:800;color:#6B4A4A;font-size:1.15rem;'>"
+            f"📅 {year}년 {month}월</div>",
+            unsafe_allow_html=True,
+        )
+    with c3:
+        # 미래 이동 제한
+        allow_next = not (year == today.year and month == today.month)
+        if st.button("▶", key=f"next_{pet_id}", disabled=not allow_next):
+            y, m = year, month + 1
+            if m > 12:
+                y, m = y + 1, 1
+            st.session_state[cal_key] = (y, m)
+            st.rerun()
+
+    logs = get_logs_in_month(pet_id, year, month)
+
+    # 캘린더 그리드 (월요일 시작)
+    cal = pycal.Calendar(firstweekday=0)
+    weeks = cal.monthdayscalendar(year, month)
+
+    dow_labels = ["월", "화", "수", "목", "금", "토", "일"]
+    grid = '<div class="cal-grid">'
+    for d in dow_labels:
+        grid += f'<div class="cal-dow">{d}</div>'
+
+    for week in weeks:
+        for day in week:
+            if day == 0:
+                grid += '<div class="cal-day empty"></div>'
+                continue
+            d_iso = date(year, month, day).isoformat()
+            cls = "cal-day"
+            dot = ""
+            log = logs.get(d_iso)
+            if log:
+                lvl = log.get("alert_level", 0)
+                if lvl == 0:
+                    cls += " ok"
+                    dot = "✅"
+                elif lvl == 1:
+                    cls += " warn"
+                    dot = "⚠️"
+                else:
+                    cls += " alert"
+                    dot = "🚨"
+            if d_iso == today.isoformat():
+                cls += " today"
+            grid += (
+                f'<div class="{cls}">'
+                f'<div>{day}</div>'
+                f'<div class="cal-dot">{dot}</div>'
+                f'</div>'
+            )
+    grid += "</div>"
+
+    st.markdown(f'<div class="cal-wrap">{grid}'
+                '<div class="legend-row">'
+                '<span><span class="legend-dot" style="background:#DFF5E1;"></span>정상</span>'
+                '<span><span class="legend-dot" style="background:#FFF0C9;"></span>주의</span>'
+                '<span><span class="legend-dot" style="background:#FFD5D5;"></span>경고</span>'
+                '</div></div>', unsafe_allow_html=True)
+
+    # 최근 기록 리스트
+    if logs:
+        st.markdown("#### 📋 이번 달 기록")
+        sorted_logs = sorted(logs.values(), key=lambda r: r["log_date"], reverse=True)
+        for log in sorted_logs[:10]:
+            lvl = log.get("alert_level", 0)
+            emoji = "✅" if lvl == 0 else ("⚠️" if lvl == 1 else "🚨")
+            bg = "#F5FBF5" if lvl == 0 else ("#FFF9E9" if lvl == 1 else "#FFF0F0")
+            notes_html = (
+                f'<div style="color:#8B6F6F;margin-top:4px;font-size:0.88rem;">'
+                f'📝 {log["notes"]}</div>'
+            ) if log.get("notes") else ""
+            st.markdown(f"""
+            <div style="background:{bg};border-radius:12px;padding:12px 16px;
+                        margin-bottom:8px;border:1px solid #FFE4E4;">
+                <div style="font-weight:700;color:#6B4A4A;">
+                    {emoji} {log['log_date']}
+                </div>
+                <div style="color:#8B6F6F;font-size:0.9rem;margin-top:4px;">
+                    🍽️ {log.get('appetite','-')} ·
+                    🏃 {log.get('activity','-')} ·
+                    💩 {log.get('stool','-')}
+                </div>
+                {notes_html}
+            </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.markdown("""
+        <div class="petlog-card" style="text-align:center; color:#9B7A7A;">
+            아직 이번 달 기록이 없어요 🐾<br>
+            위에서 오늘의 건강 체크를 시작해보세요!
+        </div>
+        """, unsafe_allow_html=True)
+
+
+def render_health_page():
+    user = st.session_state["user_info"]
+    email = user["email"]
+    pet_id = st.session_state.get("selected_pet_id")
+    pet = get_pet(pet_id, email) if pet_id else None
+
+    if not pet:
+        st.session_state.pop("selected_pet_id", None)
+        st.rerun()
+        return
+
+    render_topbar(user)
+
+    c1, c2 = st.columns([1, 5])
+    with c1:
+        if st.button("← 뒤로", key="back_to_dash"):
+            st.session_state.pop("selected_pet_id", None)
+            st.rerun()
+    with c2:
+        st.markdown(
+            f"<div style='font-size:1.5rem;font-weight:900;color:#6B4A4A;'>"
+            f"{pet['emoji']} {pet['name']}의 건강 일지</div>",
+            unsafe_allow_html=True,
+        )
+
+    # 오늘 기록의 알림 배너
+    today_log = get_log(pet["id"], date.today().isoformat())
+    if today_log:
+        render_alert_banner(today_log.get("alert_level", 0), pet["name"])
+
+    # 입력 폼
+    st.markdown('<div class="petlog-card">', unsafe_allow_html=True)
+    render_health_form(pet, email)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # 캘린더
+    render_calendar(pet)
+
+
+# ══════════════════════════════════════
 # Router
 # ══════════════════════════════════════
 if st.session_state.get("logged_in"):
-    render_dashboard()
+    if st.session_state.get("selected_pet_id"):
+        render_health_page()
+    else:
+        render_dashboard()
 else:
     render_login()
 
