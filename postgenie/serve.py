@@ -40,7 +40,6 @@ HOP_BY_HOP = {
     "trailers",
     "transfer-encoding",
     "upgrade",
-    "content-encoding",
     "content-length",
 }
 
@@ -116,7 +115,7 @@ async def http_proxy(request: web.Request) -> web.StreamResponse:
         out_headers[k] = v
 
     session: aiohttp.ClientSession = request.app["session"]
-    body = await request.read()
+    body = await request.read() if request.can_read_body else None
 
     async with session.request(
         request.method,
@@ -125,16 +124,16 @@ async def http_proxy(request: web.Request) -> web.StreamResponse:
         data=body,
         allow_redirects=False,
     ) as upstream:
-        resp = web.StreamResponse(status=upstream.status, reason=upstream.reason)
-        for k, v in upstream.headers.items():
-            if k.lower() in HOP_BY_HOP:
-                continue
-            resp.headers[k] = v
-        await resp.prepare(request)
-        async for chunk in upstream.content.iter_any():
-            await resp.write(chunk)
-        await resp.write_eof()
-        return resp
+        data = await upstream.read()
+        resp_headers = {
+            k: v for k, v in upstream.headers.items() if k.lower() not in HOP_BY_HOP
+        }
+        return web.Response(
+            body=data,
+            status=upstream.status,
+            reason=upstream.reason,
+            headers=resp_headers,
+        )
 
 
 async def wait_for_streamlit(timeout: float = 60.0) -> bool:
@@ -210,6 +209,7 @@ async def main() -> None:
 
     for path in STATIC_FILES:
         app.router.add_get(path, static_handler)
+    app.router.add_route("*", "/", http_proxy)
     app.router.add_route("*", "/{tail:.*}", http_proxy)
 
     runner = web.AppRunner(app)
