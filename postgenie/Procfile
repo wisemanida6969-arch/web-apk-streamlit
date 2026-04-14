@@ -1,0 +1,1 @@
+web: python patch_meta.py && python serve.py
