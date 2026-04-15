@@ -2245,9 +2245,247 @@ def render_upgrade_page():
 
 
 # ══════════════════════════════════════
+# 법적 문서
+# ══════════════════════════════════════
+LEGAL_UPDATED = "2026년 4월 15일"
+
+
+def render_legal_terms():
+    st.markdown("# 📜 이용약관")
+    st.caption(f"최종 업데이트: {LEGAL_UPDATED}")
+    st.divider()
+    st.markdown(f"""
+## 1. 서비스 소개 및 약관의 효력
+
+**PetLog AI**(이하 "서비스")는 반려동물의 건강 상태를 기록하고 Claude AI로
+사진을 분석하여 월별 리포트를 제공하는 SaaS입니다. 본 약관은 서비스 이용에
+관한 회원과 운영자 간의 권리·의무 및 책임 사항을 규정합니다.
+
+서비스에 접속하거나 이용함으로써 귀하는 본 약관에 동의한 것으로 간주됩니다.
+만 14세 이상만 이용할 수 있습니다.
+
+## 2. 회원가입 및 계정
+
+- 계정은 Google OAuth로 생성됩니다. Google 계정당 하나의 PetLog 계정만
+  허용됩니다.
+- 회원 정보(이메일, 이름, 프로필 이미지)는 정확해야 하며, 계정 내 모든
+  활동에 대한 책임은 회원에게 있습니다.
+- 계정의 양도·대여·판매는 엄격히 금지됩니다.
+- 계정 보안이 침해되었다고 판단되면 즉시 **admin@trytimeback.com**으로
+  연락주세요.
+
+## 3. AI 사진 분석의 성격과 책임 한계
+
+PetLog는 Claude AI Vision을 이용해 반려동물 사진에서 관찰 가능한 외형적
+특징을 분석합니다. **다음 사항을 반드시 이해하고 이용해 주세요.**
+
+- AI 분석 결과는 **수의사의 진단을 대체하지 않습니다.**
+- 사진만으로는 파악할 수 없는 질병이 있을 수 있으며, 결과가 부정확할
+  수도 있습니다.
+- 건강에 이상이 의심되거나 AI가 "경고" 레벨로 판단한 경우 **반드시
+  동물병원 진료를 받아주세요.**
+- 회원이 AI 분석 결과만 믿고 수의학적 진료를 지연하여 발생한 피해에
+  대해 PetLog는 책임지지 않습니다.
+
+## 4. 유료 서비스 (PetLog Pro)
+
+- PetLog Pro는 월 9,900원(VAT 별도)의 정기 구독입니다.
+- 결제는 **Paddle**을 통해 안전하게 처리되며, Paddle의 이용약관이 함께
+  적용됩니다.
+- 구독은 언제든지 취소할 수 있으며, 현재 결제 기간이 종료될 때까지
+  Pro 기능을 계속 이용할 수 있습니다.
+- 환불은 별도의 **환불 정책**에 따릅니다.
+- 가격은 사전 공지 후 다음 결제 주기부터 변경될 수 있습니다.
+
+## 5. 금지 행위
+
+- 타인의 사진을 무단으로 업로드·분석하는 행위
+- 반려동물이 아닌 사진(인물, 불법 촬영물 등)을 업로드하는 행위
+- 서비스 또는 관련 API(Claude, Paddle)에 비정상적인 부하를 발생시키는 행위
+- 계정 정보를 공유·판매하거나 크롤링·자동화 도구로 서비스를 오용하는 행위
+
+## 6. 서비스 중단 및 해지
+
+- 회원은 언제든지 **admin@trytimeback.com**으로 계정 삭제를 요청할 수
+  있습니다.
+- 본 약관을 위반하거나 서비스를 오용하는 경우, 운영자는 사전 통지 없이
+  이용을 제한·해지할 수 있습니다.
+- 해지 시 데이터는 개인정보처리방침에 따라 처리됩니다.
+
+## 7. 면책 조항
+
+서비스는 "있는 그대로(as-is)" 제공되며, 명시적·묵시적 보증 없이 제공됩니다.
+서비스 중단, 데이터 손실, AI 분석 오류 등으로 인한 직·간접 손해에 대해
+PetLog는 책임지지 않습니다.
+
+## 8. 준거법 및 분쟁 해결
+
+본 약관은 대한민국 법률을 준거법으로 합니다. 서비스 관련 분쟁은 민사
+소송법상의 관할 법원에서 해결합니다.
+
+## 9. 문의
+
+본 약관에 대한 문의: **admin@trytimeback.com**
+""")
+
+
+def render_legal_privacy():
+    st.markdown("# 🔒 개인정보처리방침")
+    st.caption(f"최종 업데이트: {LEGAL_UPDATED}")
+    st.divider()
+    st.markdown("""
+PetLog AI는 회원의 개인정보를 소중히 다루며 「개인정보 보호법」등 관련
+법령을 준수합니다.
+
+## 1. 수집하는 개인정보 항목
+
+**A. Google 계정 정보 (로그인 시)**
+- 이메일 주소, 이름, 프로필 이미지 URL
+
+**B. 반려동물 정보 (회원이 직접 입력)**
+- 이름, 종류, 품종, 나이, 몸무게, 이모지
+
+**C. 건강 기록 (회원이 직접 입력)**
+- 식욕·활동량·배변 상태, 체중, 메모
+
+**D. 업로드한 사진 및 AI 분석 결과**
+- 회원이 업로드한 반려동물 사진(서버 파일 저장)
+- Claude AI가 생성한 분석 텍스트·점수
+
+**E. 결제 정보 (Pro 구독 시)**
+- Paddle 고객 ID, 구독 ID, 거래 ID, 구독 상태, 결제 주기 정보
+- ※ **카드번호·CVC 등 민감 결제정보는 Paddle에만 저장**되며 PetLog는
+  절대 수집·보관하지 않습니다.
+
+## 2. 이용 목적
+
+- 서비스 제공 (건강 기록·AI 사진 분석·월별 리포트 생성)
+- 회원 관리 및 본인 확인
+- 결제 처리 및 구독 관리
+- 플랜별 사용량 제한 적용
+- 서비스 품질 개선 및 통계 분석
+- 고객 문의 대응 및 법령상 의무 이행
+
+## 3. 제3자 제공 및 처리 위탁
+
+- **Google (OAuth)**: 로그인 인증. [Google 개인정보처리방침](https://policies.google.com/privacy)
+- **Anthropic (Claude API)**: 업로드한 사진을 AI 분석에 활용.
+  [Anthropic 개인정보처리방침](https://www.anthropic.com/privacy)
+- **Paddle**: 결제 처리·구독 관리.
+  [Paddle 개인정보처리방침](https://www.paddle.com/legal/privacy)
+- **Railway**: 서비스 호스팅. 전송 구간 및 저장 데이터는 암호화 처리.
+
+## 4. 보유 및 파기
+
+- 회원이 탈퇴를 요청하면 개인정보는 지체 없이 파기되며, 저장된 사진 파일도
+  30일 이내에 완전 삭제됩니다.
+- 관계 법령에 따라 보관이 필요한 경우 해당 기간 동안에만 보관한 후 파기합니다.
+  (전자상거래법: 거래 기록 5년 등)
+- 파기 요청: **admin@trytimeback.com**
+
+## 5. 회원의 권리
+
+회원은 언제든지 본인의 개인정보를 열람·수정·삭제·처리정지 요청할 수 있습니다.
+앱 내 "내 정보" 또는 이메일 문의로 행사 가능합니다.
+
+## 6. 쿠키 및 세션
+
+PetLog는 로그인 상태 유지를 위해 최소한의 세션 쿠키를 사용합니다. 광고 추적
+쿠키는 사용하지 않습니다.
+
+## 7. 개인정보 보호책임자
+
+- 담당자: PetLog 운영팀
+- 이메일: **admin@trytimeback.com**
+
+개인정보 침해 관련 신고·상담은 KISA 개인정보침해신고센터(privacy.kisa.or.kr,
+국번 없이 118)에서도 도움을 받을 수 있습니다.
+""")
+
+
+def render_legal_refund():
+    st.markdown("# 💰 환불 정책")
+    st.caption(f"최종 업데이트: {LEGAL_UPDATED}")
+    st.divider()
+    st.markdown("""
+PetLog Pro 구독의 환불은 전자상거래법과 본 정책에 따라 처리됩니다.
+
+## 1. 7일 이내 환불 (청약 철회)
+
+- Pro 구독 **결제 후 7일 이내**이며 **AI 사진 분석을 한 번도 이용하지 않은
+  경우** 전액 환불이 가능합니다.
+- 이는 전자상거래법 제17조(청약 철회 등)에 따른 권리입니다.
+- 환불 요청: **admin@trytimeback.com**으로 결제 이메일·거래 ID를 보내주세요.
+
+## 2. 부분 이용 후 환불
+
+AI 사진 분석을 1회 이상 사용한 경우 **서비스 성격상 청약 철회가 제한**될
+수 있습니다. (전자상거래법 제17조 제2항) 다만, 아래 경우에는 검토 후
+부분 환불을 진행합니다.
+
+- 서비스 장애·오류로 정상적인 이용이 불가능했던 경우
+- 회원이 결제 후 7일 이내이며 1~3회만 이용한 경우 (할인 후 일할 계산 가능)
+
+## 3. 결제 실수에 의한 환불
+
+- 중복 결제, 금액 오류, 의도하지 않은 결제 등 명백한 결제 실수는 **즉시
+  전액 환불**해 드립니다.
+- 결제 이메일을 포함해 **admin@trytimeback.com**으로 연락 바랍니다.
+
+## 4. 환불 불가 사유
+
+- 결제 후 7일이 경과하고 AI 사진 분석을 사용한 경우
+- 회원의 이용약관 위반으로 계정이 정지된 경우
+- 무료 플랜 사용 중 발생한 서비스 불만족
+
+## 5. 환불 절차 및 소요 시간
+
+1. **admin@trytimeback.com**에 환불 요청 메일 발송
+2. 담당자가 **영업일 기준 3일 이내** 확인 후 회신
+3. 승인된 환불은 **Paddle을 통해 원결제수단으로 환급**
+4. 실제 환급 반영까지 카드사·은행에 따라 **3~10영업일**이 소요될 수 있습니다.
+
+## 6. 구독 취소 vs 환불
+
+- **구독 취소**: 다음 결제 주기부터 청구가 중단됩니다. 현재 결제 기간
+  종료일까지는 Pro 기능을 계속 이용할 수 있으며, 사용한 기간에 대한 환불은
+  없습니다.
+- **환불**: 이미 결제된 금액을 돌려받는 절차로, 위 1~3항에 해당하는
+  경우에만 가능합니다.
+
+앱 내에서 언제든지 **구독 & 결제 → 구독 관리 → 구독 취소하기**로 취소할
+수 있습니다.
+
+## 7. 문의
+
+환불·결제 관련 문의: **admin@trytimeback.com**
+""")
+
+
+def render_legal_page(doc: str):
+    c1, _ = st.columns([1, 5])
+    with c1:
+        if st.button("← 뒤로", key=f"back_legal_{doc}"):
+            st.query_params.clear()
+            st.rerun()
+
+    if doc == "terms":
+        render_legal_terms()
+    elif doc == "privacy":
+        render_legal_privacy()
+    elif doc == "refund":
+        render_legal_refund()
+    else:
+        st.error("잘못된 페이지입니다.")
+
+
+# ══════════════════════════════════════
 # Router
 # ══════════════════════════════════════
-if st.session_state.get("logged_in"):
+_legal_doc = st.query_params.get("page", "")
+if _legal_doc in ("terms", "privacy", "refund"):
+    render_legal_page(_legal_doc)
+elif st.session_state.get("logged_in"):
     if st.session_state.get("show_upgrade"):
         render_upgrade_page()
     elif st.session_state.get("selected_pet_id"):
@@ -2260,6 +2498,23 @@ else:
 # Footer
 st.markdown(f"""
 <div class="petlog-footer">
+    <div style="margin-bottom:10px;">
+        <a href="?page=terms" target="_self"
+           style="color:#9B7A7A;text-decoration:none;margin:0 8px;font-weight:600;">
+           📜 이용약관</a>
+        ·
+        <a href="?page=privacy" target="_self"
+           style="color:#9B7A7A;text-decoration:none;margin:0 8px;font-weight:600;">
+           🔒 개인정보처리방침</a>
+        ·
+        <a href="?page=refund" target="_self"
+           style="color:#9B7A7A;text-decoration:none;margin:0 8px;font-weight:600;">
+           💰 환불정책</a>
+    </div>
+    <div style="margin-bottom:6px;color:#8B6F6F;">
+        문의: <a href="mailto:admin@trytimeback.com"
+                 style="color:#8B6F6F;text-decoration:none;">admin@trytimeback.com</a>
+    </div>
     🐾 PetLog AI · {APP_DOMAIN}<br>
     <span style="font-size:0.75rem; color:#C8A8A8;">v{APP_VERSION}</span>
 </div>
