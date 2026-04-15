@@ -878,11 +878,63 @@ st.markdown("""
         transform: translateY(-2px);
         box-shadow: 0 6px 20px rgba(255, 166, 193, 0.5);
     }
-    /* 입력창 */
-    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+    /* 입력창 — 배경 + 글씨색 + placeholder 모두 명확히 */
+    .stTextInput input,
+    .stNumberInput input,
+    .stTextArea textarea,
+    .stDateInput input,
+    .stTimeInput input,
+    .stSelectbox div[data-baseweb="select"] > div,
+    .stMultiSelect div[data-baseweb="select"] > div {
         border-radius: 12px !important;
         border: 1px solid #FFD6D6 !important;
-        background: rgba(255,255,255,0.9) !important;
+        background: #ffffff !important;
+        color: #3A2A2A !important;
+    }
+    .stTextInput input::placeholder,
+    .stNumberInput input::placeholder,
+    .stTextArea textarea::placeholder,
+    .stDateInput input::placeholder {
+        color: #9B7A7A !important;
+        opacity: 1 !important;
+    }
+    /* Selectbox 내부 선택된 값 글씨 */
+    .stSelectbox div[data-baseweb="select"] span,
+    .stMultiSelect div[data-baseweb="select"] span {
+        color: #3A2A2A !important;
+    }
+    /* Selectbox 드롭다운 옵션 */
+    div[data-baseweb="popover"] li,
+    div[data-baseweb="menu"] li {
+        color: #3A2A2A !important;
+        background: #ffffff !important;
+    }
+    div[data-baseweb="popover"] li:hover,
+    div[data-baseweb="menu"] li:hover {
+        background: #FFF0F5 !important;
+    }
+    /* 라벨 (입력창 위 텍스트) */
+    .stTextInput label,
+    .stNumberInput label,
+    .stTextArea label,
+    .stDateInput label,
+    .stTimeInput label,
+    .stSelectbox label,
+    .stFileUploader label,
+    .stRadio label,
+    .stCheckbox label {
+        color: #5B4A4A !important;
+        font-weight: 600 !important;
+    }
+    /* 파일 업로더 배경 */
+    .stFileUploader > div {
+        background: #ffffff !important;
+        border: 1px dashed #FFD6D6 !important;
+        border-radius: 12px !important;
+    }
+    .stFileUploader > div > div,
+    .stFileUploader small {
+        color: #5B4A4A !important;
     }
 
     /* 히어로 */
