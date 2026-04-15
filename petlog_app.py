@@ -1692,12 +1692,34 @@ def render_photo_analysis_tab(pet: dict, email: str):
             st.rerun()
         return
 
-    uploaded = st.file_uploader(
-        "사진 업로드",
-        type=["jpg", "jpeg", "png", "webp"],
-        key=f"upl_{pet_id}",
-        label_visibility="collapsed",
-    )
+    uploaded = None
+    uploaded_name = None
+    uploaded_type = None
+
+    src_camera, src_upload = st.tabs(["📷 카메라로 촬영", "🖼️ 사진 업로드"])
+
+    with src_camera:
+        shot = st.camera_input(
+            "반려동물 사진 촬영",
+            key=f"cam_{pet_id}",
+            label_visibility="collapsed",
+        )
+        if shot is not None:
+            uploaded = shot
+            uploaded_name = f"camera_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.jpg"
+            uploaded_type = shot.type or "image/jpeg"
+
+    with src_upload:
+        up = st.file_uploader(
+            "사진 파일 선택",
+            type=["jpg", "jpeg", "png", "webp"],
+            key=f"upl_{pet_id}",
+            label_visibility="collapsed",
+        )
+        if up is not None and uploaded is None:
+            uploaded = up
+            uploaded_name = up.name
+            uploaded_type = up.type or "image/jpeg"
 
     if uploaded is not None:
         image_bytes = uploaded.getvalue()
@@ -1707,14 +1729,15 @@ def render_photo_analysis_tab(pet: dict, email: str):
                      key=f"ana_{pet_id}", use_container_width=True):
             with st.spinner("🐾 AI가 사진을 살펴보고 있어요..."):
                 try:
-                    mt = uploaded.type or "image/jpeg"
+                    mt = uploaded_type or "image/jpeg"
                     if mt == "image/jpg":
                         mt = "image/jpeg"
                     analysis = analyze_pet_photo(image_bytes, mt, pet)
 
                     # 사진 저장
                     ts = datetime.utcnow().strftime("%Y%m%d%H%M%S")
-                    ext = uploaded.name.rsplit(".", 1)[-1].lower() if "." in uploaded.name else "jpg"
+                    ext = (uploaded_name.rsplit(".", 1)[-1].lower()
+                           if uploaded_name and "." in uploaded_name else "jpg")
                     path = PHOTO_DIR / f"{pet_id}_{ts}.{ext}"
                     path.write_bytes(image_bytes)
 
