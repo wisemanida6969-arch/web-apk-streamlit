@@ -2511,9 +2511,11 @@ st.markdown(f"""
            style="color:#9B7A7A;text-decoration:none;margin:0 8px;font-weight:600;">
            💰 환불정책</a>
     </div>
-    <div style="margin-bottom:6px;color:#8B6F6F;">
-        문의: <a href="mailto:admin@trytimeback.com"
-                 style="color:#8B6F6F;text-decoration:none;">admin@trytimeback.com</a>
+    <div style="margin-bottom:8px;color:#6B4A4A;font-weight:600;">
+        📮 문의사항 ·
+        <a href="mailto:admin@trytimeback.com"
+           style="color:#FF8FA3;text-decoration:none;font-weight:700;">
+           admin@trytimeback.com</a>
     </div>
     🐾 PetLog AI · {APP_DOMAIN}<br>
     <span style="font-size:0.75rem; color:#C8A8A8;">v{APP_VERSION}</span>
