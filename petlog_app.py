@@ -2176,8 +2176,14 @@ def render_upgrade_page():
             <div style="font-weight:900;color:#8A6A20;font-size:1.1rem;">
                 👑 ADMIN — 모든 기능 무제한
             </div>
+            <div style="color:#8A6A20;font-size:0.88rem;margin-top:6px;">
+                아래 결제 테스트는 실제 구독 흐름을 확인하기 위한 용도예요.
+                결제해도 ADMIN 권한은 유지됩니다.
+            </div>
         </div>
         """, unsafe_allow_html=True)
+        # ADMIN도 결제창을 테스트할 수 있도록 체크아웃 UI 노출
+        render_pricing_checkout(user)
     elif plan == "pro":
         period_end = sub.get("current_period_end", "") or "-"
         cancel_at = sub.get("cancel_at_period_end", 0)
