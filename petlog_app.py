@@ -1286,9 +1286,9 @@ def render_login():
         <div style="color:#8B6F6F; line-height:2;">
             🐶 반려동물 프로필 등록 & 관리<br>
             📝 매일 건강 체크 입력 (식욕·활동량·대변)<br>
-            📸 사진으로 AI 건강 분석 (준비 중)<br>
-            📊 월별 건강 리포트 자동 생성 (준비 중)<br>
-            🚨 이상 증상 감지 시 경고 알림 (준비 중)
+            📸 사진으로 Claude AI 건강 분석<br>
+            📊 월별 AI 건강 리포트 자동 생성<br>
+            🚨 이상 증상 감지 시 즉시 경고 알림
         </div>
     </div>
     """, unsafe_allow_html=True)
