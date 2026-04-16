@@ -1244,6 +1244,17 @@ def render_login():
 
     st.markdown("</div>", unsafe_allow_html=True)
 
+    # 법적 동의 안내 (Paddle 도메인 승인 요건: 약관/개인정보/환불 링크 노출)
+    st.markdown("""
+    <div style="text-align:center;margin:14px auto 24px;font-size:0.85rem;color:#9B7A7A;">
+        로그인 시
+        <a href="?page=terms" target="_self" style="color:#FF8FA3;text-decoration:underline;">이용약관</a>·
+        <a href="?page=privacy" target="_self" style="color:#FF8FA3;text-decoration:underline;">개인정보처리방침</a>·
+        <a href="?page=refund" target="_self" style="color:#FF8FA3;text-decoration:underline;">환불정책</a>
+        에 동의하는 것으로 간주됩니다.
+    </div>
+    """, unsafe_allow_html=True)
+
     # 기능 미리보기
     st.markdown("""
     <div class="petlog-card">
