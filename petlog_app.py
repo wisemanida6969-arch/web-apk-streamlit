@@ -171,6 +171,136 @@ def get_secret(key: str, default: str = "") -> str:
 
 
 # ══════════════════════════════════════
+# SEO — meta tags, Open Graph, JSON-LD, Search Console verification
+# ══════════════════════════════════════
+# Streamlit's bundled index.html only sets a generic title. Inject proper
+# SEO tags into window.top so Google/Naver/Twitter/Kakao see them when they
+# crawl petlog.trytimeback.com.
+import streamlit.components.v1 as _seo_components
+_GSC_VERIFICATION = os.environ.get("PETLOG_GSC_VERIFICATION", "").strip()
+_seo_components.html(f"""
+<script>
+(function() {{
+    try {{
+        var doc = window.top.document;
+
+        // 1) Title
+        doc.title = 'PetLog AI — 반려동물 AI 건강 일지';
+
+        function setMeta(attr, attrVal, content) {{
+            var el = doc.querySelector('meta[' + attr + '="' + attrVal + '"]');
+            if (!el) {{
+                el = doc.createElement('meta');
+                el.setAttribute(attr, attrVal);
+                doc.head.appendChild(el);
+            }}
+            el.setAttribute('content', content);
+        }}
+
+        // 2) Primary SEO
+        setMeta('name', 'description',
+            '우리 아이 건강을 매일 기록하고 Claude AI가 사진으로 분석해주는 ' +
+            '반려동물 AI 건강 일지. 식욕·활동·배변 체크, 월별 AI 리포트, ' +
+            '이상 증상 즉시 알림. 무료로 시작하세요.');
+        setMeta('name', 'keywords',
+            '반려동물, 강아지, 고양이, 건강관리, AI 건강분석, ' +
+            '반려동물 일지, 펫로그, PetLog, 반려동물 사진 분석, ' +
+            'Claude AI, 동물병원 기록');
+        setMeta('name', 'author', 'PetLog AI');
+        setMeta('name', 'robots', 'index, follow');
+        setMeta('name', 'theme-color', '#FFB5A7');
+
+        // 3) Open Graph
+        setMeta('property', 'og:title', 'PetLog AI — 반려동물 AI 건강 일지');
+        setMeta('property', 'og:description',
+            '매일 건강 체크 + Claude AI 사진 분석으로 우리 아이 건강을 ' +
+            '꼼꼼하게 챙겨보세요. 무료로 시작.');
+        setMeta('property', 'og:type', 'website');
+        setMeta('property', 'og:url', 'https://petlog.trytimeback.com');
+        setMeta('property', 'og:site_name', 'PetLog AI');
+        setMeta('property', 'og:locale', 'ko_KR');
+
+        // 4) Twitter Card
+        setMeta('name', 'twitter:card', 'summary_large_image');
+        setMeta('name', 'twitter:title', 'PetLog AI — 반려동물 AI 건강 일지');
+        setMeta('name', 'twitter:description',
+            'Claude AI가 분석하는 반려동물 건강 관리 SaaS. 무료 시작.');
+
+        // 5) Canonical
+        if (!doc.querySelector('link[rel="canonical"]')) {{
+            var link = doc.createElement('link');
+            link.rel = 'canonical';
+            link.href = 'https://petlog.trytimeback.com';
+            doc.head.appendChild(link);
+        }}
+
+        // 6) <html lang>
+        doc.documentElement.setAttribute('lang', 'ko');
+
+        // 7) Google Search Console verification
+        var gscToken = '{_GSC_VERIFICATION}';
+        if (gscToken) {{
+            setMeta('name', 'google-site-verification', gscToken);
+        }}
+
+        // 8) JSON-LD structured data — SoftwareApplication
+        if (!doc.querySelector('script[data-seo="petlog"]')) {{
+            var ld = doc.createElement('script');
+            ld.type = 'application/ld+json';
+            ld.setAttribute('data-seo', 'petlog');
+            ld.textContent = JSON.stringify({{
+                "@context": "https://schema.org",
+                "@type": "SoftwareApplication",
+                "name": "PetLog AI",
+                "url": "https://petlog.trytimeback.com",
+                "description":
+                    "Claude AI가 사진으로 반려동물 건강을 분석하고 매일 " +
+                    "건강 체크를 기록해주는 반려동물 AI 건강 일지 SaaS.",
+                "applicationCategory": "HealthApplication",
+                "operatingSystem": "Web",
+                "inLanguage": "ko-KR",
+                "offers": {{
+                    "@type": "Offer",
+                    "price": "9900",
+                    "priceCurrency": "KRW"
+                }},
+                "publisher": {{
+                    "@type": "Organization",
+                    "name": "Trytimeback",
+                    "url": "https://trytimeback.com"
+                }}
+            }});
+            doc.head.appendChild(ld);
+        }}
+
+        // 9) <noscript> for crawlers without JS
+        var ns = doc.querySelector('noscript');
+        if (ns) {{
+            ns.innerHTML =
+                '<div style="font-family:sans-serif;max-width:800px;' +
+                'margin:40px auto;padding:20px;line-height:1.8;">' +
+                '<h1>PetLog AI — 반려동물 AI 건강 일지</h1>' +
+                '<p>매일 건강 체크 + Claude AI 사진 분석으로 우리 아이 ' +
+                '건강을 꼼꼼하게 챙겨보세요.</p>' +
+                '<ul>' +
+                '<li>🐶 반려동물 프로필 등록 & 관리</li>' +
+                '<li>📝 매일 건강 체크 (식욕·활동량·대변)</li>' +
+                '<li>📸 Claude AI 사진 건강 분석</li>' +
+                '<li>📊 월별 AI 건강 리포트</li>' +
+                '<li>🚨 이상 증상 즉시 경고</li>' +
+                '</ul>' +
+                '<p>JavaScript를 활성화하면 전체 기능을 사용할 수 있어요.</p>' +
+                '</div>';
+        }}
+    }} catch (e) {{
+        console.error('[PetLog SEO] inject failed:', e);
+    }}
+}})();
+</script>
+""", height=0)
+
+
+# ══════════════════════════════════════
 # Database (SQLite)
 # ══════════════════════════════════════
 DB_PATH = Path(get_secret("PETLOG_DB_PATH", "petlog.db"))
