@@ -19,6 +19,101 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+
+# ══════════════════════════════════════
+# Paddle _ptxn handler — render hosted checkout for any transaction
+# ══════════════════════════════════════
+# Paddle Billing redirects users to the seller's default payment link URL
+# with ?_ptxn=<transaction_id>. Sister apps (PetLog, PostGenie) in the
+# same Paddle seller account create transactions and Paddle sends users
+# here because trytimeback.com is the account's default approved domain.
+#
+# Render the checkout by injecting paddle.js and calling
+# Paddle.Checkout.open({ transactionId }) — works for any product/price
+# in the same Paddle seller account.
+_ptxn = st.query_params.get("_ptxn")
+if _ptxn:
+    import streamlit.components.v1 as _ptxn_components
+    _PADDLE_CLIENT_TOKEN = "live_1a8fd1443de5064e970587e81c9"
+    _ptxn_components.html(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Complete your payment — Paddle</title>
+      <style>
+        body {{
+          margin: 0;
+          font-family: -apple-system, 'Inter', sans-serif;
+          background: #0b0d14;
+          color: #e4e4ed;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }}
+        .box {{
+          max-width: 440px;
+          text-align: center;
+          padding: 32px;
+          background: rgba(255,255,255,0.04);
+          border-radius: 16px;
+          border: 1px solid rgba(255,255,255,0.08);
+        }}
+        .box h1 {{ font-size: 1.4rem; margin: 0 0 10px; }}
+        .box p {{ color: #9aa; font-size: 0.95rem; line-height: 1.6; }}
+        .spin {{
+          display: inline-block; width: 28px; height: 28px;
+          border: 3px solid rgba(255,255,255,0.15);
+          border-top-color: #8ab4ff;
+          border-radius: 50%;
+          animation: spin 0.9s linear infinite;
+          margin-bottom: 12px;
+        }}
+        @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+      </style>
+    </head>
+    <body>
+      <div class="box">
+        <div class="spin"></div>
+        <h1>🔒 결제창을 여는 중...</h1>
+        <p>잠시만 기다려주세요. Paddle 결제창이 곧 표시됩니다.</p>
+      </div>
+      <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
+      <script>
+        (function() {{
+          function openCheckout() {{
+            try {{
+              Paddle.Initialize({{ token: '{_PADDLE_CLIENT_TOKEN}' }});
+              Paddle.Checkout.open({{ transactionId: '{_ptxn}' }});
+            }} catch (e) {{
+              document.querySelector('.box').innerHTML =
+                '<h1>❌ 결제창을 열 수 없어요</h1><p>' + e.message + '</p>';
+            }}
+          }}
+          if (window.Paddle) openCheckout();
+          else {{
+            var waited = 0;
+            var poll = setInterval(function() {{
+              waited += 300;
+              if (window.Paddle) {{ clearInterval(poll); openCheckout(); }}
+              else if (waited >= 8000) {{
+                clearInterval(poll);
+                document.querySelector('.box').innerHTML =
+                  '<h1>⚠️ Paddle 로딩 실패</h1><p>페이지를 새로고침 해주세요.</p>';
+              }}
+            }}, 300);
+          }}
+        }})();
+      </script>
+    </body>
+    </html>
+    """, height=720, scrolling=False)
+    st.stop()
+
+
 # ─── SEO: Inject meta tags into the MAIN page via window.top ───
 import streamlit.components.v1 as seo_components
 seo_components.html("""
