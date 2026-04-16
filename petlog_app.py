@@ -431,7 +431,8 @@ PADDLE_API_KEY = get_secret("PADDLE_API_KEY", "")
 PADDLE_API_URL = "https://api.paddle.com"
 PADDLE_CLIENT_TOKEN = get_secret("PADDLE_CLIENT_TOKEN",
                                  "live_1a8fd1443de5064e970587e81c9")
-PADDLE_PRICE_PETLOG_MONTHLY = get_secret("PADDLE_PRICE_PETLOG_MONTHLY", "")
+PADDLE_PRICE_PETLOG_MONTHLY = get_secret("PADDLE_PRICE_PETLOG_MONTHLY",
+                                         "pri_01kp3kp3w7yaavn1kshhm9kejw")
 
 
 def paddle_get(path: str) -> dict:
