@@ -333,15 +333,22 @@ REDIRECT_URI = get_secret("REDIRECT_URI", _DEFAULT_RURI)
 # Google OAuth
 # ══════════════════════════════════════
 
+def _oauth_client_id() -> str:
+    return get_secret("GOOGLE_CLIENT_ID", _DEFAULT_CID)
+
+
+def _oauth_redirect_uri() -> str:
+    # Always resolve from env/defaults so the value used to build the auth URL
+    # is identical to the value used during token exchange, regardless of
+    # Streamlit session lifetime. Any mismatch here causes Google to 400 with
+    # "redirect_uri_mismatch".
+    return get_secret("REDIRECT_URI", _DEFAULT_RURI)
+
+
 def get_google_login_url() -> str:
-    cid = get_secret("GOOGLE_CLIENT_ID", _DEFAULT_CID)
-    ruri = get_secret("REDIRECT_URI", _DEFAULT_RURI)
-    # Save redirect_uri in session so token exchange uses exact same value
-    st.session_state["_oauth_redirect_uri"] = ruri
-    st.session_state["_oauth_client_id"] = cid
     params = {
-        "client_id": cid,
-        "redirect_uri": ruri,
+        "client_id": _oauth_client_id(),
+        "redirect_uri": _oauth_redirect_uri(),
         "response_type": "code",
         "scope": "openid email profile",
         "access_type": "offline",
@@ -351,10 +358,9 @@ def get_google_login_url() -> str:
 
 
 def exchange_code_for_token(code: str) -> dict:
-    # Use saved values from login URL generation to ensure exact match
-    cid = st.session_state.get("_oauth_client_id", get_secret("GOOGLE_CLIENT_ID", _DEFAULT_CID))
+    cid = _oauth_client_id()
     csecret = get_secret("GOOGLE_CLIENT_SECRET", _DEFAULT_SEC)
-    ruri = st.session_state.get("_oauth_redirect_uri", get_secret("REDIRECT_URI", _DEFAULT_RURI))
+    ruri = _oauth_redirect_uri()
     payload = {
         "client_id": cid,
         "client_secret": csecret,
@@ -362,7 +368,7 @@ def exchange_code_for_token(code: str) -> dict:
         "grant_type": "authorization_code",
         "redirect_uri": ruri,
     }
-    resp = requests.post("https://oauth2.googleapis.com/token", data=payload)
+    resp = requests.post("https://oauth2.googleapis.com/token", data=payload, timeout=10)
     # Return detailed error instead of raise_for_status
     if resp.status_code != 200:
         error_detail = resp.text
@@ -392,23 +398,32 @@ def handle_oauth_callback():
 
     params = st.query_params
     code = params.get("code")
-    if code and not st.session_state.get("logged_in"):
-        try:
-            token_data = exchange_code_for_token(code)
-            user_info = get_user_info(token_data["access_token"])
-            st.session_state["logged_in"] = True
-            st.session_state["user_info"] = {
-                "name": user_info.get("name", ""),
-                "email": user_info.get("email", ""),
-                "picture": user_info.get("picture", ""),
-            }
-            st.query_params.clear()
-            st.rerun()
-        except Exception as e:
-            ruri = get_secret("REDIRECT_URI", _DEFAULT_RURI)
-            st.session_state["login_error"] = f"Login failed: {e}\n\nredirect_uri: {ruri}"
-            st.query_params.clear()
-            st.rerun()
+    if not code or st.session_state.get("logged_in"):
+        return
+
+    # Guard against re-exchanging the same code on reruns / refreshes.
+    # Google's `code` is single-use; a second exchange returns 400 invalid_grant.
+    if st.session_state.get("_oauth_code_used") == code:
+        st.query_params.clear()
+        return
+
+    st.session_state["_oauth_code_used"] = code
+    try:
+        token_data = exchange_code_for_token(code)
+        user_info = get_user_info(token_data["access_token"])
+        st.session_state["logged_in"] = True
+        st.session_state["user_info"] = {
+            "name": user_info.get("name", ""),
+            "email": user_info.get("email", ""),
+            "picture": user_info.get("picture", ""),
+        }
+        st.query_params.clear()
+        st.rerun()
+    except Exception as e:
+        ruri = _oauth_redirect_uri()
+        st.session_state["login_error"] = f"Login failed: {e}\n\nredirect_uri: {ruri}"
+        st.query_params.clear()
+        st.rerun()
 
 
 def logout():
