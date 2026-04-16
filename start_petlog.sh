@@ -22,12 +22,15 @@ fi
 # Railway는 $PORT 환경변수로 바인딩 포트를 전달
 PORT="${PORT:-8501}"
 
-echo "🐾 Starting PetLog AI on port $PORT (with SEO reverse proxy)"
+echo "🐾 Starting PetLog AI on port $PORT"
 echo "   DB:     ${PETLOG_DB_PATH:-petlog.db}"
 echo "   Photos: ${PETLOG_PHOTO_DIR:-petlog_photos}"
 echo "   Domain: ${PETLOG_APP_URL:-https://petlog.trytimeback.com}"
 
-# serve_petlog.py runs aiohttp on $PORT and proxies to Streamlit on
-# STREAMLIT_INTERNAL_PORT. This lets /sitemap.xml and /robots.txt be
-# served at the root for Google Search Console.
-exec python serve_petlog.py
+exec streamlit run petlog_app.py \
+    --server.port "$PORT" \
+    --server.headless true \
+    --server.address 0.0.0.0 \
+    --server.enableCORS false \
+    --server.enableXsrfProtection false \
+    --browser.gatherUsageStats false
