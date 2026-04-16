@@ -1696,30 +1696,45 @@ def render_photo_analysis_tab(pet: dict, email: str):
     uploaded_name = None
     uploaded_type = None
 
-    src_camera, src_upload = st.tabs(["📷 카메라로 촬영", "🖼️ 사진 업로드"])
+    # 단일 file_uploader — 모바일에서 "사진 촬영" + "파일 선택" 둘 다 제공
+    up = st.file_uploader(
+        "📷 사진 촬영 또는 앨범에서 선택",
+        type=["jpg", "jpeg", "png", "webp"],
+        key=f"upl_{pet_id}",
+    )
 
-    with src_camera:
-        shot = st.camera_input(
-            "반려동물 사진 촬영",
-            key=f"cam_{pet_id}",
-            label_visibility="collapsed",
-        )
-        if shot is not None:
-            uploaded = shot
-            uploaded_name = f"camera_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.jpg"
-            uploaded_type = shot.type or "image/jpeg"
+    # 모바일에서 file input 클릭 시 네이티브 카메라가 바로 열리도록
+    # capture="environment" 속성을 JS로 주입
+    import streamlit.components.v1 as _photo_comp
+    _photo_comp.html(f"""
+    <script>
+    (function() {{
+        var isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (!isMobile) return;
+        // Streamlit file_uploader의 <input type="file"> 를 찾아 capture 속성 추가
+        var root = window.parent.document;
+        function addCapture() {{
+            var inputs = root.querySelectorAll('input[type="file"]');
+            inputs.forEach(function(inp) {{
+                if (!inp.hasAttribute('capture')) {{
+                    inp.setAttribute('capture', 'environment');
+                    inp.setAttribute('accept', 'image/*');
+                }}
+            }});
+        }}
+        addCapture();
+        // DOM 변경 대비 MutationObserver
+        var obs = new MutationObserver(addCapture);
+        obs.observe(root.body, {{childList: true, subtree: true}});
+        setTimeout(function() {{ obs.disconnect(); }}, 10000);
+    }})();
+    </script>
+    """, height=0)
 
-    with src_upload:
-        up = st.file_uploader(
-            "사진 파일 선택",
-            type=["jpg", "jpeg", "png", "webp"],
-            key=f"upl_{pet_id}",
-            label_visibility="collapsed",
-        )
-        if up is not None and uploaded is None:
-            uploaded = up
-            uploaded_name = up.name
-            uploaded_type = up.type or "image/jpeg"
+    if up is not None:
+        uploaded = up
+        uploaded_name = up.name or f"photo_{datetime.utcnow().strftime('%Y%m%d%H%M%S')}.jpg"
+        uploaded_type = up.type or "image/jpeg"
 
     if uploaded is not None:
         image_bytes = uploaded.getvalue()
