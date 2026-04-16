@@ -43,6 +43,124 @@ st.set_page_config(
 )
 
 
+# ══════════════════════════════════════
+# Paddle _ptxn handler — render hosted checkout for any transaction
+# ══════════════════════════════════════
+# Once petlog.trytimeback.com is approved by Paddle, our server-side
+# checkout starts redirecting users back to petlog.trytimeback.com?_ptxn=...
+# Without this handler the user would land on PetLog's main page and
+# never see the checkout. Mirror the trytimeback.com handler so the
+# checkout opens regardless of which approved domain Paddle uses.
+#
+# IMPORTANT: paddle.js must run in window.top to avoid CSP frame-ancestors
+# blocking when Paddle's checkout iframe tries to render.
+_ptxn = st.query_params.get("_ptxn")
+if _ptxn:
+    import streamlit.components.v1 as _ptxn_components
+    _PADDLE_CLIENT_TOKEN = (
+        os.environ.get("PADDLE_CLIENT_TOKEN")
+        or "live_1a8fd1443de5064e970587e81c9"
+    ).strip()
+    _ptxn_components.html(f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <title>Complete your payment — Paddle</title>
+      <style>
+        body {{
+          margin: 0;
+          font-family: -apple-system, 'Inter', sans-serif;
+          background: transparent;
+          min-height: 100vh;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+        }}
+        .box {{
+          max-width: 440px;
+          text-align: center;
+          padding: 32px;
+          background: rgba(255,255,255,0.85);
+          border-radius: 16px;
+          border: 1px solid rgba(255, 200, 200, 0.45);
+          color: #5B4A4A;
+        }}
+        .box h1 {{ font-size: 1.4rem; margin: 0 0 10px; }}
+        .box p {{ color: #8B6F6F; font-size: 0.95rem; line-height: 1.6; }}
+        .spin {{
+          display: inline-block; width: 28px; height: 28px;
+          border: 3px solid rgba(255, 181, 167, 0.25);
+          border-top-color: #FF8FA3;
+          border-radius: 50%;
+          animation: spin 0.9s linear infinite;
+          margin-bottom: 12px;
+        }}
+        @keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+      </style>
+    </head>
+    <body>
+      <div class="box">
+        <div class="spin"></div>
+        <h1>🔒 결제창을 여는 중...</h1>
+        <p>잠시만 기다려주세요. Paddle 결제창이 곧 표시됩니다.</p>
+      </div>
+      <script>
+        (function() {{
+          var TOP = window.top;
+          var TXN = '{_ptxn}';
+          var TOKEN = '{_PADDLE_CLIENT_TOKEN}';
+          function showError(msg) {{
+            try {{
+              document.querySelector('.box').innerHTML =
+                '<h1>⚠️ 결제창을 열 수 없어요</h1><p>' + msg + '</p>';
+            }} catch (_) {{}}
+          }}
+          function openCheckout() {{
+            try {{
+              if (!TOP._tbPaddleInited) {{
+                TOP.Paddle.Initialize({{ token: TOKEN }});
+                TOP._tbPaddleInited = true;
+              }}
+              TOP.Paddle.Checkout.open({{ transactionId: TXN }});
+            }} catch (e) {{
+              showError(e.message || 'Unknown error');
+            }}
+          }}
+          function loadPaddleAndOpen() {{
+            if (TOP.Paddle) {{ openCheckout(); return; }}
+            var existing = TOP.document.getElementById('tb-paddle-sdk');
+            if (existing) {{
+              var waited = 0;
+              var poll = setInterval(function() {{
+                waited += 200;
+                if (TOP.Paddle) {{ clearInterval(poll); openCheckout(); }}
+                else if (waited >= 8000) {{
+                  clearInterval(poll);
+                  showError('Paddle SDK 로드 실패');
+                }}
+              }}, 200);
+              return;
+            }}
+            var s = TOP.document.createElement('script');
+            s.id = 'tb-paddle-sdk';
+            s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+            s.onload = openCheckout;
+            s.onerror = function() {{ showError('paddle.js 다운로드 실패'); }};
+            TOP.document.head.appendChild(s);
+          }}
+          try {{ loadPaddleAndOpen(); }}
+          catch (e) {{ showError('window.top 접근 실패: ' + (e.message || e)); }}
+        }})();
+      </script>
+    </body>
+    </html>
+    """, height=300, scrolling=False)
+    st.stop()
+
+
 def get_secret(key: str, default: str = "") -> str:
     try:
         if key in st.secrets:
