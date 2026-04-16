@@ -2024,18 +2024,29 @@ def render_pricing_checkout(user: dict):
                 s.id = 'petlog-paddle-sdk';
                 s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
                 s.onload = function() {{
-                    top.Paddle.Initialize({{
-                        token: '{client_token}',
-                        environment: 'production',
-                        eventCallback: function(ev) {{
-                            if (ev && ev.name === 'checkout.completed') {{
-                                var txn = (ev.data && ev.data.transaction_id) || '';
-                                var sep = '{app_host}'.indexOf('?') >= 0 ? '&' : '?';
-                                top.location.href = '{app_host}' + sep + 'paddle_txn=' + txn;
+                    try {{
+                        top.Paddle.Initialize({{
+                            token: '{client_token}',
+                            eventCallback: function(ev) {{
+                                console.log('[PetLog Paddle] event:', ev.name, ev);
+                                if (ev && ev.name === 'checkout.completed') {{
+                                    var txn = (ev.data && ev.data.transaction_id) || '';
+                                    var sep = '{app_host}'.indexOf('?') >= 0 ? '&' : '?';
+                                    top.location.href = '{app_host}' + sep + 'paddle_txn=' + txn;
+                                }}
+                                if (ev && ev.name === 'checkout.error') {{
+                                    console.error('[PetLog Paddle] checkout error:', ev);
+                                }}
                             }}
-                        }}
-                    }});
-                    top._petlogPaddleReady = true;
+                        }});
+                        top._petlogPaddleReady = true;
+                        console.log('[PetLog Paddle] SDK initialized OK');
+                    }} catch(e) {{
+                        console.error('[PetLog Paddle] SDK init failed:', e);
+                    }}
+                }};
+                s.onerror = function() {{
+                    console.error('[PetLog Paddle] Failed to load paddle.js');
                 }};
                 top.document.head.appendChild(s);
             }}
@@ -2047,20 +2058,23 @@ def render_pricing_checkout(user: dict):
 
             function doOpen() {{
                 if (btn) btn.textContent = '💝 Pro 시작하기 — 월 9,900원';
-                top.Paddle.Checkout.open({{
-                    items: [{{ priceId: '{price_id}', quantity: 1 }}],
-                    customer: {{ email: '{email}' }},
-                    customData: {{ user_email: '{email}' }},
-                    settings: {{
-                        successUrl: '{app_host}{success_sep}paddle_success=1'
-                    }}
-                }});
+                try {{
+                    top.Paddle.Checkout.open({{
+                        items: [{{ priceId: '{price_id}', quantity: 1 }}],
+                        customer: {{ email: '{email}' }},
+                        settings: {{
+                            successUrl: '{app_host}{success_sep}paddle_success=1'
+                        }}
+                    }});
+                }} catch(e) {{
+                    console.error('[PetLog Paddle] Checkout.open error:', e);
+                    alert('결제 창을 여는 중 오류가 발생했어요: ' + e.message);
+                }}
             }}
 
             if (top.Paddle && top._petlogPaddleReady) {{
                 doOpen();
             }} else {{
-                // SDK 아직 로딩 중 — 버튼에 로딩 표시하고 최대 8초 대기
                 if (btn) btn.textContent = '⏳ 결제 시스템 로딩 중...';
                 var waited = 0;
                 var poll = setInterval(function() {{
