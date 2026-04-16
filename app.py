@@ -40,6 +40,9 @@ if _ptxn:
         os.environ.get("PADDLE_CLIENT_TOKEN")
         or "live_1a8fd1443de5064e970587e81c9"
     ).strip()
+    # IMPORTANT: Paddle's checkout iframe sets `frame-ancestors 'none'` CSP,
+    # so it cannot be nested inside Streamlit's component iframe.
+    # We must escape to window.top and run paddle.js there.
     _ptxn_components.html(f"""
     <!DOCTYPE html>
     <html>
@@ -50,7 +53,7 @@ if _ptxn:
         body {{
           margin: 0;
           font-family: -apple-system, 'Inter', sans-serif;
-          background: #0b0d14;
+          background: transparent;
           color: #e4e4ed;
           min-height: 100vh;
           display: flex;
@@ -86,36 +89,69 @@ if _ptxn:
         <h1>🔒 결제창을 여는 중...</h1>
         <p>잠시만 기다려주세요. Paddle 결제창이 곧 표시됩니다.</p>
       </div>
-      <script src="https://cdn.paddle.com/paddle/v2/paddle.js"></script>
       <script>
         (function() {{
+          var TOP = window.top;
+          var TXN = '{_ptxn}';
+          var TOKEN = '{_PADDLE_CLIENT_TOKEN}';
+
+          function showError(msg) {{
+            try {{
+              document.querySelector('.box').innerHTML =
+                '<h1>⚠️ 결제창을 열 수 없어요</h1><p>' + msg + '</p>';
+            }} catch (_) {{}}
+          }}
+
           function openCheckout() {{
             try {{
-              Paddle.Initialize({{ token: '{_PADDLE_CLIENT_TOKEN}' }});
-              Paddle.Checkout.open({{ transactionId: '{_ptxn}' }});
+              if (!TOP._tbPaddleInited) {{
+                TOP.Paddle.Initialize({{ token: TOKEN }});
+                TOP._tbPaddleInited = true;
+              }}
+              TOP.Paddle.Checkout.open({{ transactionId: TXN }});
             }} catch (e) {{
-              document.querySelector('.box').innerHTML =
-                '<h1>❌ 결제창을 열 수 없어요</h1><p>' + e.message + '</p>';
+              showError(e.message || 'Unknown error');
             }}
           }}
-          if (window.Paddle) openCheckout();
-          else {{
-            var waited = 0;
-            var poll = setInterval(function() {{
-              waited += 300;
-              if (window.Paddle) {{ clearInterval(poll); openCheckout(); }}
-              else if (waited >= 8000) {{
-                clearInterval(poll);
-                document.querySelector('.box').innerHTML =
-                  '<h1>⚠️ Paddle 로딩 실패</h1><p>페이지를 새로고침 해주세요.</p>';
-              }}
-            }}, 300);
+
+          function loadPaddleAndOpen() {{
+            // 이미 top frame 에 paddle.js 가 있으면 바로 오픈
+            if (TOP.Paddle) {{ openCheckout(); return; }}
+            // 없으면 top frame 에 script 태그 주입
+            var existing = TOP.document.getElementById('tb-paddle-sdk');
+            if (existing) {{
+              // 로딩 대기
+              var waited = 0;
+              var poll = setInterval(function() {{
+                waited += 200;
+                if (TOP.Paddle) {{ clearInterval(poll); openCheckout(); }}
+                else if (waited >= 8000) {{
+                  clearInterval(poll);
+                  showError('Paddle SDK 로드 실패');
+                }}
+              }}, 200);
+              return;
+            }}
+            var s = TOP.document.createElement('script');
+            s.id = 'tb-paddle-sdk';
+            s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
+            s.onload = openCheckout;
+            s.onerror = function() {{
+              showError('paddle.js 다운로드 실패');
+            }};
+            TOP.document.head.appendChild(s);
+          }}
+
+          try {{
+            loadPaddleAndOpen();
+          }} catch (e) {{
+            showError('window.top 접근 실패: ' + (e.message || e));
           }}
         }})();
       </script>
     </body>
     </html>
-    """, height=720, scrolling=False)
+    """, height=300, scrolling=False)
     st.stop()
 
 
