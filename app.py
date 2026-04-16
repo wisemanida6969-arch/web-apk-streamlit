@@ -34,7 +34,12 @@ st.set_page_config(
 _ptxn = st.query_params.get("_ptxn")
 if _ptxn:
     import streamlit.components.v1 as _ptxn_components
-    _PADDLE_CLIENT_TOKEN = "live_1a8fd1443de5064e970587e81c9"
+    # Read Paddle client token from env first (set on Railway), fall back
+    # to the hardcoded value that matches the current seller account.
+    _PADDLE_CLIENT_TOKEN = (
+        os.environ.get("PADDLE_CLIENT_TOKEN")
+        or "live_1a8fd1443de5064e970587e81c9"
+    ).strip()
     _ptxn_components.html(f"""
     <!DOCTYPE html>
     <html>
