@@ -928,6 +928,28 @@ st.markdown("""
     }
     /* 헤딩 */
     h1, h2, h3 { color: #5B4A4A; font-family: 'Pretendard', sans-serif; }
+    h4, h5, h6 { color: #6B4A4A; font-family: 'Pretendard', sans-serif; }
+
+    /* 본문 텍스트 — 사용자 다크모드에서도 항상 어두운 글씨 */
+    .stApp, .stApp p, .stApp li, .stApp span, .stApp label,
+    .stApp div[data-testid="stMarkdownContainer"],
+    .stApp div[data-testid="stMarkdownContainer"] *,
+    .stApp .stMarkdown, .stApp .stMarkdown *,
+    .stApp .stCaption {
+        color: #3A2A2A;
+    }
+    /* 단, 카드 내부의 흰색 글씨(예: 버튼)는 유지 */
+    .stApp button[kind="primary"],
+    .stApp button[kind="primary"] *,
+    .stApp .pl-badge, .stApp .pl-badge * {
+        color: #ffffff !important;
+    }
+    /* 링크 */
+    .stApp a { color: #FF8FA3; }
+    .stApp a:hover { color: #E5708F; }
+
+    /* st.divider() 의 가로선 진하게 */
+    .stApp hr { border-color: rgba(155, 122, 122, 0.3); }
 
     /* 카드 스타일 */
     .petlog-card {
