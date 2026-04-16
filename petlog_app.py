@@ -463,6 +463,50 @@ def paddle_post(path: str, payload: dict) -> dict:
     return r.json()
 
 
+def create_paddle_checkout_url(price_id: str, customer_email: str,
+                                return_url: str) -> tuple[str | None, str | None]:
+    """서버사이드에서 Paddle 트랜잭션 생성 → hosted checkout URL 반환.
+
+    반환: (checkout_url, error_message)
+    """
+    if not PADDLE_API_KEY:
+        return None, "PADDLE_API_KEY가 설정되지 않았어요."
+    payload = {
+        "items": [{"price_id": price_id, "quantity": 1}],
+        "checkout": {"url": return_url},
+    }
+    if customer_email:
+        payload["customer_email"] = customer_email
+    try:
+        r = requests.post(
+            f"{PADDLE_API_URL}/transactions",
+            headers={
+                "Authorization": f"Bearer {PADDLE_API_KEY}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=15,
+        )
+        if r.status_code >= 400:
+            # Paddle 에러 메시지 그대로 노출
+            try:
+                err = r.json().get("error", {})
+                detail = err.get("detail") or err.get("code") or r.text
+            except Exception:
+                detail = r.text
+            return None, f"Paddle API {r.status_code}: {detail}"
+        data = r.json().get("data", {})
+        checkout = data.get("checkout", {}) or {}
+        url = checkout.get("url")
+        if not url:
+            return None, "Paddle 응답에 checkout URL이 없어요."
+        return url, None
+    except requests.Timeout:
+        return None, "Paddle API 응답이 너무 느려요 (15초 초과)."
+    except Exception as e:
+        return None, f"결제 URL 생성 실패: {e}"
+
+
 def sync_plan_from_transaction(email: str, txn_id: str) -> bool:
     """Paddle 결제 완료 후 transaction → subscription 조회해 DB 업데이트.
 
@@ -1997,10 +2041,12 @@ import streamlit.components.v1 as paddle_components
 
 
 def render_pricing_checkout(user: dict):
-    """PostGenie와 동일한 window.top 탈출 방식 Paddle.js 체크아웃."""
+    """서버사이드 Paddle 체크아웃 — API로 트랜잭션 만들고 hosted URL로 리다이렉트.
+
+    Paddle.js 오버레이("Something went wrong" 에러) 회피용.
+    """
     email = user.get("email", "")
     price_id = PADDLE_PRICE_PETLOG_MONTHLY or ""
-    client_token = PADDLE_CLIENT_TOKEN
     app_host = get_secret("PETLOG_APP_URL", f"https://{APP_DOMAIN}")
 
     if not price_id:
@@ -2010,167 +2056,83 @@ def render_pricing_checkout(user: dict):
         )
         return
 
-    # successUrl용 구분자 — app_host에 이미 ?가 있으면 &를 써야 함
-    success_sep = "&" if "?" in app_host else "?"
+    # 가격/기능 카드
+    _render_pricing_cards_ui()
 
-    html = f"""
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <script>
-        (function() {{
-            var top = window.top;
-            if (top._petlogPaddleReady) return;
-            if (!top.document.getElementById('petlog-paddle-sdk')) {{
-                var s = top.document.createElement('script');
-                s.id = 'petlog-paddle-sdk';
-                s.src = 'https://cdn.paddle.com/paddle/v2/paddle.js';
-                s.onload = function() {{
-                    try {{
-                        top.Paddle.Initialize({{
-                            token: '{client_token}',
-                            eventCallback: function(ev) {{
-                                console.log('[PetLog Paddle] event:', ev.name, ev);
-                                if (ev && ev.name === 'checkout.completed') {{
-                                    var txn = (ev.data && ev.data.transaction_id) || '';
-                                    var sep = '{app_host}'.indexOf('?') >= 0 ? '&' : '?';
-                                    top.location.href = '{app_host}' + sep + 'paddle_txn=' + txn;
-                                }}
-                                if (ev && ev.name === 'checkout.error') {{
-                                    console.error('[PetLog Paddle] checkout error:', ev);
-                                }}
-                            }}
-                        }});
-                        top._petlogPaddleReady = true;
-                        console.log('[PetLog Paddle] SDK initialized OK');
-                    }} catch(e) {{
-                        console.error('[PetLog Paddle] SDK init failed:', e);
-                    }}
-                }};
-                s.onerror = function() {{
-                    console.error('[PetLog Paddle] Failed to load paddle.js');
-                }};
-                top.document.head.appendChild(s);
-            }}
-        }})();
+    if not PADDLE_API_KEY:
+        st.warning(
+            "⚠️ `PADDLE_API_KEY` 시크릿이 설정되지 않았어요. "
+            "Paddle 대시보드 → Developer Tools → Authentication 에서 "
+            "API key를 발급받아 환경변수에 등록해주세요."
+        )
+        return
 
-        function openPetlogCheckout() {{
-            var top = window.top;
-            var btn = document.getElementById('petlog-checkout-btn');
+    # "구독하기" 버튼 → 서버에서 Paddle 트랜잭션 생성 → hosted URL로 이동
+    if st.button("💝 Pro 시작하기 — 월 9,900원",
+                 type="primary", use_container_width=True,
+                 key="petlog_buy_btn"):
+        with st.spinner("🐾 결제 페이지를 준비하는 중..."):
+            sep = "&" if "?" in app_host else "?"
+            return_url = f"{app_host}{sep}paddle_success=1"
+            url, err = create_paddle_checkout_url(price_id, email, return_url)
+        if err:
+            st.error(f"결제 페이지를 열 수 없어요.\n\n**{err}**\n\n"
+                     "Paddle 대시보드에서 가격 ID, 승인된 도메인, "
+                     "API Key 권한을 확인해주세요.")
+            return
+        # meta refresh + JS 두 가지로 리다이렉트 (iframe 탈출)
+        st.markdown(
+            f'<meta http-equiv="refresh" content="0;url={url}">'
+            f'<script>window.top.location.href = {json.dumps(url)};</script>'
+            f'<p style="text-align:center;color:#6B4A4A;">'
+            f'Paddle 결제 페이지로 이동 중... '
+            f'<a href="{url}" target="_top">이동이 안 되면 여기를 눌러주세요</a></p>',
+            unsafe_allow_html=True,
+        )
+        st.stop()
 
-            function doOpen() {{
-                if (btn) btn.textContent = '💝 Pro 시작하기 — 월 9,900원';
-                try {{
-                    top.Paddle.Checkout.open({{
-                        items: [{{ priceId: '{price_id}', quantity: 1 }}],
-                        customer: {{ email: '{email}' }},
-                        settings: {{
-                            successUrl: '{app_host}{success_sep}paddle_success=1'
-                        }}
-                    }});
-                }} catch(e) {{
-                    console.error('[PetLog Paddle] Checkout.open error:', e);
-                    alert('결제 창을 여는 중 오류가 발생했어요: ' + e.message);
-                }}
-            }}
 
-            if (top.Paddle && top._petlogPaddleReady) {{
-                doOpen();
-            }} else {{
-                if (btn) btn.textContent = '⏳ 결제 시스템 로딩 중...';
-                var waited = 0;
-                var poll = setInterval(function() {{
-                    waited += 500;
-                    if (top.Paddle && top._petlogPaddleReady) {{
-                        clearInterval(poll);
-                        doOpen();
-                    }} else if (waited >= 8000) {{
-                        clearInterval(poll);
-                        if (btn) btn.textContent = '💝 Pro 시작하기 — 월 9,900원';
-                        alert('결제 시스템을 불러오지 못했어요. 페이지를 새로고침 후 다시 시도해주세요.');
-                    }}
-                }}, 500);
-            }}
-        }}
-    </script>
+def _render_pricing_cards_ui():
+    """Streamlit 네이티브 HTML로 가격 비교 카드 렌더링."""
+    st.markdown("""
     <style>
-        * {{ font-family: 'Inter', -apple-system, sans-serif; box-sizing: border-box;
-             margin: 0; padding: 0; }}
-        body {{ background: transparent; }}
-        .pricing-wrap {{ max-width: 560px; margin: 0 auto; padding: 12px; }}
-        .pricing-header {{ text-align: center; margin-bottom: 18px; }}
-        .pricing-header h1 {{
-            font-size: 1.8rem; font-weight: 900; color: #6B4A4A;
-            margin-bottom: 4px; letter-spacing: -0.02em;
-        }}
-        .pricing-header p {{ color: #9B7A7A; font-size: 0.98rem; }}
-
-        .card {{
-            background: linear-gradient(135deg, #FFF9F0 0%, #FFECEC 100%);
-            border: 2px solid #FFB5A7;
-            border-radius: 24px;
-            padding: 28px 28px 24px;
-            text-align: center;
-            box-shadow: 0 8px 28px rgba(255, 181, 167, 0.25);
-            position: relative;
-        }}
-        .badge {{
-            position: absolute; top: -14px; left: 50%; transform: translateX(-50%);
-            background: linear-gradient(135deg, #FFB5A7, #FFA6C1);
-            color: white; padding: 5px 18px; border-radius: 20px;
-            font-weight: 800; font-size: 0.82rem;
-            box-shadow: 0 4px 12px rgba(255, 166, 193, 0.4);
-        }}
-        .plan-emoji {{ font-size: 2.8rem; margin-bottom: 4px; }}
-        .plan-name {{ font-size: 1.5rem; font-weight: 900; color: #6B4A4A; margin-bottom: 4px; }}
-        .plan-price {{
-            font-size: 3rem; font-weight: 900;
-            background: linear-gradient(135deg, #FF8FA3, #FFB085);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            line-height: 1.1;
-        }}
-        .plan-per {{ color: #9B7A7A; font-size: 0.9rem; margin-bottom: 18px; }}
-
-        .features {{ list-style: none; padding: 0; text-align: left; margin: 20px 0; }}
-        .features li {{ color: #5B4A4A; font-size: 0.95rem;
-                       margin-bottom: 10px; display: flex; align-items: center; gap: 8px; }}
-        .features li b {{ color: #6B4A4A; }}
-
-        .btn {{
-            width: 100%; padding: 14px 0; border: none; border-radius: 14px;
-            font-size: 1.05rem; font-weight: 800; cursor: pointer;
-            background: linear-gradient(135deg, #FFB5A7, #FFA6C1);
-            color: white;
-            box-shadow: 0 4px 16px rgba(255, 166, 193, 0.4);
-            transition: all 0.25s;
-        }}
-        .btn:hover {{ transform: translateY(-2px);
-                      box-shadow: 0 8px 28px rgba(255, 166, 193, 0.55); }}
-
-        .secure {{ text-align: center; margin-top: 16px;
-                   font-size: 0.8rem; color: #B89898; }}
-
-        .compare {{
-            display: flex; gap: 12px; margin-bottom: 20px;
-        }}
-        .col {{
-            flex: 1; background: rgba(255,255,255,0.7);
-            border-radius: 16px; padding: 18px;
-            border: 1px solid #FFE0E0;
-        }}
-        .col h3 {{ font-size: 1rem; color: #6B4A4A; margin-bottom: 8px; }}
-        .col .p {{ font-weight: 800; color: #FF8FA3; font-size: 1.4rem; margin-bottom: 10px; }}
-        .col ul {{ list-style: none; padding: 0; }}
-        .col li {{ font-size: 0.85rem; color: #8B6F6F; padding: 3px 0; }}
+        .pl-pricing-wrap { max-width: 560px; margin: 0 auto 12px; }
+        .pl-compare { display: flex; gap: 12px; margin-bottom: 20px; }
+        .pl-col { flex: 1; background: rgba(255,255,255,0.7);
+                  border-radius: 16px; padding: 18px;
+                  border: 1px solid #FFE0E0; }
+        .pl-col h3 { font-size: 1rem; color: #6B4A4A; margin-bottom: 8px; }
+        .pl-col .p { font-weight: 800; color: #FF8FA3;
+                     font-size: 1.4rem; margin-bottom: 10px; }
+        .pl-col ul { list-style: none; padding: 0; }
+        .pl-col li { font-size: 0.85rem; color: #8B6F6F; padding: 3px 0; }
+        .pl-col.pro { background: linear-gradient(135deg,#FFF9F0,#FFECEC);
+                      border: 2px solid #FFB5A7; }
+        .pl-card { background: linear-gradient(135deg, #FFF9F0 0%, #FFECEC 100%);
+                   border: 2px solid #FFB5A7; border-radius: 24px;
+                   padding: 24px; text-align: center; position: relative;
+                   margin-bottom: 16px; }
+        .pl-badge { position: absolute; top: -14px; left: 50%;
+                    transform: translateX(-50%);
+                    background: linear-gradient(135deg, #FFB5A7, #FFA6C1);
+                    color: white; padding: 5px 18px; border-radius: 20px;
+                    font-weight: 800; font-size: 0.82rem; }
+        .pl-plan-emoji { font-size: 2.8rem; margin-bottom: 4px; }
+        .pl-plan-name { font-size: 1.5rem; font-weight: 900;
+                        color: #6B4A4A; margin-bottom: 4px; }
+        .pl-plan-price { font-size: 2.6rem; font-weight: 900;
+                         color: #FF8FA3; line-height: 1.1; }
+        .pl-plan-per { color: #9B7A7A; font-size: 0.9rem; margin-bottom: 14px; }
+        .pl-features { list-style: none; padding: 0; text-align: left;
+                       margin: 14px 0 0; }
+        .pl-features li { color: #5B4A4A; font-size: 0.95rem;
+                          margin-bottom: 8px; }
+        .pl-secure { text-align: center; margin-top: 8px;
+                     font-size: 0.8rem; color: #B89898; }
     </style>
-
-    <div class="pricing-wrap">
-        <div class="pricing-header">
-            <h1>🐾 PetLog Pro</h1>
-            <p>우리 아이 건강을 더 세심하게 챙겨보세요</p>
-        </div>
-
-        <div class="compare">
-            <div class="col">
+    <div class="pl-pricing-wrap">
+        <div class="pl-compare">
+            <div class="pl-col">
                 <h3>🆓 무료</h3>
                 <div class="p">₩0</div>
                 <ul>
@@ -2179,8 +2141,7 @@ def render_pricing_checkout(user: dict):
                     <li>📝 매일 건강 체크</li>
                 </ul>
             </div>
-            <div class="col" style="background:linear-gradient(135deg,#FFF9F0,#FFECEC);
-                                    border:2px solid #FFB5A7;">
+            <div class="pl-col pro">
                 <h3>💝 Pro</h3>
                 <div class="p">₩9,900<span style="font-size:0.85rem;color:#9B7A7A;">/월</span></div>
                 <ul>
@@ -2191,29 +2152,23 @@ def render_pricing_checkout(user: dict):
                 </ul>
             </div>
         </div>
-
-        <div class="card">
-            <div class="badge">👑 가장 인기</div>
-            <div class="plan-emoji">💝</div>
-            <div class="plan-name">PetLog Pro</div>
-            <div class="plan-price">₩9,900</div>
-            <div class="plan-per">월 구독 · 언제든 취소 가능</div>
-            <ul class="features">
+        <div class="pl-card">
+            <div class="pl-badge">👑 가장 인기</div>
+            <div class="pl-plan-emoji">💝</div>
+            <div class="pl-plan-name">PetLog Pro</div>
+            <div class="pl-plan-price">₩9,900</div>
+            <div class="pl-plan-per">월 구독 · 언제든 취소 가능</div>
+            <ul class="pl-features">
                 <li>✅ 반려동물 <b>무제한</b> 등록</li>
                 <li>✅ Claude AI 사진 분석 <b>무제한</b></li>
                 <li>✅ 월별 AI 건강 리포트 무제한 생성</li>
                 <li>✅ 이상 증상 즉시 알림</li>
                 <li>✅ 7일 내 전액 환불 보장</li>
             </ul>
-            <button class="btn" id="petlog-checkout-btn" onclick="openPetlogCheckout()">
-                💝 Pro 시작하기 — 월 9,900원
-            </button>
         </div>
-
-        <div class="secure">🔒 Paddle 안전 결제 · 언제든 취소 가능 · 7일 환불 보장</div>
+        <div class="pl-secure">🔒 Paddle 안전 결제 · 언제든 취소 가능 · 7일 환불 보장</div>
     </div>
-    """
-    paddle_components.html(html, height=820, scrolling=False)
+    """, unsafe_allow_html=True)
 
 
 def render_upgrade_page():
