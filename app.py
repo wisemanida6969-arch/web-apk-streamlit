@@ -70,8 +70,15 @@ OPENAI_API_KEY = get_secret("OPENAI_API_KEY")
 ADMIN_EMAIL = "wisemanida6969@gmail.com"
 
 # ─── Supabase Config ───
+# Prefer service_role key so RLS can be enabled on tables without breaking
+# the app. service_role bypasses RLS, but it is ONLY used server-side by
+# Streamlit and never sent to the browser. Falls back to SUPABASE_KEY for
+# backward compatibility with older deployments.
 SUPABASE_URL = get_secret("SUPABASE_URL")
-SUPABASE_KEY = get_secret("SUPABASE_KEY")
+SUPABASE_KEY = (
+    get_secret("SUPABASE_SERVICE_ROLE_KEY")
+    or get_secret("SUPABASE_KEY")
+)
 supabase: Client | None = None
 if SUPABASE_URL and SUPABASE_KEY and SUPABASE_URL != "YOUR_SUPABASE_URL":
     supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
