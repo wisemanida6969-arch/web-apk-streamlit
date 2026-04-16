@@ -463,32 +463,43 @@ def paddle_post(path: str, payload: dict) -> dict:
 
 
 def sync_plan_from_transaction(email: str, txn_id: str) -> bool:
-    """Paddle 결제 완료 후 transaction → subscription 조회해 DB 업데이트."""
-    try:
-        txn = paddle_get(f"/transactions/{txn_id}").get("data", {})
-        sub_id = txn.get("subscription_id")
-        customer_id = txn.get("customer_id")
-        if not sub_id:
-            return False
-        sub = paddle_get(f"/subscriptions/{sub_id}").get("data", {})
-        status = sub.get("status", "active")
-        period = (sub.get("current_billing_period") or {})
-        ends_at = period.get("ends_at") or sub.get("next_billed_at") or ""
-        cancel_flag = 1 if sub.get("scheduled_change", {}).get("action") == "cancel" else 0
-        upsert_subscription(
-            email,
-            plan="pro",
-            status=status,
-            paddle_customer_id=customer_id,
-            paddle_subscription_id=sub_id,
-            paddle_transaction_id=txn_id,
-            current_period_end=ends_at,
-            cancel_at_period_end=cancel_flag,
-        )
-        return True
-    except Exception as e:
-        print(f"[Paddle] sync error: {e}")
-        return False
+    """Paddle 결제 완료 후 transaction → subscription 조회해 DB 업데이트.
+
+    Paddle API가 트랜잭션을 아직 처리 중일 수 있어서 최대 3회 재시도.
+    """
+    import time
+    for attempt in range(3):
+        try:
+            txn = paddle_get(f"/transactions/{txn_id}").get("data", {})
+            sub_id = txn.get("subscription_id")
+            customer_id = txn.get("customer_id")
+            if not sub_id:
+                # 아직 subscription이 생성되지 않았을 수 있음 — 잠시 대기 후 재시도
+                if attempt < 2:
+                    time.sleep(2)
+                    continue
+                return False
+            sub = paddle_get(f"/subscriptions/{sub_id}").get("data", {})
+            status = sub.get("status", "active")
+            period = (sub.get("current_billing_period") or {})
+            ends_at = period.get("ends_at") or sub.get("next_billed_at") or ""
+            cancel_flag = 1 if sub.get("scheduled_change", {}).get("action") == "cancel" else 0
+            upsert_subscription(
+                email,
+                plan="pro",
+                status=status,
+                paddle_customer_id=customer_id,
+                paddle_subscription_id=sub_id,
+                paddle_transaction_id=txn_id,
+                current_period_end=ends_at,
+                cancel_at_period_end=cancel_flag,
+            )
+            return True
+        except Exception as e:
+            print(f"[Paddle] sync error (attempt {attempt+1}): {e}")
+            if attempt < 2:
+                time.sleep(2)
+    return False
 
 
 def sync_plan_from_email(email: str) -> bool:
@@ -780,7 +791,21 @@ def handle_paddle_callback():
     if not (txn_id or success):
         return
 
+    # Paddle 콜백 중복 처리 방지
+    cb_key = f"paddle_cb_{txn_id or 'success'}"
+    if st.session_state.get(cb_key):
+        st.query_params.clear()
+        return
+    st.session_state[cb_key] = True
+
     synced = False
+    if not PADDLE_API_KEY:
+        # API 키 없으면 sync 불가 — 수동 확인 안내
+        st.session_state["paddle_result"] = "pending"
+        st.query_params.clear()
+        st.rerun()
+        return
+
     if txn_id:
         synced = sync_plan_from_transaction(email, txn_id)
     if not synced:
@@ -1977,6 +2002,16 @@ def render_pricing_checkout(user: dict):
     client_token = PADDLE_CLIENT_TOKEN
     app_host = get_secret("PETLOG_APP_URL", f"https://{APP_DOMAIN}")
 
+    if not price_id:
+        st.error(
+            "⚠️ 결제 시스템 설정이 필요해요.\n\n"
+            "`PADDLE_PRICE_PETLOG_MONTHLY` 시크릿(가격 ID)을 설정해주세요."
+        )
+        return
+
+    # successUrl용 구분자 — app_host에 이미 ?가 있으면 &를 써야 함
+    success_sep = "&" if "?" in app_host else "?"
+
     html = f"""
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script>
@@ -2007,27 +2042,37 @@ def render_pricing_checkout(user: dict):
 
         function openPetlogCheckout() {{
             var top = window.top;
-            var priceId = '{price_id}';
-            if (!priceId) {{
-                alert('가격 ID가 설정되지 않았습니다. PADDLE_PRICE_PETLOG_MONTHLY 시크릿을 확인해주세요.');
-                return;
-            }}
+            var btn = document.getElementById('petlog-checkout-btn');
+
             function doOpen() {{
+                if (btn) btn.textContent = '💝 Pro 시작하기 — 월 9,900원';
                 top.Paddle.Checkout.open({{
-                    items: [{{ priceId: priceId, quantity: 1 }}],
+                    items: [{{ priceId: '{price_id}', quantity: 1 }}],
                     customer: {{ email: '{email}' }},
                     customData: {{ user_email: '{email}' }},
                     settings: {{
-                        successUrl: '{app_host}?paddle_success=1'
+                        successUrl: '{app_host}{success_sep}paddle_success=1'
                     }}
                 }});
             }}
-            if (top.Paddle && top._petlogPaddleReady) {{ doOpen(); }}
-            else {{
-                setTimeout(function() {{
-                    if (top.Paddle) doOpen();
-                    else alert('결제 시스템을 불러오는 중이에요. 잠시 후 다시 시도해주세요.');
-                }}, 1500);
+
+            if (top.Paddle && top._petlogPaddleReady) {{
+                doOpen();
+            }} else {{
+                // SDK 아직 로딩 중 — 버튼에 로딩 표시하고 최대 8초 대기
+                if (btn) btn.textContent = '⏳ 결제 시스템 로딩 중...';
+                var waited = 0;
+                var poll = setInterval(function() {{
+                    waited += 500;
+                    if (top.Paddle && top._petlogPaddleReady) {{
+                        clearInterval(poll);
+                        doOpen();
+                    }} else if (waited >= 8000) {{
+                        clearInterval(poll);
+                        if (btn) btn.textContent = '💝 Pro 시작하기 — 월 9,900원';
+                        alert('결제 시스템을 불러오지 못했어요. 페이지를 새로고침 후 다시 시도해주세요.');
+                    }}
+                }}, 500);
             }}
         }}
     </script>
@@ -2145,7 +2190,7 @@ def render_pricing_checkout(user: dict):
                 <li>✅ 이상 증상 즉시 알림</li>
                 <li>✅ 7일 내 전액 환불 보장</li>
             </ul>
-            <button class="btn" onclick="openPetlogCheckout()">
+            <button class="btn" id="petlog-checkout-btn" onclick="openPetlogCheckout()">
                 💝 Pro 시작하기 — 월 9,900원
             </button>
         </div>
