@@ -465,20 +465,8 @@ def paddle_post(path: str, payload: dict) -> dict:
     return r.json()
 
 
-def create_paddle_checkout_url(price_id: str, customer_email: str,
-                                return_url: str) -> tuple[str | None, str | None]:
-    """서버사이드에서 Paddle 트랜잭션 생성 → hosted checkout URL 반환.
-
-    반환: (checkout_url, error_message)
-    """
-    if not PADDLE_API_KEY:
-        return None, "PADDLE_API_KEY가 설정되지 않았어요."
-    payload = {
-        "items": [{"price_id": price_id, "quantity": 1}],
-        "checkout": {"url": return_url},
-    }
-    if customer_email:
-        payload["customer_email"] = customer_email
+def _paddle_create_transaction(payload: dict) -> tuple[dict | None, str | None]:
+    """POST /transactions 호출 헬퍼. 반환: (data, error)."""
     try:
         r = requests.post(
             f"{PADDLE_API_URL}/transactions",
@@ -490,23 +478,52 @@ def create_paddle_checkout_url(price_id: str, customer_email: str,
             timeout=15,
         )
         if r.status_code >= 400:
-            # Paddle 에러 메시지 그대로 노출
             try:
                 err = r.json().get("error", {})
                 detail = err.get("detail") or err.get("code") or r.text
             except Exception:
                 detail = r.text
             return None, f"Paddle API {r.status_code}: {detail}"
-        data = r.json().get("data", {})
-        checkout = data.get("checkout", {}) or {}
-        url = checkout.get("url")
-        if not url:
-            return None, "Paddle 응답에 checkout URL이 없어요."
-        return url, None
+        return r.json().get("data", {}), None
     except requests.Timeout:
         return None, "Paddle API 응답이 너무 느려요 (15초 초과)."
     except Exception as e:
         return None, f"결제 URL 생성 실패: {e}"
+
+
+def create_paddle_checkout_url(price_id: str, customer_email: str,
+                                return_url: str) -> tuple[str | None, str | None]:
+    """서버사이드에서 Paddle 트랜잭션 생성 → hosted checkout URL 반환.
+
+    1) checkout.url 포함해서 시도 (도메인 승인된 경우 리다이렉트 정상 작동)
+    2) "not approved by Paddle" 에러면 checkout.url 없이 재시도
+       → Paddle 기본 성공 페이지를 쓰고, 사용자는 앱의 '결제 상태 새로 가져오기'
+         버튼으로 플랜 동기화
+
+    반환: (checkout_url, error_message)
+    """
+    if not PADDLE_API_KEY:
+        return None, "PADDLE_API_KEY가 설정되지 않았어요."
+
+    base_payload: dict = {"items": [{"price_id": price_id, "quantity": 1}]}
+    if customer_email:
+        base_payload["customer_email"] = customer_email
+
+    # 1차 시도: checkout.url 포함
+    payload_with_url = {**base_payload, "checkout": {"url": return_url}}
+    data, err = _paddle_create_transaction(payload_with_url)
+
+    # 도메인 승인 대기 중이면 checkout.url 없이 재시도
+    if err and "approved by Paddle" in err:
+        data, err = _paddle_create_transaction(base_payload)
+
+    if err:
+        return None, err
+    checkout = (data or {}).get("checkout", {}) or {}
+    url = checkout.get("url")
+    if not url:
+        return None, "Paddle 응답에 checkout URL이 없어요."
+    return url, None
 
 
 def sync_plan_from_transaction(email: str, txn_id: str) -> bool:
