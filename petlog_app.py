@@ -10,11 +10,13 @@ import sqlite3
 import os
 import json
 import base64
+import io
 import calendar as pycal
 import requests
 from datetime import datetime, date, timedelta
 from urllib.parse import urlencode
 from pathlib import Path
+from PIL import Image
 
 # ══════════════════════════════════════
 # Config
@@ -869,6 +871,22 @@ init_db()
 # Claude AI 사진 분석
 # ══════════════════════════════════════
 ANTHROPIC_API_KEY = get_secret("ANTHROPIC_API_KEY", "")
+
+
+def resize_image_if_needed(image_bytes: bytes, max_px: int = 2000) -> tuple[bytes, str]:
+    """이미지가 max_px 초과 시 비율 유지하며 리사이즈. (bytes, media_type) 반환."""
+    img = Image.open(io.BytesIO(image_bytes))
+    fmt = img.format or "JPEG"
+    if max(img.width, img.height) <= max_px:
+        return image_bytes, f"image/{fmt.lower()}"
+    ratio = max_px / max(img.width, img.height)
+    new_w = int(img.width * ratio)
+    new_h = int(img.height * ratio)
+    img = img.resize((new_w, new_h), Image.LANCZOS)
+    buf = io.BytesIO()
+    save_fmt = fmt if fmt in ("JPEG", "PNG", "WEBP") else "JPEG"
+    img.save(buf, format=save_fmt)
+    return buf.getvalue(), f"image/{save_fmt.lower()}"
 
 
 def analyze_pet_photo(image_bytes: bytes, media_type: str, pet: dict) -> dict:
@@ -2107,7 +2125,8 @@ def render_photo_analysis_tab(pet: dict, email: str):
         uploaded_type = up.type or "image/jpeg"
 
     if uploaded is not None:
-        image_bytes = uploaded.getvalue()
+        raw_bytes = uploaded.getvalue()
+        image_bytes, auto_mt = resize_image_if_needed(raw_bytes)
         st.image(image_bytes, caption=f"{pet['emoji']} {pet['name']}", width=320)
 
         if st.button("🤖 Claude AI로 분석하기", type="primary",
@@ -2115,8 +2134,10 @@ def render_photo_analysis_tab(pet: dict, email: str):
             with st.spinner("🐾 AI가 사진을 살펴보고 있어요..."):
                 try:
                     mt = uploaded_type or "image/jpeg"
-                    if mt == "image/jpg":
+                    if mt in ("image/jpg", "image/jpg"):
                         mt = "image/jpeg"
+                    if len(raw_bytes) != len(image_bytes):
+                        mt = auto_mt
                     analysis = analyze_pet_photo(image_bytes, mt, pet)
 
                     # 사진 저장
@@ -2287,6 +2308,140 @@ def render_monthly_report_tab(pet: dict, email: str):
                     unsafe_allow_html=True)
 
 
+def render_vet_search_tab(pet: dict):
+    """주변 동물병원 검색 탭 — Google Maps Places API (반경 3km)."""
+    MAPS_API_KEY = get_secret("GOOGLE_MAPS_API_KEY", "")
+
+    st.markdown("### 🏥 주변 동물병원 찾기")
+    st.markdown("반경 3km 내 동물병원을 검색합니다.")
+
+    if not MAPS_API_KEY:
+        st.warning("Google Maps API 키가 설정되지 않았습니다. (`GOOGLE_MAPS_API_KEY`)")
+        return
+
+    location_input = st.text_input(
+        "📍 위치 입력",
+        placeholder="예: 서울 강남구 역삼동, 또는 위도,경도 (37.5665,126.9780)",
+        key=f"vet_location_{pet['id']}",
+    )
+
+    if not location_input:
+        st.info("검색할 위치를 입력하세요.")
+        return
+
+    if st.button("🔍 병원 검색", key=f"vet_search_{pet['id']}", type="primary"):
+        with st.spinner("주변 동물병원을 찾고 있어요..."):
+            coords = _geocode_location(location_input, MAPS_API_KEY)
+            if coords is None:
+                st.error("위치를 찾을 수 없습니다. 다시 입력해 주세요.")
+                return
+            lat, lng = coords
+            clinics = _search_vet_clinics(lat, lng, MAPS_API_KEY)
+            st.session_state[f"vet_results_{pet['id']}"] = (lat, lng, clinics)
+
+    result = st.session_state.get(f"vet_results_{pet['id']}")
+    if result:
+        lat, lng, clinics = result
+        if not clinics:
+            st.info("반경 3km 내 동물병원을 찾지 못했습니다.")
+            return
+
+        map_url = (
+            f"https://www.google.com/maps/search/동물병원/@{lat},{lng},14z"
+        )
+        st.markdown(
+            f"<a href='{map_url}' target='_blank'>"
+            f"<button style='background:#4285F4;color:white;border:none;padding:8px 18px;"
+            f"border-radius:8px;font-size:0.9rem;cursor:pointer;margin-bottom:12px;'>"
+            f"🗺️ 구글 지도로 보기</button></a>",
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(f"**총 {len(clinics)}개 병원 발견**")
+        for clinic in clinics:
+            name = clinic.get("name", "이름 없음")
+            addr = clinic.get("vicinity", "주소 미상")
+            rating = clinic.get("rating")
+            open_now = clinic.get("opening_hours", {}).get("open_now")
+            place_id = clinic.get("place_id", "")
+            loc = clinic.get("geometry", {}).get("location", {})
+            clat, clng = loc.get("lat", lat), loc.get("lng", lng)
+
+            dist_m = _haversine_m(lat, lng, clat, clng)
+            dist_str = f"{dist_m:.0f}m" if dist_m < 1000 else f"{dist_m/1000:.1f}km"
+
+            status_icon = "🟢 영업중" if open_now is True else ("🔴 영업종료" if open_now is False else "⚪ 미확인")
+            rating_str = f"⭐ {rating}" if rating else ""
+
+            detail_url = f"https://www.google.com/maps/place/?q=place_id:{place_id}" if place_id else f"https://www.google.com/maps/search/{name}/@{clat},{clng},17z"
+
+            st.markdown(
+                f"""<div style='background:rgba(255,255,255,0.07);border-radius:12px;
+                padding:14px 16px;margin-bottom:10px;border:1px solid rgba(255,255,255,0.1);'>
+                <div style='font-weight:700;font-size:1rem;'>{name}</div>
+                <div style='font-size:0.85rem;color:#aaa;margin:4px 0;'>{addr}</div>
+                <div style='font-size:0.85rem;display:flex;gap:12px;flex-wrap:wrap;'>
+                  <span>📏 {dist_str}</span>
+                  <span>{rating_str}</span>
+                  <span>{status_icon}</span>
+                </div>
+                <a href='{detail_url}' target='_blank'
+                   style='display:inline-block;margin-top:8px;padding:5px 14px;
+                   background:#34A853;color:white;border-radius:6px;font-size:0.82rem;
+                   text-decoration:none;'>🗺️ 지도로 보기</a>
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+
+def _geocode_location(location: str, api_key: str):
+    """주소/지명을 (lat, lng)로 변환. 실패 시 None."""
+    # 위도,경도 직접 입력 처리
+    parts = location.strip().split(",")
+    if len(parts) == 2:
+        try:
+            return float(parts[0].strip()), float(parts[1].strip())
+        except ValueError:
+            pass
+    url = "https://maps.googleapis.com/maps/api/geocode/json"
+    resp = requests.get(url, params={"address": location, "key": api_key, "language": "ko"}, timeout=8)
+    data = resp.json()
+    if data.get("status") == "OK":
+        loc = data["results"][0]["geometry"]["location"]
+        return loc["lat"], loc["lng"]
+    return None
+
+
+def _search_vet_clinics(lat: float, lng: float, api_key: str, radius: int = 3000) -> list:
+    """Google Places Nearby Search로 동물병원 검색."""
+    url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
+    params = {
+        "location": f"{lat},{lng}",
+        "radius": radius,
+        "keyword": "동물병원",
+        "language": "ko",
+        "key": api_key,
+    }
+    resp = requests.get(url, params=params, timeout=10)
+    data = resp.json()
+    results = data.get("results", [])
+    results.sort(key=lambda x: _haversine_m(lat, lng,
+        x.get("geometry", {}).get("location", {}).get("lat", lat),
+        x.get("geometry", {}).get("location", {}).get("lng", lng)))
+    return results[:15]
+
+
+def _haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
+    """두 좌표 사이 거리(미터)."""
+    import math
+    R = 6_371_000
+    p = math.pi / 180
+    a = (math.sin((lat2 - lat1) * p / 2) ** 2
+         + math.cos(lat1 * p) * math.cos(lat2 * p)
+         * math.sin((lng2 - lng1) * p / 2) ** 2)
+    return R * 2 * math.asin(math.sqrt(a))
+
+
 def render_health_page():
     user = st.session_state["user_info"]
     email = user["email"]
@@ -2317,8 +2472,8 @@ def render_health_page():
     if today_log:
         render_alert_banner(today_log.get("alert_level", 0), pet["name"])
 
-    tab_daily, tab_photo, tab_report = st.tabs(
-        ["📝 매일 체크", "📸 AI 사진 분석", "📊 월별 리포트"]
+    tab_daily, tab_photo, tab_report, tab_vet = st.tabs(
+        ["📝 매일 체크", "📸 AI 사진 분석", "📊 월별 리포트", "🏥 동물병원 찾기"]
     )
 
     with tab_daily:
@@ -2332,6 +2487,9 @@ def render_health_page():
 
     with tab_report:
         render_monthly_report_tab(pet, email)
+
+    with tab_vet:
+        render_vet_search_tab(pet)
 
 
 # ══════════════════════════════════════
