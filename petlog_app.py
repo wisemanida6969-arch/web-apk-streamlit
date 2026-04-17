@@ -203,7 +203,7 @@ _seo_components.html(f"""
         setMeta('name', 'description',
             '우리 아이 건강을 매일 기록하고 Claude AI가 사진으로 분석해주는 ' +
             '반려동물 AI 건강 일지. 식욕·활동·배변 체크, 월별 AI 리포트, ' +
-            '이상 증상 즉시 알림. 무료로 시작하세요.');
+            '이상 증상 즉시 알림, 주변 동물병원 검색. 무료로 시작하세요.');
         setMeta('name', 'keywords',
             '반려동물, 강아지, 고양이, 건강관리, AI 건강분석, ' +
             '반려동물 일지, 펫로그, PetLog, 반려동물 사진 분석, ' +
@@ -1554,7 +1554,8 @@ def render_login():
             📝 매일 건강 체크 입력 (식욕·활동량·대변)<br>
             📸 사진으로 Claude AI 건강 분석<br>
             📊 월별 AI 건강 리포트 자동 생성<br>
-            🚨 이상 증상 감지 시 즉시 경고 알림
+            🚨 이상 증상 감지 시 즉시 경고 알림<br>
+            🏥 주변 동물병원 검색 (반경 3km)
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -2621,6 +2622,7 @@ def _render_pricing_cards_ui():
                 <li>✅ Claude AI 사진 분석 <b>무제한</b></li>
                 <li>✅ 월별 AI 건강 리포트 무제한 생성</li>
                 <li>✅ 이상 증상 즉시 알림</li>
+                <li>✅ 주변 동물병원 검색</li>
                 <li>✅ 7일 내 전액 환불 보장</li>
             </ul>
         </div>
