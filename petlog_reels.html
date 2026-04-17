@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PetLog AI Reels</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;900&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.reels {
+  width: 1080px;
+  height: 1920px;
+  transform-origin: center center;
+  position: relative;
+  overflow: hidden;
+}
+
+.scene {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 80px 60px;
+  opacity: 0;
+  transition: opacity 0.5s ease;
+}
+
+.scene.active { opacity: 1; }
+
+/* Scene 1 — Hook (0-3s) */
+.sc1 {
+  background: linear-gradient(180deg, #1a1a2e 0%, #2d1b69 100%);
+}
+.sc1 .hook-emoji { font-size: 10rem; animation: bounce 1s infinite; }
+.sc1 .hook-text {
+  font-size: 3.8rem; font-weight: 900; color: #fff;
+  text-align: center; line-height: 1.4; margin-top: 40px;
+}
+.sc1 .hook-text b { color: #FFB5A7; }
+
+/* Scene 2 — Problem (3-6s) */
+.sc2 { background: linear-gradient(180deg, #2d1b69 0%, #1a1a2e 100%); }
+.sc2 .prob-list { display: flex; flex-direction: column; gap: 50px; }
+.sc2 .prob {
+  display: flex; align-items: center; gap: 30px;
+  font-size: 2.6rem; font-weight: 700; color: #fff;
+  opacity: 0;
+}
+.sc2 .prob .em { font-size: 4.5rem; }
+.sc2.active .prob { animation: slideIn 0.4s forwards; }
+.sc2.active .prob:nth-child(1) { animation-delay: 0s; }
+.sc2.active .prob:nth-child(2) { animation-delay: 0.4s; }
+.sc2.active .prob:nth-child(3) { animation-delay: 0.8s; }
+
+/* Scene 3 — Solution reveal (6-9s) */
+.sc3 {
+  background: linear-gradient(180deg, #FFE8E0 0%, #FFD6E0 40%, #FFB5A7 100%);
+}
+.sc3 .logo-big { font-size: 8rem; margin-bottom: 10px; animation: bounce 1.5s infinite; }
+.sc3 h1 {
+  font-size: 5rem; font-weight: 900; color: #5B2A3A;
+  text-align: center; margin-bottom: 20px;
+}
+.sc3 .sub {
+  font-size: 2.4rem; font-weight: 700; color: #7A4A5A;
+  text-align: center; line-height: 1.5;
+}
+
+/* Scene 4 — Features (9-14s) */
+.sc4 {
+  background: linear-gradient(180deg, #1a1a2e 0%, #0f3460 100%);
+  padding: 60px 50px;
+}
+.sc4 .feat-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 36px;
+  width: 100%;
+}
+.sc4 .feat {
+  background: rgba(255,255,255,0.07); border-radius: 28px;
+  padding: 40px 30px; text-align: center;
+  border: 1px solid rgba(255,255,255,0.1);
+  opacity: 0;
+}
+.sc4 .feat .icon { font-size: 4.5rem; margin-bottom: 16px; }
+.sc4 .feat .title { font-size: 1.8rem; font-weight: 900; color: #fff; }
+.sc4 .feat .desc { font-size: 1.3rem; color: #aaa; margin-top: 8px; line-height: 1.4; }
+.sc4.active .feat { animation: popIn 0.4s forwards; }
+.sc4.active .feat:nth-child(1) { animation-delay: 0s; }
+.sc4.active .feat:nth-child(2) { animation-delay: 0.3s; }
+.sc4.active .feat:nth-child(3) { animation-delay: 0.6s; }
+.sc4.active .feat:nth-child(4) { animation-delay: 0.9s; }
+.sc4 .new-tag {
+  position: absolute; top: -8px; right: -8px;
+  background: #EF4444; color: #fff; padding: 6px 18px;
+  border-radius: 14px; font-size: 1.1rem; font-weight: 900;
+}
+
+/* Scene 5 — AI Demo (14-18s) */
+.sc5 { background: linear-gradient(180deg, #2d1b69 0%, #1a1a2e 100%); }
+.sc5 h2 { font-size: 3rem; font-weight: 900; color: #C084FC; margin-bottom: 50px; }
+.sc5 .ai-demo {
+  background: rgba(255,255,255,0.06); border-radius: 32px; padding: 50px;
+  width: 90%; border: 2px solid rgba(192,132,252,0.3);
+}
+.sc5 .pet-photo {
+  width: 280px; height: 280px; border-radius: 24px;
+  background: linear-gradient(135deg, #FFE8E0, #FFD6E0);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 9rem; margin: 0 auto 30px;
+}
+.sc5 .scores { display: flex; justify-content: center; gap: 24px; margin-bottom: 30px; }
+.sc5 .sc {
+  background: rgba(192,132,252,0.15); border-radius: 16px;
+  padding: 14px 22px; text-align: center;
+  opacity: 0;
+}
+.sc5 .sc .lb { font-size: 1.2rem; color: #aaa; }
+.sc5 .sc .vl { font-size: 2.8rem; font-weight: 900; color: #C084FC; }
+.sc5.active .sc { animation: popIn 0.3s forwards; }
+.sc5.active .sc:nth-child(1) { animation-delay: 0.3s; }
+.sc5.active .sc:nth-child(2) { animation-delay: 0.5s; }
+.sc5.active .sc:nth-child(3) { animation-delay: 0.7s; }
+.sc5.active .sc:nth-child(4) { animation-delay: 0.9s; }
+.sc5 .ok-badge {
+  background: linear-gradient(135deg, #34D399, #10B981);
+  color: #fff; padding: 14px 40px; border-radius: 24px;
+  font-size: 2rem; font-weight: 900; display: inline-block;
+  opacity: 0;
+}
+.sc5.active .ok-badge { animation: popIn 0.4s 1.2s forwards; }
+
+/* Scene 6 — CTA (18-21s) */
+.sc6 {
+  background: linear-gradient(180deg, #FFE8E0 0%, #FFB5A7 50%, #FF8FA3 100%);
+}
+.sc6 .cta-logo { font-size: 7rem; animation: bounce 1.2s infinite; }
+.sc6 .cta-title {
+  font-size: 3.6rem; font-weight: 900; color: #5B2A3A;
+  text-align: center; margin: 20px 0;
+}
+.sc6 .cta-url {
+  font-size: 2.4rem; font-weight: 900; color: #fff;
+  background: rgba(91,42,58,0.75); padding: 20px 50px;
+  border-radius: 60px; margin: 20px 0;
+}
+.sc6 .cta-free {
+  font-size: 2rem; font-weight: 700; color: #5B2A3A;
+  margin-top: 16px;
+}
+.sc6 .cta-arrow {
+  font-size: 3rem; color: #5B2A3A; margin-top: 30px;
+  animation: arrowPulse 1s infinite;
+}
+
+/* Progress bar */
+.progress {
+  position: absolute; top: 0; left: 0; right: 0; height: 6px;
+  z-index: 10; display: flex; gap: 6px; padding: 14px 14px 0;
+}
+.progress .bar {
+  flex: 1; height: 4px; background: rgba(255,255,255,0.2);
+  border-radius: 4px; overflow: hidden;
+}
+.progress .bar .fill {
+  height: 100%; width: 0; background: #fff; border-radius: 4px;
+}
+
+/* Controls */
+.controls {
+  position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+  display: flex; gap: 20px; z-index: 100;
+}
+.ctrl-btn {
+  background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3);
+  color: #fff; padding: 12px 28px; border-radius: 30px;
+  font-size: 1rem; font-weight: 700; cursor: pointer;
+  font-family: 'Noto Sans KR', sans-serif;
+}
+.ctrl-btn:hover { background: rgba(255,255,255,0.25); }
+
+/* Animations */
+@keyframes bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-18px); }
+}
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-40px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+@keyframes popIn {
+  from { opacity: 0; transform: scale(0.7); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes arrowPulse {
+  0%, 100% { transform: translateY(0); opacity: 1; }
+  50% { transform: translateY(10px); opacity: 0.5; }
+}
+</style>
+</head>
+<body>
+
+<div class="reels" id="reels">
+  <!-- Progress bars -->
+  <div class="progress" id="progress"></div>
+
+  <!-- Scene 1: Hook -->
+  <div class="scene sc1 active" data-duration="3000">
+    <div class="hook-emoji">😟</div>
+    <div class="hook-text">
+      우리 아이<br><b>건강</b>이<br>걱정되시나요?
+    </div>
+  </div>
+
+  <!-- Scene 2: Problems -->
+  <div class="scene sc2" data-duration="3500">
+    <div class="prob-list">
+      <div class="prob"><span class="em">🍚</span> 밥을 안 먹어요...</div>
+      <div class="prob"><span class="em">😿</span> 기운이 없어요...</div>
+      <div class="prob"><span class="em">🏥</span> 병원 어디 가지?</div>
+    </div>
+  </div>
+
+  <!-- Scene 3: Solution -->
+  <div class="scene sc3" data-duration="3000">
+    <div class="logo-big">🐾</div>
+    <h1>PetLog AI</h1>
+    <div class="sub">AI가 우리 아이<br>건강을 챙겨줍니다</div>
+  </div>
+
+  <!-- Scene 4: Features -->
+  <div class="scene sc4" data-duration="4000">
+    <div class="feat-grid">
+      <div class="feat">
+        <div class="icon">📝</div>
+        <div class="title">매일 체크</div>
+        <div class="desc">식욕·활동·대변<br>터치로 기록</div>
+      </div>
+      <div class="feat">
+        <div class="icon">📸</div>
+        <div class="title">AI 분석</div>
+        <div class="desc">사진 한 장으로<br>건강 상태 분석</div>
+      </div>
+      <div class="feat">
+        <div class="icon">📊</div>
+        <div class="title">월별 리포트</div>
+        <div class="desc">한 달 건강<br>AI 종합 분석</div>
+      </div>
+      <div class="feat" style="position:relative;">
+        <span class="new-tag">NEW</span>
+        <div class="icon">🏥</div>
+        <div class="title">병원 검색</div>
+        <div class="desc">반경 3km<br>동물병원 찾기</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 5: AI Demo -->
+  <div class="scene sc5" data-duration="4500">
+    <h2>사진 찍으면 바로 분석!</h2>
+    <div class="ai-demo">
+      <div class="pet-photo">🐕</div>
+      <div class="scores">
+        <div class="sc"><div class="lb">👁️ 눈</div><div class="vl">9</div></div>
+        <div class="sc"><div class="lb">🧶 털</div><div class="vl">8</div></div>
+        <div class="sc"><div class="lb">⚖️ 체형</div><div class="vl">9</div></div>
+        <div class="sc"><div class="lb">🏃 활동</div><div class="vl">7</div></div>
+      </div>
+      <div style="text-align:center;"><span class="ok-badge">✅ 건강 양호</span></div>
+    </div>
+  </div>
+
+  <!-- Scene 6: CTA -->
+  <div class="scene sc6" data-duration="4000">
+    <div class="cta-logo">🐾</div>
+    <div class="cta-title">지금 무료로<br>시작하세요</div>
+    <div class="cta-url">petlog.trytimeback.com</div>
+    <div class="cta-free">가입 10초 · 카드 불필요</div>
+    <div class="cta-arrow">👇 링크 클릭</div>
+  </div>
+</div>
+
+<div class="controls">
+  <button class="ctrl-btn" onclick="restart()">⟲ 처음부터</button>
+  <button class="ctrl-btn" id="pauseBtn" onclick="togglePause()">⏸ 일시정지</button>
+</div>
+
+<script>
+const scenes = document.querySelectorAll('.scene');
+const total = scenes.length;
+let current = 0;
+let paused = false;
+let timer = null;
+
+// Scale reels to fit viewport
+function scaleReels() {
+  const el = document.getElementById('reels');
+  const sw = window.innerWidth / 1080;
+  const sh = window.innerHeight / 1920;
+  const s = Math.min(sw, sh, 1);
+  el.style.transform = `scale(${s})`;
+}
+scaleReels();
+window.addEventListener('resize', scaleReels);
+
+// Build progress bars
+const progEl = document.getElementById('progress');
+scenes.forEach(() => {
+  const bar = document.createElement('div');
+  bar.className = 'bar';
+  bar.innerHTML = '<div class="fill"></div>';
+  progEl.appendChild(bar);
+});
+const fills = document.querySelectorAll('.progress .fill');
+
+function playScene(idx) {
+  scenes.forEach(s => s.classList.remove('active'));
+  scenes[idx].classList.add('active');
+  current = idx;
+
+  // Reset future fills, complete past
+  fills.forEach((f, i) => {
+    if (i < idx) { f.style.transition = 'none'; f.style.width = '100%'; }
+    else if (i > idx) { f.style.transition = 'none'; f.style.width = '0'; }
+  });
+
+  const dur = parseInt(scenes[idx].dataset.duration) || 3000;
+  const fill = fills[idx];
+  fill.style.transition = 'none';
+  fill.style.width = '0';
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      fill.style.transition = `width ${dur}ms linear`;
+      fill.style.width = '100%';
+    });
+  });
+
+  clearTimeout(timer);
+  timer = setTimeout(() => {
+    if (!paused) {
+      if (current < total - 1) playScene(current + 1);
+      // last scene stays
+    }
+  }, dur);
+}
+
+function restart() {
+  paused = false;
+  document.getElementById('pauseBtn').textContent = '⏸ 일시정지';
+  fills.forEach(f => { f.style.transition = 'none'; f.style.width = '0'; });
+  playScene(0);
+}
+
+function togglePause() {
+  paused = !paused;
+  document.getElementById('pauseBtn').textContent = paused ? '▶ 재생' : '⏸ 일시정지';
+  if (!paused) {
+    playScene(current);
+  } else {
+    clearTimeout(timer);
+  }
+}
+
+// Tap left/right to navigate
+document.getElementById('reels').addEventListener('click', e => {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const x = e.clientX - rect.left;
+  if (x < rect.width * 0.3) {
+    if (current > 0) playScene(current - 1);
+  } else if (x > rect.width * 0.7) {
+    if (current < total - 1) playScene(current + 1);
+  }
+});
+
+// Keyboard
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight' || e.key === ' ') {
+    e.preventDefault();
+    if (current < total - 1) playScene(current + 1);
+  }
+  if (e.key === 'ArrowLeft' && current > 0) playScene(current - 1);
+});
+
+// Start
+playScene(0);
+</script>
+</body>
+</html>
