@@ -3,6 +3,7 @@ import re
 import os
 import json
 import requests
+import db
 from datetime import datetime
 from urllib.parse import urlencode
 from youtube_transcript_api import YouTubeTranscriptApi
