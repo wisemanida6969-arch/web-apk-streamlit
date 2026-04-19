@@ -1520,6 +1520,19 @@ with st.sidebar:
 
     st.divider()
 
+    # ─── 사용량 표시 ───
+    FREE_DAILY_LIMIT = 3
+    used_today = db.get_daily_usage(user_email)
+    remaining_today = max(0, FREE_DAILY_LIMIT - used_today)
+    if not is_admin():
+        pct = min(used_today / FREE_DAILY_LIMIT, 1.0)
+        st.markdown(f"**오늘 남은 분석:** {remaining_today}/{FREE_DAILY_LIMIT}회")
+        st.progress(pct)
+        if remaining_today == 0:
+            st.error("오늘 무료 횟수 소진! 내일 다시 이용하세요.")
+
+    st.divider()
+
     # API Key: admin only can see/edit, others use the preset key silently
     if is_admin():
         st.header("⚙️ Admin Settings")
@@ -1610,6 +1623,8 @@ if analyze:
             st.error("🔑 Service is temporarily unavailable. Please contact the administrator.")
     elif not url:
         st.error("Please enter a YouTube URL.")
+    elif not is_admin() and remaining_today <= 0:
+        st.error("⚠️ 오늘 무료 분석 횟수(3회)를 모두 사용했습니다. 내일 다시 이용해주세요.")
     else:
         video_id = extract_video_id(url)
         if not video_id:
@@ -1618,6 +1633,9 @@ if analyze:
             try:
                 result = process_video(video_id, api_key)
                 if result:
+                    if not is_admin():
+                        db.increment_daily_usage(user_email)
+                        st.toast(f"✅ 분석 완료! 오늘 남은 횟수: {remaining_today - 1}회")
                     st.session_state["result"] = result
             except Exception as e:
                 st.error(f"Error: {e}")
