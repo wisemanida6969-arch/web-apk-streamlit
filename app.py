@@ -2,12 +2,55 @@ import streamlit as st
 import re
 import os
 import json
+import sqlite3
 import requests
-import db
 from datetime import datetime
 from urllib.parse import urlencode
 from youtube_transcript_api import YouTubeTranscriptApi
 from openai import OpenAI
+
+# ─── 사용량 추적 DB ───
+_USAGE_DB = "usage.db"
+
+def _usage_init():
+    conn = sqlite3.connect(_USAGE_DB)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS user_usage (
+            user_email TEXT,
+            usage_date TEXT,
+            usage_count INTEGER DEFAULT 0,
+            PRIMARY KEY (user_email, usage_date)
+        )
+    """)
+    conn.commit()
+    conn.close()
+
+_usage_init()
+
+def get_daily_usage(user_email: str) -> int:
+    try:
+        conn = sqlite3.connect(_USAGE_DB)
+        row = conn.execute(
+            "SELECT usage_count FROM user_usage WHERE user_email=? AND usage_date=DATE('now')",
+            (user_email,)
+        ).fetchone()
+        conn.close()
+        return row[0] if row else 0
+    except:
+        return 0
+
+def increment_daily_usage(user_email: str):
+    try:
+        conn = sqlite3.connect(_USAGE_DB)
+        conn.execute("""
+            INSERT INTO user_usage (user_email, usage_date, usage_count)
+            VALUES (?, DATE('now'), 1)
+            ON CONFLICT(user_email, usage_date) DO UPDATE SET usage_count = usage_count + 1
+        """, (user_email,))
+        conn.commit()
+        conn.close()
+    except:
+        pass
 
 # ─── Deploy Version (change this to verify deployment) ───
 APP_VERSION = "2026-04-07-v1"
@@ -1523,7 +1566,7 @@ with st.sidebar:
 
     # ─── 사용량 표시 ───
     FREE_DAILY_LIMIT = 3
-    used_today = db.get_daily_usage(user_email)
+    used_today = get_daily_usage(user_email)
     remaining_today = max(0, FREE_DAILY_LIMIT - used_today)
     if not is_admin():
         pct = min(used_today / FREE_DAILY_LIMIT, 1.0)
@@ -1635,7 +1678,7 @@ if analyze:
                 result = process_video(video_id, api_key)
                 if result:
                     if not is_admin():
-                        db.increment_daily_usage(user_email)
+                        increment_daily_usage(user_email)
                         st.toast(f"✅ 분석 완료! 오늘 남은 횟수: {remaining_today - 1}회")
                     st.session_state["result"] = result
             except Exception as e:
