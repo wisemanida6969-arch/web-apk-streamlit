@@ -1484,15 +1484,16 @@ Users may request to view, modify, or delete their personal information at any t
     elif login_show == "refund":
         with st.expander("💰 Refund Policy", expanded=True):
             st.markdown("""
-At Trytimeback, we want you to be satisfied with our AI video summary services.
+We offer a 14-day refund policy in accordance with Paddle's terms of service.
 
-**1. Subscription Refunds:**
-You are eligible for a full refund within 7 days of your initial purchase, provided that you have not used the premium features.
+Customers may request a full refund within 14 days of purchase by contacting us at admin@trytimeback.com.
 
-**2. How to Request a Refund:**
+Refund requests after 14 days will be reviewed on a case-by-case basis.
+
+**How to Request a Refund:**
 To request a refund, please contact us at admin@trytimeback.com. We will process your request within 3-5 business days.
 
-**3. Automatic Cancellations:**
+**Automatic Cancellations:**
 You can cancel your subscription at any time through your account settings. Once canceled, you will not be charged for the next billing cycle.
             """)
             if st.button("Close", key="login_close_refund"):
@@ -2241,12 +2242,12 @@ st.markdown("""
 ">
     <h3 style="color: #e8e8f0; margin-bottom: 16px;">Refund Policy</h3>
     <div style="font-size: 0.88rem; color: rgba(180, 180, 210, 0.85); line-height: 1.9;">
-        <p>At Trytimeback, we want you to be satisfied with our AI video summary services.</p>
-        <p><b style="color: rgba(220, 220, 240, 0.9);">1. Subscription Refunds:</b><br>
-        You are eligible for a full refund within 7 days of your initial purchase, provided that you have not used the premium features (AI picks or 3D fitting).</p>
-        <p><b style="color: rgba(220, 220, 240, 0.9);">2. How to Request a Refund:</b><br>
+        <p>We offer a 14-day refund policy in accordance with Paddle's terms of service.</p>
+        <p>Customers may request a full refund within 14 days of purchase by contacting us at <a href="mailto:admin@trytimeback.com" style="color: #a78bfa;">admin@trytimeback.com</a>.</p>
+        <p>Refund requests after 14 days will be reviewed on a case-by-case basis.</p>
+        <p><b style="color: rgba(220, 220, 240, 0.9);">How to Request a Refund:</b><br>
         To request a refund, please contact us at <a href="mailto:admin@trytimeback.com" style="color: #a78bfa;">admin@trytimeback.com</a>. We will process your request within 3-5 business days.</p>
-        <p><b style="color: rgba(220, 220, 240, 0.9);">3. Automatic Cancellations:</b><br>
+        <p><b style="color: rgba(220, 220, 240, 0.9);">Automatic Cancellations:</b><br>
         You can cancel your subscription at any time through your account settings. Once canceled, you will not be charged for the next billing cycle.</p>
     </div>
 </div>
