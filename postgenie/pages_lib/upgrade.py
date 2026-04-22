@@ -169,6 +169,6 @@ def render(user: dict):
             <button class="btn btn-secondary" onclick="openCheckout('{PADDLE_PRICE_AGENCY_MONTHLY}')">Upgrade to Agency</button>
         </div>
     </div>
-    <div class="secure">🔒 Secure payment powered by Paddle · Cancel anytime · 7-day money back guarantee</div>
+    <div class="secure">🔒 Secure payment powered by Paddle · Cancel anytime · 14-day money back guarantee</div>
     """
     components.html(plans_html, height=520, scrolling=False)
