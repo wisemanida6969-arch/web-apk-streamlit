@@ -185,32 +185,6 @@ We offer a 14-day refund policy in accordance with Paddle's terms of service.
 Customers may request a full refund within 14 days of purchase by contacting us at admin@trytimeback.com.
 
 Refund requests after 14 days will be reviewed on a case-by-case basis.
-
-## 1. How to Request a Refund
-
-Email **admin@trytimeback.com** with:
-- Account email (Google login email)
-- Payment date and amount
-- Paddle order number (from payment confirmation email)
-- Reason for refund
-
-Requests processed within **3-5 business days**. Refunds returned to original payment method (allow 3-10 additional business days).
-
-## 2. Cancellation
-
-- Cancel via Paddle customer portal (link in payment email)
-- Or email admin@trytimeback.com
-- Access continues until end of current billing period
-- Automatic billing stops from next cycle
-- Cancellation is not a refund -- separate request needed
-
-## 3. Service Outage Refunds
-
-If a **continuous outage of 48+ hours** occurs due to PostGenie's fault, you may request a proportional refund or service extension.
-
-## 4. Contact
-
-Refund and billing inquiries: **admin@trytimeback.com**
     """)
 
 
