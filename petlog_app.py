@@ -2745,6 +2745,8 @@ def render_legal_terms():
     st.caption(f"최종 업데이트: {LEGAL_UPDATED}")
     st.divider()
     st.markdown(f"""
+**This service is operated by Trytimeback.**
+
 ## 1. 서비스 소개 및 약관의 효력
 
 **PetLog AI**(이하 "서비스")는 반려동물의 건강 상태를 기록하고 Claude AI로
@@ -2895,58 +2897,40 @@ PetLog는 로그인 상태 유지를 위해 최소한의 세션 쿠키를 사용
 
 def render_legal_refund():
     st.markdown("# 💰 환불 정책")
-    st.caption(f"최종 업데이트: {LEGAL_UPDATED}")
+    st.caption(f"최종 업데이트: 2026-04-22")
     st.divider()
     st.markdown("""
-PetLog Pro 구독의 환불은 전자상거래법과 본 정책에 따라 처리됩니다.
+We offer a 14-day refund policy in accordance with Paddle's terms of service.
 
-## 1. 7일 이내 환불 (청약 철회)
+Customers may request a full refund within 14 days of purchase by contacting us at admin@trytimeback.com.
 
-- Pro 구독 **결제 후 7일 이내**이며 **AI 사진 분석을 한 번도 이용하지 않은
-  경우** 전액 환불이 가능합니다.
-- 이는 전자상거래법 제17조(청약 철회 등)에 따른 권리입니다.
-- 환불 요청: **admin@trytimeback.com**으로 결제 이메일·거래 ID를 보내주세요.
+Refund requests after 14 days will be reviewed on a case-by-case basis.
 
-## 2. 부분 이용 후 환불
+## 1. 환불 요청 방법
 
-AI 사진 분석을 1회 이상 사용한 경우 **서비스 성격상 청약 철회가 제한**될
-수 있습니다. (전자상거래법 제17조 제2항) 다만, 아래 경우에는 검토 후
-부분 환불을 진행합니다.
+**admin@trytimeback.com**으로 아래 정보를 보내주세요:
+- 계정 이메일 (Google 로그인 이메일)
+- 결제일 및 금액
+- Paddle 주문 번호 (결제 확인 이메일에 기재)
+- 환불 사유
 
-- 서비스 장애·오류로 정상적인 이용이 불가능했던 경우
-- 회원이 결제 후 7일 이내이며 1~3회만 이용한 경우 (할인 후 일할 계산 가능)
+요청 접수 후 **영업일 기준 3~5일 이내** 처리됩니다.
+환불은 **원결제수단으로 환급**되며, 카드사·은행에 따라 **3~10영업일** 추가 소요될 수 있습니다.
 
-## 3. 결제 실수에 의한 환불
+## 2. 구독 취소
 
-- 중복 결제, 금액 오류, 의도하지 않은 결제 등 명백한 결제 실수는 **즉시
-  전액 환불**해 드립니다.
-- 결제 이메일을 포함해 **admin@trytimeback.com**으로 연락 바랍니다.
+- Paddle 고객 포털에서 직접 취소 (결제 확인 이메일의 링크)
+- 또는 admin@trytimeback.com 으로 요청
+- 현재 결제 기간 종료일까지 Pro 기능 계속 이용 가능
+- 다음 결제 주기부터 자동 청구 중단
+- 구독 취소와 환불은 별도 절차입니다
 
-## 4. 환불 불가 사유
+## 3. 서비스 장애 환불
 
-- 결제 후 7일이 경과하고 AI 사진 분석을 사용한 경우
-- 회원의 이용약관 위반으로 계정이 정지된 경우
-- 무료 플랜 사용 중 발생한 서비스 불만족
+PetLog 측 과실로 **연속 48시간 이상 장애**가 발생한 경우, 비례 환불 또는
+서비스 연장을 요청할 수 있습니다.
 
-## 5. 환불 절차 및 소요 시간
-
-1. **admin@trytimeback.com**에 환불 요청 메일 발송
-2. 담당자가 **영업일 기준 3일 이내** 확인 후 회신
-3. 승인된 환불은 **Paddle을 통해 원결제수단으로 환급**
-4. 실제 환급 반영까지 카드사·은행에 따라 **3~10영업일**이 소요될 수 있습니다.
-
-## 6. 구독 취소 vs 환불
-
-- **구독 취소**: 다음 결제 주기부터 청구가 중단됩니다. 현재 결제 기간
-  종료일까지는 Pro 기능을 계속 이용할 수 있으며, 사용한 기간에 대한 환불은
-  없습니다.
-- **환불**: 이미 결제된 금액을 돌려받는 절차로, 위 1~3항에 해당하는
-  경우에만 가능합니다.
-
-앱 내에서 언제든지 **구독 & 결제 → 구독 관리 → 구독 취소하기**로 취소할
-수 있습니다.
-
-## 7. 문의
+## 4. 문의
 
 환불·결제 관련 문의: **admin@trytimeback.com**
 """)

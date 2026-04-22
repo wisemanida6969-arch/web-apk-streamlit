@@ -8,6 +8,8 @@ def render_terms():
     st.divider()
 
     st.markdown("""
+**This service is operated by Trytimeback.**
+
 ## 1. Acceptance of Terms
 
 PostGenie ("the Service") is an AI-powered blog automation SaaS platform. By accessing or using the Service, you agree to be bound by these Terms. If you do not agree, you may not use the Service.
@@ -168,29 +170,17 @@ Cookie policy inquiries: **admin@trytimeback.com**
 
 def render_refund():
     st.markdown("# Refund Policy")
-    st.caption("Last updated: April 12, 2026")
+    st.caption("Last updated: April 22, 2026")
     st.divider()
 
     st.markdown("""
-PostGenie wants you to be satisfied with our service.
+We offer a 14-day refund policy in accordance with Paddle's terms of service.
 
-## 1. 7-Day Refund Guarantee
+Customers may request a full refund within 14 days of purchase by contacting us at admin@trytimeback.com.
 
-First-time paid subscribers may request a refund **within 7 days** of initial payment if:
+Refund requests after 14 days will be reviewed on a case-by-case basis.
 
-- Refund requested within **7 days** of the first payment
-- **No blog posts have been published** since payment
-- No violation of Terms of Service
-
-## 2. Non-Refundable Cases
-
-- **If even one blog post has been published** (AI usage consumed)
-- More than 7 days since payment
-- Renewal payments (2nd cycle onwards)
-- Account suspension due to fraud or abuse
-- Scheduled maintenance or temporary outages
-
-## 3. How to Request a Refund
+## 1. How to Request a Refund
 
 Email **admin@trytimeback.com** with:
 - Account email (Google login email)
@@ -200,7 +190,7 @@ Email **admin@trytimeback.com** with:
 
 Requests processed within **3-5 business days**. Refunds returned to original payment method (allow 3-10 additional business days).
 
-## 4. Cancellation
+## 2. Cancellation
 
 - Cancel via Paddle customer portal (link in payment email)
 - Or email admin@trytimeback.com
@@ -208,15 +198,11 @@ Requests processed within **3-5 business days**. Refunds returned to original pa
 - Automatic billing stops from next cycle
 - Cancellation is not a refund -- separate request needed
 
-## 5. Partial Refunds
-
-Generally not provided. If cancelled mid-month, you may continue using the Service until the end of the billing period.
-
-## 6. Service Outage Refunds
+## 3. Service Outage Refunds
 
 If a **continuous outage of 48+ hours** occurs due to PostGenie's fault, you may request a proportional refund or service extension.
 
-## 7. Contact
+## 4. Contact
 
 Refund and billing inquiries: **admin@trytimeback.com**
     """)
