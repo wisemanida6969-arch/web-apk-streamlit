@@ -1438,17 +1438,24 @@ st.markdown("<p style='text-align:center; font-size:0.8rem; color:#606080; margi
 # ══════════════════════════════════════
 st.markdown("---")
 
-footer_cols = st.columns([2, 1, 1, 1, 2])
-with footer_cols[1]:
-    if st.button("📋 Terms of Service", use_container_width=True, key="btn_terms"):
+footer_cols = st.columns([1, 1, 1, 1, 1])
+with footer_cols[0]:
+    if st.button("📋 Terms", use_container_width=True, key="btn_terms"):
         st.session_state["show_terms"] = True
         st.session_state["show_privacy"] = False
-with footer_cols[2]:
-    if st.button("🔒 Privacy Policy", use_container_width=True, key="btn_privacy"):
+        st.session_state["show_refund"] = False
+with footer_cols[1]:
+    if st.button("🔒 Privacy", use_container_width=True, key="btn_privacy"):
         st.session_state["show_privacy"] = True
         st.session_state["show_terms"] = False
+        st.session_state["show_refund"] = False
+with footer_cols[2]:
+    if st.button("💰 Refund", use_container_width=True, key="btn_refund"):
+        st.session_state["show_refund"] = True
+        st.session_state["show_terms"] = False
+        st.session_state["show_privacy"] = False
 with footer_cols[3]:
-    st.link_button("✉️ Contact Us", "mailto:wisemanida6969@gmail.com", use_container_width=True)
+    st.link_button("✉️ Contact", "mailto:admin@trytimeback.com", use_container_width=True)
 
 st.markdown("""
 <div style="text-align:center; margin-top:32px; padding:28px 20px 12px;">
@@ -1470,6 +1477,8 @@ st.markdown("""
 if st.session_state.get("show_terms", False):
     with st.expander("📋 Terms of Service", expanded=True):
         st.markdown("""
+**This service is operated by Trytimeback.**
+
 **Article 1 (Purpose)**
 These terms govern the conditions and procedures for using the AI-based YouTube summary service provided by 'Trytimeback' (hereinafter "Service").
 
@@ -1481,8 +1490,23 @@ The Service analyzes subtitles or audio from YouTube URLs submitted by users usi
 2. The Service only provides summary information and must not be used in a manner that infringes on the copyright of original works.
 3. The Service does not guarantee 100% accuracy of AI analysis results, and users are responsible for any outcomes resulting from their use.
 
-**Article 4 (Service Interruption)**
+**Article 4 (Billing & Subscription)**
+- Paid plans are billed monthly on a recurring basis.
+- Payments are processed securely via Paddle. Paddle's terms of service also apply.
+- Subscriptions can be cancelled at any time. You will retain access until the end of the current billing period.
+- Refunds are subject to our Refund Policy.
+
+**Article 5 (Service Interruption)**
 The Service may be temporarily suspended due to system maintenance or API limitations (OpenAI, Google, etc.).
+
+**Article 6 (Disclaimer)**
+The Service is provided "as-is" without any express or implied warranties. Trytimeback is not liable for any direct or indirect damages arising from service interruptions, data loss, AI generation errors, or any other cause.
+
+**Article 7 (Governing Law)**
+These Terms shall be governed by and construed in accordance with the laws of the Republic of Korea.
+
+**Article 8 (Contact)**
+Questions about these Terms: **admin@trytimeback.com**
 
 *Effective Date: April 5, 2026*
         """)
@@ -1494,6 +1518,8 @@ The Service may be temporarily suspended due to system maintenance or API limita
 if st.session_state.get("show_privacy", False):
     with st.expander("🔒 Privacy Policy", expanded=True):
         st.markdown("""
+Trytimeback values your privacy and protects your information in compliance with applicable laws.
+
 **1. Personal Information Collected**
 The Service collects your email address, name (nickname), and profile picture through Google Sign-In.
 
@@ -1504,13 +1530,43 @@ Used for managing analysis records and user identification.
 Personal information is retained until the user requests withdrawal or the service is terminated, and is promptly disposed of after the purpose is fulfilled.
 
 **4. Third-Party Sharing & Processing**
-The Service may transmit audio/text data to the OpenAI API for analysis; however, no personally identifiable information is included in this process.
+- **Google (OAuth)**: Login authentication. [Google Privacy Policy](https://policies.google.com/privacy)
+- **OpenAI API**: The Service may transmit audio/text data to the OpenAI API for analysis; no personally identifiable information is included.
+- **Paddle**: Payment processing. Trytimeback does not store payment details. [Paddle Privacy Policy](https://www.paddle.com/legal/privacy)
 
 **5. User Rights**
 Users may request to view, modify, or delete their personal information at any time.
+
+**6. Data Security**
+All communication encrypted via HTTPS. OAuth tokens stored encrypted.
+
+**7. Contact**
+Privacy inquiries: **admin@trytimeback.com**
 
 *Effective Date: April 5, 2026*
         """)
         if st.button("Close", key="close_privacy"):
             st.session_state["show_privacy"] = False
+            st.rerun()
+
+# ─── Refund Policy Dialog ───
+if st.session_state.get("show_refund", False):
+    with st.expander("💰 Refund Policy", expanded=True):
+        st.markdown("""
+We offer a 14-day refund policy in accordance with Paddle's terms of service.
+
+Customers may request a full refund within 14 days of purchase by contacting us at admin@trytimeback.com.
+
+Refund requests after 14 days will be reviewed on a case-by-case basis.
+
+**How to Request a Refund:**
+Email **admin@trytimeback.com** with your account email, payment date, and Paddle order number. We will process your request within 3-5 business days.
+
+**Automatic Cancellations:**
+You can cancel your subscription at any time. Once canceled, you will not be charged for the next billing cycle. Access continues until the end of the current billing period.
+
+**Contact:** admin@trytimeback.com
+        """)
+        if st.button("Close", key="close_refund"):
+            st.session_state["show_refund"] = False
             st.rerun()
