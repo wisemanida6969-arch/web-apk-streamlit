@@ -1442,6 +1442,8 @@ if not st.session_state.get("logged_in", False):
     if login_show == "terms":
         with st.expander("📋 Terms of Service", expanded=True):
             st.markdown("""
+**This service is operated by Trytimeback.**
+
 **Article 1 (Purpose)**
 These terms govern the conditions and procedures for using the AI-based YouTube summary service provided by 'Trytimeback'.
 
@@ -2179,6 +2181,8 @@ st.markdown("""
 if st.session_state.get("show_terms", False):
     with st.expander("📋 Terms of Service", expanded=True):
         st.markdown("""
+**This service is operated by Trytimeback.**
+
 **Article 1 (Purpose)**
 These terms govern the conditions and procedures for using the AI-based YouTube summary service provided by 'Trytimeback' (hereinafter "Service").
 
