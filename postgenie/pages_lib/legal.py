@@ -4,7 +4,7 @@ import streamlit as st
 
 def render_terms():
     st.markdown("# Terms of Service")
-    st.caption("Last updated: April 12, 2026")
+    st.caption("Last updated: April 22, 2026")
     st.divider()
 
     st.markdown("""
@@ -63,10 +63,12 @@ Questions about these Terms: **admin@trytimeback.com**
 
 def render_privacy():
     st.markdown("# Privacy Policy")
-    st.caption("Last updated: April 12, 2026")
+    st.caption("Last updated: April 22, 2026")
     st.divider()
 
     st.markdown("""
+**This service is operated by Trytimeback.**
+
 PostGenie values your privacy and protects your information in compliance with applicable laws.
 
 ## 1. Information We Collect
@@ -122,10 +124,12 @@ Privacy inquiries: **admin@trytimeback.com**
 
 def render_cookies():
     st.markdown("# Cookie Policy")
-    st.caption("Last updated: April 12, 2026")
+    st.caption("Last updated: April 22, 2026")
     st.divider()
 
     st.markdown("""
+**This service is operated by Trytimeback.**
+
 PostGenie uses cookies to improve service quality and enhance user experience.
 
 ## 1. What Are Cookies?
@@ -174,6 +178,8 @@ def render_refund():
     st.divider()
 
     st.markdown("""
+**This service is operated by Trytimeback.**
+
 We offer a 14-day refund policy in accordance with Paddle's terms of service.
 
 Customers may request a full refund within 14 days of purchase by contacting us at admin@trytimeback.com.
