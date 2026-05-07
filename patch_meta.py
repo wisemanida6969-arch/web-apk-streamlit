@@ -21,6 +21,28 @@ try:
                "Basic $12.99/mo | Pro $29.99/mo at trytimeback.com</p></noscript>",
                h, flags=re.DOTALL)
 
+    # Accessibility landmarks (WCAG 2.4.1 Bypass Blocks)
+    if "<!-- A11Y -->" not in h:
+        # Add skip link as first focusable element in body
+        skip_link_html = (
+            '<!-- A11Y -->'
+            '<a href="#main-content" class="skip-link" '
+            'style="position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden;'
+            'background:#1e40af;color:#fff;padding:8px 16px;z-index:9999;border-radius:4px;" '
+            'onfocus="this.style.cssText=\'position:absolute;left:8px;top:8px;width:auto;height:auto;background:#1e40af;color:#fff;padding:8px 16px;z-index:9999;border-radius:4px;\'" '
+            'onblur="this.style.cssText=\'position:absolute;left:-9999px;\'">Skip to main content</a>'
+        )
+        h = h.replace("<body>", "<body>" + skip_link_html, 1)
+
+        # Add role="main" to root div for landmark navigation
+        # Put the skip-link target anchor BEFORE the root div so React mount doesn't wipe it
+        h = re.sub(
+            r'<div id="root"([^>]*)>',
+            r'<a id="main-content" tabindex="-1" style="position:absolute;width:1px;height:1px;overflow:hidden;"></a><div id="root"\1 role="main" aria-label="Main content">',
+            h,
+            count=1,
+        )
+
     # Meta tags
     if "<!-- SEO -->" not in h:
         h = h.replace("</head>",
